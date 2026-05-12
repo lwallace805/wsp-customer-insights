@@ -173,7 +173,7 @@ export async function getPacingData(): Promise<{ summary: CohortSummary[]; pacin
       const pt: PacingDataPoint = { day: N(r[COL.day]) ?? 0 };
       const set = (key: keyof PacingDataPoint, colIdx: number) => {
         const v = N(r[colIdx]);
-        if (v !== null) (pt as Record<string, number>)[key] = v;
+        if (v !== null) (pt as unknown as Record<string, number>)[key] = v;
       };
       set('wSp24',    COL.wSp24);
       set('wFa24',    COL.wFa24);

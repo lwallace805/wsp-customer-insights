@@ -15,8 +15,10 @@ interface Props {
 const TOOLTIP_STYLE = {
   contentStyle: { backgroundColor: '#1c2330', border: '1px solid #ffffff20', borderRadius: 8, color: '#e5e7eb' },
   labelStyle: { color: '#9ca3af' },
-  formatter: (v: number) => [v?.toLocaleString(), ''],
-  labelFormatter: (d: number) => `${d} days remaining`,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  formatter: (v: any) => [v?.toLocaleString(), ''],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  labelFormatter: (d: any) => `${d} days remaining`,
 };
 
 export default function PacingChart({ data, program, daysRemaining }: Props) {
