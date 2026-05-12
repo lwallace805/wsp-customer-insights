@@ -1,21 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import type { CohortSummary, PacingDataPoint } from '@/lib/sheets';
+import type { CohortSummary, PacingDataPoint, ComparisonPanel } from '@/lib/sheets';
 import TabNav, { type Tab } from './TabNav';
 import ExecutiveSummary from './ExecutiveSummary';
 import CohortComparison from './CohortComparison';
 import WhartonPacing from './WhartonPacing';
 import CBSEEPacing from './CBSEEPacing';
 import AllCohorts from './AllCohorts';
+import WhartonForecast from './WhartonForecast';
+import CBSEEForecast from './CBSEEForecast';
 
 interface Props {
   summary: CohortSummary[];
   pacing: PacingDataPoint[];
+  comparison: { wharton: ComparisonPanel; cbsee: ComparisonPanel };
   mock: boolean;
 }
 
-export default function EnrollmentDashboard({ summary, pacing, mock }: Props) {
+export default function EnrollmentDashboard({ summary, pacing, comparison, mock }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('Executive Summary');
 
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -39,11 +42,13 @@ export default function EnrollmentDashboard({ summary, pacing, mock }: Props) {
 
       <TabNav active={activeTab} onChange={setActiveTab} />
 
-      {activeTab === 'Executive Summary' && <ExecutiveSummary cohorts={summary} />}
-      {activeTab === 'Cohort Comparison' && <CohortComparison cohorts={summary} />}
-      {activeTab === 'Wharton Pacing' && <WhartonPacing cohorts={summary} pacing={pacing} />}
-      {activeTab === 'CBSEE Pacing' && <CBSEEPacing cohorts={summary} pacing={pacing} />}
-      {activeTab === 'All Cohorts' && <AllCohorts cohorts={summary} />}
+      {activeTab === 'Executive Summary'  && <ExecutiveSummary cohorts={summary} />}
+      {activeTab === 'Cohort Comparison'  && <CohortComparison comparison={comparison} />}
+      {activeTab === 'Wharton Pacing'     && <WhartonPacing cohorts={summary} pacing={pacing} />}
+      {activeTab === 'CBSEE Pacing'       && <CBSEEPacing cohorts={summary} pacing={pacing} />}
+      {activeTab === 'All Cohorts'        && <AllCohorts pacing={pacing} />}
+      {activeTab === 'Wharton Forecast'   && <WhartonForecast cohorts={summary} pacing={pacing} />}
+      {activeTab === 'CBSEE Forecast'     && <CBSEEForecast cohorts={summary} pacing={pacing} />}
     </div>
   );
 }

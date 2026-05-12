@@ -1,15 +1,10 @@
-import type { CohortSummary } from '@/lib/sheets';
-import CohortComparison from './CohortComparison';
+import type { PacingDataPoint } from '@/lib/sheets';
+import PacingChart from './PacingChart';
 
 interface Props {
-  cohorts: CohortSummary[];
+  pacing: PacingDataPoint[];
 }
 
-export default function AllCohorts({ cohorts }: Props) {
-  return (
-    <div>
-      <p className="text-sm text-gray-400 mb-4">All active cohorts tracked in the enrollment sheet.</p>
-      <CohortComparison cohorts={cohorts} />
-    </div>
-  );
+export default function AllCohorts({ pacing }: Props) {
+  return <PacingChart data={pacing} program="Both" />;
 }

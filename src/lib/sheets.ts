@@ -23,6 +23,10 @@ function N(v: string | undefined | null): number | null {
   return isNaN(n) ? null : n;
 }
 
+// Historical cohort goals (used to convert raw enrollment → % completion)
+const W_GOALS = { wSp24: 1058, wFa24: 1154, wWi25: 1191, wSp25: 1035, wFa25: 897, wWi26: 1021 };
+const C_GOALS = { cSu25: 415, cFa25: 468, cWi26: 485 };
+
 export interface CohortSummary {
   cohort: string;
   program: string;
@@ -36,48 +40,66 @@ export interface CohortSummary {
 
 export interface PacingDataPoint {
   day: number; // days remaining (0 = enrollment deadline, 120 = start)
-  // Wharton historical # enrollment at this day
-  wSp24?: number;
-  wFa24?: number;
-  wWi25?: number;
-  wSp25?: number;
-  wFa25?: number;
-  wWi26?: number;
-  // Wharton active cohort
+  // % completion (enrolled/goal * 100) — for pacing charts
+  wSp24Pct?: number;
+  wFa24Pct?: number;
+  wWi25Pct?: number;
+  wSp25Pct?: number;
+  wFa25Pct?: number;
+  wWi26Pct?: number;
+  wActualPct?: number;
+  wLast3Pct?: number;
+  cSu25Pct?: number;
+  cFa25Pct?: number;
+  cWi26Pct?: number;
+  cActualPct?: number;
+  cLast3Pct?: number;
+  // Raw enrollment — for forecast charts
   wActual?: number;
   wForecast?: number;
-  // CBSEE historical # enrollment at this day
-  cSu25?: number;
-  cFa25?: number;
-  cWi26?: number;
-  // CBSEE active cohort
   cActual?: number;
   cForecast?: number;
 }
 
+export interface ComparisonRow {
+  label: string;
+  enrolled: number;
+  goal: number;
+  pctDone: number;
+  isActive: boolean;
+}
+
+export interface ComparisonPanel {
+  program: string;
+  daysRemaining: number;
+  activeRow: ComparisonRow;
+  last3Avg: { enrolled: number; goal: number; pctDone: number };
+  closedRows: ComparisonRow[];
+}
+
 // Column indices (0-based) in the "Overall Cohort - AN Summary" pacing table
-// These map to columns A, B, C... in the Google Sheet starting from the "Days" header row
 const COL = {
-  day:      0,
-  // % completion columns (cols B–K): not used for summary cards, only for % chart if needed
-  // Wharton # enrollment columns (cols R–Y, i.e. indices 17–24)
+  day:       0,
   wSp24:    17,
   wFa24:    18,
   wWi25:    19,
   wSp25:    20,
   wFa25:    21,
   wWi26:    22,
-  wActual:  23, // "Wharton Spring '26 - actual"
-  wForecast:24, // "Wharton Spring '26 - forecast"
-  // CBSEE # enrollment columns (cols AA–AE, i.e. indices 26–30)
+  wActual:  23,
+  wForecast:24,
   cSu25:    26,
   cFa25:    27,
   cWi26:    28,
-  cActual:  29, // "CBSEE Spring '26 - actual"
-  cForecast:30, // "CBSEE Spring '26 - forecast"
+  cActual:  29,
+  cForecast:30,
 } as const;
 
-export async function getPacingData(): Promise<{ summary: CohortSummary[]; pacing: PacingDataPoint[] }> {
+export async function getPacingData(): Promise<{
+  summary: CohortSummary[];
+  pacing: PacingDataPoint[];
+  comparison: { wharton: ComparisonPanel; cbsee: ComparisonPanel };
+}> {
   const auth = getAuth();
   const sheets = google.sheets({ version: 'v4', auth });
   const sheetId = getPacingSheetId();
@@ -105,7 +127,6 @@ export async function getPacingData(): Promise<{ summary: CohortSummary[]; pacin
   }
 
   // --- Read active cohort names from summary section (before the Days header) ---
-  // Search for the row with the Wharton active cohort goal (col[5] = "0%")
   const wSummaryRow = rows.slice(0, headerIdx).find(
     r => r[2]?.toString().includes('Wharton') && r[5]?.toString().trim() === '0%'
   );
@@ -119,25 +140,23 @@ export async function getPacingData(): Promise<{ summary: CohortSummary[]; pacin
   const wRow = wIdx >= 0 ? dataRows[wIdx] : null;
   const cRow = cIdx >= 0 ? dataRows[cIdx] : null;
 
-  // Goal = forecast at day 0 (the enrollment deadline maximum)
   const wGoal = N(dataRows[0]?.[COL.wForecast]) ?? 1225;
-  // CBSEE goal: read from summary section col[3], fallback 468
   const cGoal = N(cSummaryRow?.[3]) ?? 468;
 
-  const wDays   = N(wRow?.[COL.day]) ?? 0;
+  const wDays    = N(wRow?.[COL.day]) ?? 0;
   const wEnrolled = N(wRow?.[COL.wActual]) ?? 0;
-  const wFc     = N(wRow?.[COL.wForecast]) ?? 0;
-  const wSp25at = N(wRow?.[COL.wSp25]) ?? 0;
-  const wFa25at = N(wRow?.[COL.wFa25]) ?? 0;
-  const wWi26at = N(wRow?.[COL.wWi26]) ?? 0;
+  const wFc      = N(wRow?.[COL.wForecast]) ?? 0;
+  const wSp25at  = N(wRow?.[COL.wSp25]) ?? 0;
+  const wFa25at  = N(wRow?.[COL.wFa25]) ?? 0;
+  const wWi26at  = N(wRow?.[COL.wWi26]) ?? 0;
   const wHistAvg = Math.round((wSp25at + wFa25at + wWi26at) / 3);
 
-  const cDays   = N(cRow?.[COL.day]) ?? 0;
+  const cDays    = N(cRow?.[COL.day]) ?? 0;
   const cEnrolled = N(cRow?.[COL.cActual]) ?? 0;
-  const cFc     = N(cRow?.[COL.cForecast]) ?? 0;
-  const cSu25at = N(cRow?.[COL.cSu25]) ?? 0;
-  const cFa25at = N(cRow?.[COL.cFa25]) ?? 0;
-  const cWi26at = N(cRow?.[COL.cWi26]) ?? 0;
+  const cFc      = N(cRow?.[COL.cForecast]) ?? 0;
+  const cSu25at  = N(cRow?.[COL.cSu25]) ?? 0;
+  const cFa25at  = N(cRow?.[COL.cFa25]) ?? 0;
+  const cWi26at  = N(cRow?.[COL.cWi26]) ?? 0;
   const cHistAvg = Math.round((cSu25at + cFa25at + cWi26at) / 3);
 
   const wPct = wGoal > 0 ? (wEnrolled / wGoal * 100).toFixed(1) : '0.0';
@@ -166,30 +185,134 @@ export async function getPacingData(): Promise<{ summary: CohortSummary[]; pacin
     },
   ];
 
-  // --- Build pacing series (all data rows) ---
+  // --- Build pacing series with % fields ---
   const pacing: PacingDataPoint[] = dataRows
     .filter(r => r[COL.day] !== undefined && r[COL.day] !== '')
     .map(r => {
       const pt: PacingDataPoint = { day: N(r[COL.day]) ?? 0 };
-      const set = (key: keyof PacingDataPoint, colIdx: number) => {
-        const v = N(r[colIdx]);
-        if (v !== null) (pt as unknown as Record<string, number>)[key] = v;
+
+      const getRaw = (colIdx: number) => N(r[colIdx]);
+
+      // Helper to set % field
+      const setPct = (key: keyof PacingDataPoint, colIdx: number, goal: number) => {
+        const v = getRaw(colIdx);
+        if (v !== null && goal > 0) {
+          (pt as unknown as Record<string, number>)[key] = parseFloat((v / goal * 100).toFixed(2));
+        }
       };
-      set('wSp24',    COL.wSp24);
-      set('wFa24',    COL.wFa24);
-      set('wWi25',    COL.wWi25);
-      set('wSp25',    COL.wSp25);
-      set('wFa25',    COL.wFa25);
-      set('wWi26',    COL.wWi26);
-      set('wActual',  COL.wActual);
-      set('wForecast',COL.wForecast);
-      set('cSu25',    COL.cSu25);
-      set('cFa25',    COL.cFa25);
-      set('cWi26',    COL.cWi26);
-      set('cActual',  COL.cActual);
-      set('cForecast',COL.cForecast);
+
+      // Historical % fields
+      setPct('wSp24Pct', COL.wSp24, W_GOALS.wSp24);
+      setPct('wFa24Pct', COL.wFa24, W_GOALS.wFa24);
+      setPct('wWi25Pct', COL.wWi25, W_GOALS.wWi25);
+      setPct('wSp25Pct', COL.wSp25, W_GOALS.wSp25);
+      setPct('wFa25Pct', COL.wFa25, W_GOALS.wFa25);
+      setPct('wWi26Pct', COL.wWi26, W_GOALS.wWi26);
+      setPct('cSu25Pct', COL.cSu25, C_GOALS.cSu25);
+      setPct('cFa25Pct', COL.cFa25, C_GOALS.cFa25);
+      setPct('cWi26Pct', COL.cWi26, C_GOALS.cWi26);
+
+      // Active cohort % fields
+      setPct('wActualPct', COL.wActual, wGoal);
+      setPct('cActualPct', COL.cActual, cGoal);
+
+      // Compute last3 avg for Wharton (wSp25, wFa25, wWi26)
+      const wsp25 = pt.wSp25Pct;
+      const wfa25 = pt.wFa25Pct;
+      const wwi26 = pt.wWi26Pct;
+      if (wsp25 !== undefined && wfa25 !== undefined && wwi26 !== undefined) {
+        pt.wLast3Pct = parseFloat(((wsp25 + wfa25 + wwi26) / 3).toFixed(2));
+      }
+
+      // Compute last3 avg for CBSEE (cSu25, cFa25, cWi26)
+      const csu25 = pt.cSu25Pct;
+      const cfa25 = pt.cFa25Pct;
+      const cwi26 = pt.cWi26Pct;
+      if (csu25 !== undefined && cfa25 !== undefined && cwi26 !== undefined) {
+        pt.cLast3Pct = parseFloat(((csu25 + cfa25 + cwi26) / 3).toFixed(2));
+      }
+
+      // Raw enrollment for forecast charts
+      const wa = getRaw(COL.wActual);
+      if (wa !== null) pt.wActual = wa;
+      const wf = getRaw(COL.wForecast);
+      if (wf !== null) pt.wForecast = wf;
+      const ca = getRaw(COL.cActual);
+      if (ca !== null) pt.cActual = ca;
+      const cf = getRaw(COL.cForecast);
+      if (cf !== null) pt.cForecast = cf;
+
       return pt;
     });
 
-  return { summary, pacing };
+  // --- Build comparison panels ---
+  // Find the pacing row closest to each program's current days remaining
+  const findRowAtDay = (targetDay: number) =>
+    pacing.reduce((best, pt) =>
+      Math.abs(pt.day - targetDay) < Math.abs(best.day - targetDay) ? pt : best
+    , pacing[0]);
+
+  const wAtDay = findRowAtDay(wDays);
+  const cAtDay = findRowAtDay(cDays);
+
+  const wComparison: ComparisonPanel = {
+    program: 'Wharton Online',
+    daysRemaining: wDays,
+    activeRow: {
+      label: wCohortName,
+      enrolled: wEnrolled,
+      goal: wGoal,
+      pctDone: wGoal > 0 ? parseFloat((wEnrolled / wGoal * 100).toFixed(1)) : 0,
+      isActive: true,
+    },
+    last3Avg: (() => {
+      const sp25 = wAtDay.wSp25Pct ?? 0;
+      const fa25 = wAtDay.wFa25Pct ?? 0;
+      const wi26 = wAtDay.wWi26Pct ?? 0;
+      const avgPct = parseFloat(((sp25 + fa25 + wi26) / 3).toFixed(1));
+      const avgGoal = Math.round((W_GOALS.wSp25 + W_GOALS.wFa25 + W_GOALS.wWi26) / 3);
+      const avgEnrolled = Math.round(avgPct / 100 * avgGoal);
+      return { enrolled: avgEnrolled, goal: avgGoal, pctDone: avgPct };
+    })(),
+    closedRows: [
+      { label: "Winter '26", enrolled: Math.round((wAtDay.wWi26Pct ?? 0) / 100 * W_GOALS.wWi26), goal: W_GOALS.wWi26, pctDone: parseFloat((wAtDay.wWi26Pct ?? 0).toFixed(1)), isActive: false },
+      { label: "Fall '25",   enrolled: Math.round((wAtDay.wFa25Pct ?? 0) / 100 * W_GOALS.wFa25), goal: W_GOALS.wFa25, pctDone: parseFloat((wAtDay.wFa25Pct ?? 0).toFixed(1)), isActive: false },
+      { label: "Spring '25", enrolled: Math.round((wAtDay.wSp25Pct ?? 0) / 100 * W_GOALS.wSp25), goal: W_GOALS.wSp25, pctDone: parseFloat((wAtDay.wSp25Pct ?? 0).toFixed(1)), isActive: false },
+      { label: "Winter '25", enrolled: Math.round((wAtDay.wWi25Pct ?? 0) / 100 * W_GOALS.wWi25), goal: W_GOALS.wWi25, pctDone: parseFloat((wAtDay.wWi25Pct ?? 0).toFixed(1)), isActive: false },
+      { label: "Fall '24",   enrolled: Math.round((wAtDay.wFa24Pct ?? 0) / 100 * W_GOALS.wFa24), goal: W_GOALS.wFa24, pctDone: parseFloat((wAtDay.wFa24Pct ?? 0).toFixed(1)), isActive: false },
+      { label: "Spring '24", enrolled: Math.round((wAtDay.wSp24Pct ?? 0) / 100 * W_GOALS.wSp24), goal: W_GOALS.wSp24, pctDone: parseFloat((wAtDay.wSp24Pct ?? 0).toFixed(1)), isActive: false },
+    ],
+  };
+
+  const cComparison: ComparisonPanel = {
+    program: 'CBSEE',
+    daysRemaining: cDays,
+    activeRow: {
+      label: cCohortName,
+      enrolled: cEnrolled,
+      goal: cGoal,
+      pctDone: cGoal > 0 ? parseFloat((cEnrolled / cGoal * 100).toFixed(1)) : 0,
+      isActive: true,
+    },
+    last3Avg: (() => {
+      const su25 = cAtDay.cSu25Pct ?? 0;
+      const fa25 = cAtDay.cFa25Pct ?? 0;
+      const wi26 = cAtDay.cWi26Pct ?? 0;
+      const avgPct = parseFloat(((su25 + fa25 + wi26) / 3).toFixed(1));
+      const avgGoal = Math.round((C_GOALS.cSu25 + C_GOALS.cFa25 + C_GOALS.cWi26) / 3);
+      const avgEnrolled = Math.round(avgPct / 100 * avgGoal);
+      return { enrolled: avgEnrolled, goal: avgGoal, pctDone: avgPct };
+    })(),
+    closedRows: [
+      { label: "Winter '26", enrolled: Math.round((cAtDay.cWi26Pct ?? 0) / 100 * C_GOALS.cWi26), goal: C_GOALS.cWi26, pctDone: parseFloat((cAtDay.cWi26Pct ?? 0).toFixed(1)), isActive: false },
+      { label: "Fall '25",   enrolled: Math.round((cAtDay.cFa25Pct ?? 0) / 100 * C_GOALS.cFa25), goal: C_GOALS.cFa25, pctDone: parseFloat((cAtDay.cFa25Pct ?? 0).toFixed(1)), isActive: false },
+      { label: "Summer '25", enrolled: Math.round((cAtDay.cSu25Pct ?? 0) / 100 * C_GOALS.cSu25), goal: C_GOALS.cSu25, pctDone: parseFloat((cAtDay.cSu25Pct ?? 0).toFixed(1)), isActive: false },
+    ],
+  };
+
+  return {
+    summary,
+    pacing,
+    comparison: { wharton: wComparison, cbsee: cComparison },
+  };
 }

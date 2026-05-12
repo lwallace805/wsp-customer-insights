@@ -10,7 +10,31 @@
       "Bash(npx create-next-app@latest wsp-dashboard --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --yes)",
       "Bash(npm install *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Read(//Users/lukewallace/WSP-Code/**)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000/api/enrollment)",
+      "Bash(xargs kill -9)",
+      "Bash(curl -s http://localhost:3001/api/enrollment)",
+      "Bash(python3 -m json.tool)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/enrollment)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/enrollment)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:51285/enrollment)",
+      "Bash(curl -s http://localhost:51285/api/enrollment)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('mock:', d.get\\('mock'\\)\\); print\\('summary count:', len\\(d.get\\('summary',[]\\)\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('mock:', d.get\\('mock'\\)\\); print\\('cohorts:', [c['cohort'] for c in d.get\\('summary',[]\\)]\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('mock:', d.get\\('mock'\\)\\); print\\('error:', d.get\\('error'\\)\\); print\\('cohorts:', [c['cohort'] for c in d.get\\('summary',[]\\)]\\)\")",
+      "Read(//Users/lukewallace/Downloads/**)",
+      "Bash(python3)",
+      "Bash(unzip -q \"/Users/lukewallace/Downloads/Professional Certificates Channel Performance \\(3\\).xlsx\")",
+      "mcp__910bb976-5b08-466e-a2cd-ca79a77f395a__get_file_metadata",
+      "mcp__910bb976-5b08-466e-a2cd-ca79a77f395a__read_file_content",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s http://localhost:51285/enrollment)",
+      "Bash(kill 45806)",
+      "Bash(git push *)",
+      "Read(//Users/lukewallace/**)"
     ]
   }
 }

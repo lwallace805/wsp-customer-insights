@@ -6,6 +6,8 @@ const TABS = [
   'Wharton Pacing',
   'CBSEE Pacing',
   'All Cohorts',
+  'Wharton Forecast',
+  'CBSEE Forecast',
 ] as const;
 
 export type Tab = (typeof TABS)[number];
