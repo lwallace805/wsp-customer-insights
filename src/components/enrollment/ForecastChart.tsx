@@ -80,6 +80,8 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
           <XAxis
             dataKey="day"
+            type="number"
+            domain={[0, 120]}
             reversed
             label={{ value: 'Enrollment Days Remaining', position: 'insideBottom', offset: -12, fill: '#6b7280', fontSize: 11 }}
             {...axisProps}
