@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { BarChart2, MessageSquare, Lightbulb, Home } from 'lucide-react';
+import { BarChart2, MessageSquare, Lightbulb, Home, TrendingUp } from 'lucide-react';
 
 const links = [
-  { href: '/',         label: 'Overview',  icon: Home },
-  { href: '/nps',      label: 'NPS',       icon: BarChart2 },
-  { href: '/surveys',  label: 'Surveys',   icon: MessageSquare },
-  { href: '/insights', label: 'Insights',  icon: Lightbulb },
+  { href: '/',            label: 'Overview',    icon: Home },
+  { href: '/enrollment',  label: 'Enrollment',  icon: TrendingUp },
+  { href: '/nps',         label: 'NPS',         icon: BarChart2 },
+  { href: '/surveys',     label: 'Surveys',     icon: MessageSquare },
+  { href: '/insights',    label: 'Insights',    icon: Lightbulb },
 ];
 
 export default function NavBar() {
