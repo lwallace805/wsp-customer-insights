@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
-  const router = useRouter();
   const from = searchParams.get('from') ?? '/';
 
   async function handleSubmit(e: React.FormEvent) {
@@ -24,7 +23,7 @@ function LoginForm() {
 
     if (res.ok) {
       const { redirect } = await res.json();
-      router.replace(redirect);
+      window.location.href = redirect;
     } else {
       setError('Incorrect password. Please try again.');
       setLoading(false);
