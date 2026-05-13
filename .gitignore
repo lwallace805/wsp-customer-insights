@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local data files
+NPS-Historical/
+Enrollment Dashboard Image examples/
+*.pdf
+.claude/worktrees/
+.claude/settings.json
+.claude/settings.local.json
