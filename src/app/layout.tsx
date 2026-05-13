@@ -6,8 +6,8 @@ import NavBar from '@/components/NavBar';
 const geist = Geist({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'WSP Customer Insights',
-  description: 'NPS and survey analytics dashboard for Wall Street Prep',
+  title: 'WSP Analytics Hub',
+  description: 'Marketing analytics, enrollment pacing, and customer insights for Wall Street Prep',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

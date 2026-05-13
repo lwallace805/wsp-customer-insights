@@ -36,7 +36,7 @@ function LoginForm() {
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 justify-center mb-8">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-          <h1 className="text-xl font-bold text-white">WSP Customer Insights</h1>
+          <h1 className="text-xl font-bold text-white">WSP Analytics Hub</h1>
         </div>
 
         <div className="bg-[#161b22] border border-white/10 rounded-xl p-6">
