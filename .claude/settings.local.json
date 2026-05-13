@@ -34,7 +34,22 @@
       "Bash(curl -s http://localhost:51285/enrollment)",
       "Bash(kill 45806)",
       "Bash(git push *)",
-      "Read(//Users/lukewallace/**)"
+      "Read(//Users/lukewallace/**)",
+      "Bash(npx tsc *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(npm list *)",
+      "Bash(git merge *)",
+      "Bash(git -C /Users/lukewallace/WSP-Code log --oneline -3)",
+      "Bash(git -C /Users/lukewallace/WSP-Code/.claude/worktrees/funny-lalande-998b06 log --oneline -3)",
+      "Bash(git -C /Users/lukewallace/WSP-Code branch)",
+      "Bash(git -C /Users/lukewallace/WSP-Code log --oneline --graph origin/main origin/claude/funny-lalande-998b06)",
+      "Bash(git -C /Users/lukewallace/WSP-Code fetch origin)",
+      "Bash(git -C /Users/lukewallace/WSP-Code merge origin/claude/funny-lalande-998b06 -m \"Merge: full-width dashboard and chart zoom controls\")",
+      "Bash(git -C /Users/lukewallace/WSP-Code push origin main)",
+      "Bash(git -C /Users/lukewallace/WSP-Code merge origin/claude/funny-lalande-998b06 -m \"Merge: rename, dropdown nav, enrollment overview cards\")",
+      "Bash(node -e \"require\\('next-auth'\\); console.log\\('ok'\\)\")",
+      "Bash(mkdir -p /Users/lukewallace/WSP-Code/.claude/worktrees/funny-lalande-998b06/src/app/api/auth/\\\\[...nextauth\\\\])"
     ]
   }
 }
