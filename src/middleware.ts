@@ -1,27 +1,21 @@
+import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Always allow login page and auth API
-  if (pathname === '/login' || pathname.startsWith('/api/auth')) {
+export default withAuth(
+  function middleware() {
+    // Authenticated — let the request through
     return NextResponse.next();
+  },
+  {
+    callbacks: {
+      // Allow access only when a valid JWT token exists
+      authorized: ({ token }) => !!token,
+    },
+    pages: {
+      signIn: '/login',
+    },
   }
-
-  // If no password configured, allow everything (local dev without env var)
-  const password = process.env.DASHBOARD_PASSWORD;
-  if (!password) return NextResponse.next();
-
-  // Check session cookie
-  const token = request.cookies.get('dash_auth')?.value;
-  if (token === password) return NextResponse.next();
-
-  // Redirect to login, preserving intended destination
-  const loginUrl = new URL('/login', request.url);
-  loginUrl.searchParams.set('from', pathname);
-  return NextResponse.redirect(loginUrl);
-}
+);
 
 export const config = {
   matcher: [
