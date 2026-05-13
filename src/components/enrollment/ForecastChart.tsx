@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine,
@@ -21,6 +22,9 @@ interface ChartPoint {
   bandLow: number | null;
 }
 
+type ZoomLevel = 30 | 60 | 90 | 120;
+const ZOOM_OPTIONS: ZoomLevel[] = [30, 60, 90, 120];
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -41,6 +45,8 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function ForecastChart({ data, program, goal, daysRemaining }: Props) {
+  const [zoom, setZoom] = useState<ZoomLevel>(120);
+
   if (!data.length) return null;
 
   const isW = program === 'Wharton';
@@ -48,7 +54,7 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
   const forecastColor = isW ? '#60a5da' : '#34d399';
 
   const chartData: ChartPoint[] = [...data]
-    .filter(d => d.day <= 120)
+    .filter(d => d.day <= zoom)
     .sort((a, b) => b.day - a.day)
     .map(pt => {
       const actual   = isW ? pt.wActual   : pt.cActual;
@@ -73,15 +79,35 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
     tickLine: false,
   };
 
+  const todayVisible = daysRemaining !== undefined && daysRemaining <= zoom;
+
   return (
     <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
-      <ResponsiveContainer width="100%" height={360}>
+      {/* Zoom controls */}
+      <div className="flex items-center justify-end gap-1 mb-3">
+        <span className="text-xs text-gray-500 mr-2">Zoom:</span>
+        {ZOOM_OPTIONS.map(z => (
+          <button
+            key={z}
+            onClick={() => setZoom(z)}
+            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+              zoom === z
+                ? 'bg-emerald-600 text-white'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            {z === 120 ? 'Full' : `${z}d`}
+          </button>
+        ))}
+      </div>
+
+      <ResponsiveContainer width="100%" height={420}>
         <ComposedChart data={chartData} margin={{ top: 8, right: 40, bottom: 24, left: 16 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
           <XAxis
             dataKey="day"
             type="number"
-            domain={[0, 120]}
+            domain={[0, zoom]}
             reversed
             label={{ value: 'Enrollment Days Remaining', position: 'insideBottom', offset: -12, fill: '#6b7280', fontSize: 11 }}
             {...axisProps}
@@ -96,7 +122,7 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: 11, color: '#9ca3af', paddingTop: 12 }} />
 
-          {daysRemaining !== undefined && (
+          {todayVisible && (
             <ReferenceLine
               x={daysRemaining}
               stroke="#ffffff30"
@@ -105,7 +131,7 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
             />
           )}
 
-          {/* Band: render bandHigh then bandLow; the second Area paints over the bottom portion white to create a shaded band */}
+          {/* Band: render bandHigh then bandLow; the second Area paints over the bottom portion */}
           <Area
             dataKey="bandHigh"
             name="Upper band"

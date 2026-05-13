@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine,
@@ -11,6 +12,9 @@ interface Props {
   program: 'Wharton' | 'CBSEE' | 'Both';
   daysRemaining?: number;
 }
+
+type ZoomLevel = 30 | 60 | 90 | 120;
+const ZOOM_OPTIONS: ZoomLevel[] = [30, 60, 90, 120];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: any) {
@@ -32,10 +36,12 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function PacingChart({ data, program, daysRemaining }: Props) {
+  const [zoom, setZoom] = useState<ZoomLevel>(120);
+
   if (!data.length) return null;
 
   const chartData = [...data]
-    .filter(d => d.day <= 120)
+    .filter(d => d.day <= zoom)
     .sort((a, b) => b.day - a.day);
 
   const axisProps = {
@@ -47,15 +53,36 @@ export default function PacingChart({ data, program, daysRemaining }: Props) {
   const isCBSEE   = program === 'CBSEE'   || program === 'Both';
   const isAll     = program === 'Both';
 
+  // Only show "Today" marker if it falls within the current zoom window
+  const todayVisible = daysRemaining !== undefined && daysRemaining <= zoom;
+
   return (
     <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
-      <ResponsiveContainer width="100%" height={360}>
+      {/* Zoom controls */}
+      <div className="flex items-center justify-end gap-1 mb-3">
+        <span className="text-xs text-gray-500 mr-2">Zoom:</span>
+        {ZOOM_OPTIONS.map(z => (
+          <button
+            key={z}
+            onClick={() => setZoom(z)}
+            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+              zoom === z
+                ? 'bg-emerald-600 text-white'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            {z === 120 ? 'Full' : `${z}d`}
+          </button>
+        ))}
+      </div>
+
+      <ResponsiveContainer width="100%" height={420}>
         <LineChart data={chartData} margin={{ top: 8, right: 40, bottom: 24, left: 16 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
           <XAxis
             dataKey="day"
             type="number"
-            domain={[0, 120]}
+            domain={[0, zoom]}
             reversed
             label={{ value: 'Enrollment Days Remaining', position: 'insideBottom', offset: -12, fill: '#6b7280', fontSize: 11 }}
             {...axisProps}
@@ -70,7 +97,7 @@ export default function PacingChart({ data, program, daysRemaining }: Props) {
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize: 11, color: '#9ca3af', paddingTop: 12 }} />
 
-          {daysRemaining !== undefined && (
+          {todayVisible && (
             <ReferenceLine
               x={daysRemaining}
               stroke="#ffffff30"
@@ -99,7 +126,7 @@ export default function PacingChart({ data, program, daysRemaining }: Props) {
               <Line dataKey="cSu25Pct" name={isAll ? "C: Summer '25" : "Summer '25"} stroke="#064e3b" strokeWidth={1.2} dot={false} connectNulls />
               <Line dataKey="cFa25Pct" name={isAll ? "C: Fall '25"   : "Fall '25"}   stroke="#065f46" strokeWidth={1.4} dot={false} connectNulls />
               <Line dataKey="cWi26Pct" name={isAll ? "C: Winter '26" : "Winter '26"} stroke="#10b981" strokeWidth={1.7} dot={false} connectNulls />
-              <Line dataKey="cActualPct"  name={isAll ? "C: Summer '26 (current)" : "Summer '26 (current)"} stroke="#f97316" strokeWidth={2.5} dot={false} connectNulls />
+              <Line dataKey="cActualPct"  name={isAll ? "C: Spring '26 (current)" : "Spring '26 (current)"} stroke="#f97316" strokeWidth={2.5} dot={false} connectNulls />
               <Line dataKey="cLast3Pct"   name={isAll ? "C: Last 3 avg" : "Last 3 avg"} stroke="#d1fae5" strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls />
             </>
           )}
