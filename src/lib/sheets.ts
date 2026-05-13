@@ -126,22 +126,22 @@ export async function getPacingData(): Promise<{
     if (N(dataRows[i]?.[COL.cActual]) !== null) { cIdx = i; break; }
   }
 
-  // --- Read active cohort names from summary section (before the Days header) ---
-  const wSummaryRow = rows.slice(0, headerIdx).find(
-    r => r[2]?.toString().includes('Wharton') && r[5]?.toString().trim() === '0%'
-  );
-  const cSummaryRow = rows.slice(0, headerIdx).find(
-    r => r[2]?.toString().includes('CBSEE') && r[5]?.toString().trim() === '0%'
-  );
-  const wCohortName = wSummaryRow?.[2]?.toString().trim() ?? "Wharton Spring '26";
-  const cCohortName = cSummaryRow?.[2]?.toString().trim() ?? "CBSEE Winter '26";
+  // --- Read active cohort names from column headers in the Days header row ---
+  // e.g. "Wharton Spring '26 - actual" → "Wharton Spring '26"
+  const wCohortName = rows[headerIdx]?.[COL.wActual]
+    ?.toString().replace(/\s*-\s*actual\s*$/i, '').trim() ?? "Wharton Spring '26";
+  const cCohortName = rows[headerIdx]?.[COL.cActual]
+    ?.toString().replace(/\s*-\s*actual\s*$/i, '').trim() ?? "CBSEE Spring '26";
 
   // --- Build summary cards ---
   const wRow = wIdx >= 0 ? dataRows[wIdx] : null;
   const cRow = cIdx >= 0 ? dataRows[cIdx] : null;
 
   const wGoal = N(dataRows[0]?.[COL.wForecast]) ?? 1225;
-  const cGoal = N(cSummaryRow?.[3]) ?? 468;
+  // For CBSEE: cForecast at day 0 is blank (only starts from ~day 34 remaining).
+  // Fall back to the Winter '26 goal at day 0 (which IS the previous closed cohort's
+  // final enrollment = its goal), as the current cohort uses the same goal value.
+  const cGoal = N(dataRows[0]?.[COL.cWi26]) ?? 485;
 
   const wDays    = N(wRow?.[COL.day]) ?? 0;
   const wEnrolled = N(wRow?.[COL.wActual]) ?? 0;
@@ -244,6 +244,16 @@ export async function getPacingData(): Promise<{
 
       return pt;
     });
+
+  // --- Fill in missing cForecast values (days 0–33 near deadline, where the sheet
+  //     doesn't publish a forecast). Use the last-3-cohort average pace scaled by
+  //     cGoal so the forecast line extends all the way to day 0 on the chart. ---
+  const cGoalForFill = cGoal;
+  for (const pt of pacing) {
+    if (pt.cForecast === undefined && pt.cLast3Pct !== undefined) {
+      pt.cForecast = Math.round(pt.cLast3Pct / 100 * cGoalForFill);
+    }
+  }
 
   // --- Build comparison panels ---
   // Find the pacing row closest to each program's current days remaining
