@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 import { BarChart2, MessageSquare, Lightbulb, ArrowRight, GraduationCap, Database } from 'lucide-react';
 import { getAllRecords } from '@/lib/airtable';
