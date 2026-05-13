@@ -15,8 +15,8 @@ interface Props {
 
 interface ChartPoint {
   day: number;
-  actualRemaining: number | null;
-  forecastRemaining: number | null;
+  actualEnrolled: number | null;
+  forecastEnrolled: number | null;
   bandHigh: number | null;
   bandLow: number | null;
 }
@@ -54,15 +54,15 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
       const actual   = isW ? pt.wActual   : pt.cActual;
       const forecast = isW ? pt.wForecast : pt.cForecast;
 
-      const forecastRemaining = forecast !== undefined ? goal - forecast : null;
-      const actualRemaining   = actual   !== undefined ? goal - actual   : null;
-      const bandHigh = forecastRemaining !== null ? forecastRemaining + 0.05 * goal : null;
-      const bandLow  = forecastRemaining !== null ? Math.max(0, forecastRemaining - 0.05 * goal) : null;
+      const forecastEnrolled = forecast !== undefined ? forecast : null;
+      const actualEnrolled   = actual   !== undefined ? actual   : null;
+      const bandHigh = forecastEnrolled !== null ? forecastEnrolled + 0.05 * goal : null;
+      const bandLow  = forecastEnrolled !== null ? Math.max(0, forecastEnrolled - 0.05 * goal) : null;
 
       return {
         day: pt.day,
-        actualRemaining,
-        forecastRemaining,
+        actualEnrolled,
+        forecastEnrolled,
         bandHigh,
         bandLow,
       };
@@ -87,7 +87,8 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
             {...axisProps}
           />
           <YAxis
-            label={{ value: 'Enrollments Remaining', angle: -90, position: 'insideRight', offset: 20, fill: '#6b7280', fontSize: 11 }}
+            domain={[0, goal]}
+            label={{ value: 'Enrollments', angle: -90, position: 'insideRight', offset: 20, fill: '#6b7280', fontSize: 11 }}
             tickFormatter={v => v.toLocaleString()}
             {...axisProps}
             axisLine={false}
@@ -126,7 +127,7 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
 
           {/* Forecast dashed line */}
           <Line
-            dataKey="forecastRemaining"
+            dataKey="forecastEnrolled"
             name="Forecast"
             stroke={forecastColor}
             strokeWidth={1.8}
@@ -137,7 +138,7 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
 
           {/* Actual solid orange line */}
           <Line
-            dataKey="actualRemaining"
+            dataKey="actualEnrolled"
             name="Actual"
             stroke="#f97316"
             strokeWidth={2.5}
@@ -147,7 +148,7 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
         </ComposedChart>
       </ResponsiveContainer>
       <p className="text-xs text-gray-600 mt-3 text-center">
-        Y-axis = enrollments remaining (goal − enrolled). Actual line below forecast = ahead of pace.
+        Y-axis = cumulative enrollments. Actual above forecast = ahead of pace.
       </p>
     </div>
   );
