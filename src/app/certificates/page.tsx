@@ -145,14 +145,14 @@ export default function CertificatesPage() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <p className="text-sm font-medium text-gray-700 mb-4">NPS Trend by Program</p>
             {trendByProgram.some(p => (p.trend?.length || 0) > 1) ? (
-              <ResponsiveContainer width="100%" height={240}>
+              <ResponsiveContainer width="100%" height={400}>
                 <LineChart margin={{ right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="period" type="category" allowDuplicatedCategory={false} tick={{ fontSize: 11 }} />
-                  <YAxis domain={[-100, 100]} tick={{ fontSize: 11 }} />
+                  <YAxis domain={[-100, 100]} ticks={[-100, -75, -50, -25, 0, 25, 50, 75, 100]} tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Legend />
-                  <ReferenceLine y={0} stroke="#e5e7eb" strokeDasharray="4 4" />
+                  <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
                   {trendByProgram.filter(p => (p.trend?.length || 0) >= 1).map(p => (
                     <Line key={p.id} data={p.trend} type="monotone" dataKey="score" name={p.label} stroke={p.hex} strokeWidth={2} dot={{ r: 3 }} />
                   ))}
