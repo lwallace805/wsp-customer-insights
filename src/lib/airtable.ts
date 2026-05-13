@@ -10,12 +10,19 @@ export type AirtableRecord = {
 };
 
 async function fetchAllRecords(tableName: string, options: Airtable.SelectOptions<Record<string, unknown>> = {}): Promise<AirtableRecord[]> {
-  const records: AirtableRecord[] = [];
-  await base(tableName).select(options).eachPage((page, next) => {
-    page.forEach(r => records.push({ id: r.id, fields: r.fields as Record<string, unknown> }));
-    next();
+  return new Promise((resolve, reject) => {
+    const records: AirtableRecord[] = [];
+    base(tableName).select(options).eachPage(
+      (page, next) => {
+        page.forEach(r => records.push({ id: r.id, fields: r.fields as Record<string, unknown> }));
+        next();
+      },
+      (err) => {
+        if (err) reject(new Error(String(err)));
+        else resolve(records);
+      }
+    );
   });
-  return records;
 }
 
 export async function listTables(): Promise<{ id: string; name: string; fields: { name: string; type: string }[] }[]> {

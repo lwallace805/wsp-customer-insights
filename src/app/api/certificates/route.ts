@@ -197,7 +197,8 @@ export async function GET(req: NextRequest) {
       detractorComments: detractorRs.map(r=>({ comment:r.comment, program:r.programLabel, cohort:r.cohort, respondent:r.respondent })),
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[/api/certificates]', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -71,7 +71,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ summary, trend, responses: filtered, products, regions, clientTypes, avgRatings });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[/api/nps]', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
