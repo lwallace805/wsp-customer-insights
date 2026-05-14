@@ -19,5 +19,5 @@ jobs:
 
       - name: Assign stable alias
         run: |
-          vercel alias set ${{ steps.deploy.outputs.url }} dev.wsp-customer-insights.vercel.app \
+          vercel alias set ${{ steps.deploy.outputs.url }} wsp-analytics-dev.vercel.app \
             --token ${{ secrets.VERCEL_TOKEN }}
