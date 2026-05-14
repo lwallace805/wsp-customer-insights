@@ -1,0 +1,946 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Employer Reimbursement — WSP Services Page Design (Mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<style>
+  :root {
+    /* WSP design tokens */
+    --main-blue: #0b8ecc;
+    --main-blue-hover: #3aafe6;
+    --main-blue-dark: #007eba;
+    --main-blue-light: #3fc0fd;
+    --main-lime: #72ffab;
+    --lime-hover: #2ce799;
+    --main-green: #22b783;
+    --main-orange: #f56b2c;
+    --main-red: #f9394b;
+    --meta: #6d7b86;
+    --silver: #949ba6;
+    --black: #303030;
+    --theme-dk: #0a2540;
+    --theme-black: #1a1d22;
+    --theme-blue-dk: #0374aa;
+    --lmsbg-lt: #f6f8f9;
+    --lmsbg-lt-extra: #f9fafb;
+    --lmsbg: #edf0f2;
+    --lmsbg-border: #dce1e5;
+    --subtitle: #b5d6e7;
+    --overlay-dk: rgba(15, 28, 41, 0.8);
+    --theme-blue-lt-extra: #eef5fa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+    color: var(--black);
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  a { color: var(--main-blue); text-decoration: none; }
+  a:hover { color: var(--main-blue-hover); }
+  .wrap { max-width: 1140px; width: 90%; margin: 0 auto; }
+
+  /* Type scale */
+  h1, h2, h3, h4, h5, h6 { font-family: 'Inter', sans-serif; color: var(--black); margin: 0 0 .5em; font-weight: 700; }
+  h2 { font-size: 2.25em; line-height: 1.2; }
+  h3 { font-size: 1.75em; line-height: 1.25; }
+  h4 { font-size: 1.25em; line-height: 1.4; }
+  h5 { font-size: 1em; line-height: 1.5; }
+  h6 { font-size: .9em; line-height: 1.6; }
+  p { margin: 0 0 1em; }
+  .accent-blue { color: var(--main-blue); }
+
+  /* Section tag / eyebrow */
+  .section-tag {
+    font-size: .9em; font-weight: 600; color: var(--main-blue);
+    text-transform: uppercase; letter-spacing: 1px; display: inline-block; margin-bottom: 1em;
+  }
+  section.dark .section-tag { color: var(--main-blue-light); }
+
+  /* Theme backgrounds */
+  .theme-w { background: #fff; }
+  .theme-lt { background: var(--lmsbg-lt); }
+  .theme-lt-extra { background: var(--lmsbg-lt-extra); }
+  .theme-md { background: var(--lmsbg); }
+  .theme-dk { background: var(--theme-dk); color: #fff; }
+  .theme-blue-lt-extra { background: var(--theme-blue-lt-extra); }
+
+  /* Buttons */
+  .btn {
+    display: inline-block; padding: 0 28px; border-radius: 36px;
+    line-height: 44px; min-width: 265px; font-weight: 600; font-size: 1em;
+    text-align: center; cursor: pointer; border: 0; text-decoration: none;
+    transition: all .15s;
+  }
+  .btn-lime { background: var(--main-lime); color: #000; }
+  .btn-lime:hover { background: var(--lime-hover); color: #000; }
+  .btn-blue { background: var(--main-blue); color: #fff; }
+  .btn-blue:hover { background: var(--main-blue-hover); color: #fff; }
+  .btn-outline { background: transparent; color: var(--black); border: 1.5px solid var(--lmsbg-border); }
+  .btn-outline:hover { border-color: var(--black); color: var(--black); }
+  .btn-outline-light { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.5); }
+  .btn-outline-light:hover { border-color: #fff; color: #fff; }
+  .btn-sm { min-width: 0; padding: 0 18px; line-height: 36px; font-size: .9em; }
+
+  /* Top utility */
+  .topbar {
+    background: var(--theme-black); color: var(--subtitle);
+    font-size: 13px; text-align: center; padding: 9px 16px; letter-spacing: .04em;
+  }
+  .topbar strong { color: #fff; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+  .topbar .sep { opacity: .4; margin: 0 12px; }
+
+  /* Mockup note */
+  .mockup-note {
+    background: #FFF8E5; border-left: 3px solid var(--main-orange); color: #4a3a14;
+    font-size: 12.5px; padding: 10px 14px; max-width: 1140px; width: 90%;
+    margin: 10px auto 0; border-radius: 0 4px 4px 0;
+  }
+  .mockup-note strong { color: #2a230a; }
+
+  /* Nav (light brand bar) */
+  .navbar {
+    border-bottom: 1px solid var(--lmsbg-border); padding: 18px 0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand-lockup {
+    display: inline-flex; gap: 18px; align-items: center;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--meta);
+  }
+  .brand-lockup .mark {
+    border: 1px dashed #c0c8d0; padding: 7px 12px; border-radius: 3px;
+  }
+  .brand-lockup .mark.solid { border-style: solid; border-color: var(--lmsbg-border); background: #fff; }
+
+  /* Hero */
+  .hero {
+    position: relative; padding: 3.5em 0; color: #fff;
+    background: linear-gradient(135deg, #0a2540 0%, #0e3a66 100%);
+    background-size: cover; background-position: center;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(11, 142, 204, 0.18) 0%, rgba(10, 37, 64, 0.0) 60%),
+                url('https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=2000&q=80');
+    background-size: cover; background-position: center;
+    opacity: .55;
+    z-index: 0;
+  }
+  .hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: var(--overlay-dk);
+    z-index: 1;
+  }
+  .hero .wrap { position: relative; z-index: 2; }
+  .breadcrumb {
+    color: var(--main-blue-light); font-size: .9em; font-weight: 600;
+    margin: -1em 0 .5em;
+  }
+  .hero h1 {
+    color: #fff; font-size: 4em; font-weight: 700; line-height: 1.1; letter-spacing: -.5px;
+    margin: 0 0 .35em; max-width: 16ch;
+  }
+  .hero .subtitle {
+    color: var(--subtitle); font-size: 1.35em; font-weight: 400; line-height: 1.4;
+    padding-top: .25em; max-width: 720px; margin: 0 0 1.75em;
+  }
+  .hero .cta-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .hero .meta-row {
+    margin-top: 2em; padding-top: 1.5em; border-top: 1px solid rgba(255,255,255,.12);
+    display: flex; gap: 36px; flex-wrap: wrap; color: var(--subtitle); font-size: .92em;
+  }
+  .hero .meta-row strong { color: #fff; }
+
+  @media (max-width: 700px) { .hero h1 { font-size: 3.25em; } }
+  @media (max-width: 500px) { .hero h1 { font-size: 3em; } }
+  @media (max-width: 1000px) { .hero .subtitle { display: none; } }
+
+  /* Generic section padding */
+  section.block { padding: 4em 0; }
+  section.block.tight { padding: 3em 0; }
+
+  /* Text / Image Block */
+  .ti-block { display: grid; grid-template-columns: 7fr 5fr; gap: 56px; align-items: center; }
+  .ti-block.reverse { grid-template-columns: 5fr 7fr; }
+  .ti-block.reverse .ti-image { order: -1; }
+  .ti-block h2 { margin-bottom: .5em; }
+  .ti-block ul.check { list-style: none; padding: 0; margin: 1em 0 0; }
+  .ti-block ul.check li {
+    padding-left: 32px; position: relative; margin-bottom: .75em; line-height: 1.55;
+  }
+  .ti-block ul.check li::before {
+    content: "\f00c"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+    color: var(--main-blue); position: absolute; left: 0; top: 2px; font-size: .9em;
+  }
+
+  /* Cost stack mini-module (sits in image slot of T/I) */
+  .cost-stack {
+    background: #fff; border: 1px solid var(--lmsbg-border); border-radius: 8px;
+    padding: 28px; box-shadow: 0 8px 32px rgba(10, 37, 64, .06);
+  }
+  .cost-stack .pill {
+    display: inline-block; background: var(--theme-blue-lt-extra); color: var(--main-blue-dark);
+    font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px;
+  }
+  .cost-stack h4 { margin: 0 0 1em; font-size: 1.15em; }
+  .cost-stack .rows {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px;
+    padding-bottom: 18px; border-bottom: 1px solid var(--lmsbg-border);
+  }
+  .cost-stack .rows .label {
+    font-size: 11px; color: var(--meta); text-transform: uppercase;
+    letter-spacing: .08em; margin-bottom: 4px;
+  }
+  .cost-stack .rows .val { font-weight: 700; font-size: 1.4em; color: var(--black); }
+  .cost-stack .your-cost {
+    display: flex; align-items: flex-end; justify-content: space-between; margin-top: 16px;
+  }
+  .cost-stack .your-cost .lbl {
+    font-size: 11px; color: var(--main-blue); text-transform: uppercase;
+    letter-spacing: .08em; font-weight: 600;
+  }
+  .cost-stack .your-cost .figure {
+    font-weight: 800; font-size: 3.2em; color: var(--main-blue); line-height: 1;
+  }
+  .cost-stack .footnote {
+    margin-top: 14px; font-size: 12px; color: var(--meta); line-height: 1.5;
+  }
+
+  /* List / Grid Module */
+  .grid-mod { display: grid; gap: 18px; }
+  .grid-mod.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-mod.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-mod.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-mod.cols-5 { grid-template-columns: repeat(5, 1fr); }
+
+  /* Grid items - open variant */
+  .gitem-open { padding: 8px 0; }
+  .gitem-open .gicon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: var(--theme-blue-lt-extra); color: var(--main-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4em; margin-bottom: 16px;
+  }
+  .gitem-open h4 { margin-bottom: 8px; }
+  .gitem-open p { color: var(--meta); font-size: .95em; margin: 0; }
+
+  /* Grid items - card variant */
+  .gitem-card {
+    background: #fff; border: 1px solid var(--lmsbg-border); border-radius: 8px;
+    padding: 28px; transition: all .2s;
+  }
+  .gitem-card:hover { box-shadow: 0 8px 24px rgba(10, 37, 64, .06); border-color: var(--main-blue-light); }
+  .gitem-card .step-num {
+    font-size: .8em; font-weight: 700; color: var(--main-blue);
+    letter-spacing: .12em; text-transform: uppercase; margin-bottom: 10px; display: block;
+  }
+  .gitem-card .gicon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: var(--theme-blue-lt-extra); color: var(--main-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4em; margin-bottom: 16px;
+  }
+  .gitem-card.current { background: var(--theme-dk); color: #fff; border-color: var(--theme-dk); }
+  .gitem-card.current .step-num { color: var(--main-blue-light); }
+  .gitem-card.current h4 { color: #fff; }
+  .gitem-card.current .meta { color: var(--subtitle); }
+  .gitem-card .meta { color: var(--meta); font-size: .9em; margin-top: 8px; }
+
+  /* Provider grid */
+  .provider-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 1em; }
+  .provider {
+    background: #fff; border: 1px solid var(--lmsbg-border); border-radius: 8px;
+    padding: 18px; transition: all .15s;
+  }
+  .provider:hover { border-color: var(--main-blue); }
+  .provider .pname { font-weight: 700; color: var(--black); margin-bottom: 4px; font-size: .95em; }
+  .provider .pdesc { font-size: .82em; color: var(--meta); line-height: 1.45; }
+
+  /* Quiz */
+  .quiz {
+    background: #fff; border: 1px solid var(--lmsbg-border); border-radius: 12px;
+    padding: 40px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px;
+    box-shadow: 0 12px 40px rgba(10, 37, 64, .04);
+  }
+  .quiz h3 { margin-bottom: .25em; }
+  .quiz .intro { color: var(--meta); margin-bottom: 1.5em; font-size: .95em; }
+  .q { margin-bottom: 22px; }
+  .q .qlabel { font-weight: 600; font-size: .95em; margin-bottom: 10px; display: block; }
+  .q .options { display: flex; gap: 8px; flex-wrap: wrap; }
+  .opt {
+    border: 1.5px solid var(--lmsbg-border); background: #fff;
+    padding: 8px 16px; border-radius: 999px;
+    font-size: .88em; cursor: pointer; transition: all .15s; user-select: none; color: var(--black);
+  }
+  .opt:hover { border-color: var(--main-blue); color: var(--main-blue); }
+  .opt.selected { background: var(--theme-dk); color: #fff; border-color: var(--theme-dk); }
+  .quiz-result {
+    padding: 28px; border-radius: 8px; background: var(--lmsbg-lt);
+    min-height: 240px; display: flex; flex-direction: column; justify-content: center;
+  }
+  .quiz-result .result-eyebrow {
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--meta); margin-bottom: 8px; font-weight: 600;
+  }
+  .quiz-result h4 { margin: 0 0 .5em; }
+  .quiz-result p { color: var(--meta); font-size: .95em; margin-bottom: 1.25em; }
+  .quiz-result .ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+  .result-eligible h4 { color: var(--main-green); }
+  .result-maybe h4 { color: var(--main-orange); }
+  .result-flag h4 { color: var(--main-red); }
+
+  /* Process card variant */
+  .pcard {
+    background: #fff; border: 1px solid var(--lmsbg-border); border-radius: 12px;
+    padding: 32px;
+  }
+  .pcard .step-num {
+    font-size: .8em; font-weight: 700; color: var(--main-blue);
+    letter-spacing: .12em; text-transform: uppercase; margin-bottom: 8px; display: block;
+  }
+  .pcard h3 { margin-bottom: .5em; }
+  .pcard ul { margin: 1em 0; padding-left: 24px; color: var(--black); }
+  .pcard ul li { margin-bottom: .5em; }
+  .pcard .inline-help {
+    display: inline-flex; gap: 6px; align-items: center; font-weight: 600;
+    color: var(--main-blue);
+  }
+  .pcard.dark { background: var(--theme-dk); color: #fff; border-color: var(--theme-dk); }
+  .pcard.dark h3 { color: #fff; }
+  .pcard.dark ul { color: var(--subtitle); }
+  .pcard.dark ul li strong { color: #fff; }
+  .pcard.dark .step-num { color: var(--main-blue-light); }
+
+  /* Script reveal */
+  .script {
+    background: var(--lmsbg-lt); border: 1px solid var(--lmsbg-border); border-radius: 8px;
+    padding: 24px; margin-top: 18px;
+  }
+  .script .toggle {
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; font-weight: 600;
+  }
+  .script .toggle .plus { color: var(--main-blue); font-weight: 700; font-size: 1.4em; }
+  .script .body { display: none; margin-top: 18px; }
+  .script.open .body { display: block; }
+  .script pre.email {
+    background: #fff; border: 1px solid var(--lmsbg-border); border-radius: 6px;
+    padding: 18px; font-family: 'Inter', sans-serif; font-size: .9em;
+    white-space: pre-wrap; line-height: 1.6; margin: 0; color: var(--black);
+  }
+  .script ul.talking { margin: 16px 0 0; padding-left: 22px; }
+  .script ul.talking li { color: var(--meta); font-size: .92em; margin-bottom: .5em; }
+  .script ul.talking li strong { color: var(--black); }
+
+  /* Stats band */
+  .stats-band {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px;
+    padding: 3em 0; border-top: 1px solid rgba(255,255,255,.12);
+    border-bottom: 1px solid rgba(255,255,255,.12); margin-top: 2em;
+  }
+  .stat .num {
+    font-size: 3em; font-weight: 800; color: var(--main-lime); line-height: 1;
+    margin-bottom: 10px; letter-spacing: -.02em;
+  }
+  .stat .desc { color: var(--subtitle); max-width: 280px; }
+
+  /* Quotes */
+  .quote-card {
+    background: #fff; border: 1px solid var(--lmsbg-border); border-radius: 12px;
+    padding: 32px;
+  }
+  .quote-card .mark {
+    color: var(--main-blue); font-size: 2em; line-height: 0; font-weight: 700;
+  }
+  .quote-card p {
+    font-size: 1.15em; line-height: 1.5; color: var(--black); margin: 12px 0 16px;
+  }
+  .quote-card .author {
+    font-size: .9em; color: var(--meta); font-weight: 600;
+  }
+
+  /* Advisor CTA */
+  .advisor-cta {
+    background: #fff; border: 1px solid var(--lmsbg-border); border-radius: 12px;
+    padding: 36px 40px; display: grid; grid-template-columns: 1fr auto;
+    gap: 28px; align-items: center;
+    box-shadow: 0 12px 40px rgba(10, 37, 64, .04);
+  }
+  .advisor-cta h3 { margin: 0 0 .25em; }
+  .advisor-cta p { margin: 0; color: var(--meta); max-width: 580px; }
+  .advisor-cta .ident { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .advisor-cta .avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--main-blue-light), var(--main-blue));
+  }
+  .advisor-cta .label-line { font-size: 11px; color: var(--meta); letter-spacing: .1em; text-transform: uppercase; font-weight: 600; }
+  .advisor-cta .name { font-weight: 700; }
+
+  /* FAQ */
+  .faq { margin-top: 1em; }
+  .faq-item {
+    border-bottom: 1px solid var(--lmsbg-border); padding: 22px 0; cursor: pointer;
+  }
+  .faq-item .faq-q { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 1.05em; }
+  .faq-item .plus { color: var(--main-blue); font-weight: 700; font-size: 1.4em; transition: transform .2s; }
+  .faq-item .faq-a {
+    display: none; padding-top: 14px; color: var(--meta); line-height: 1.7; max-width: 820px;
+  }
+  .faq-item.open .faq-a { display: block; }
+  .faq-item.open .plus { transform: rotate(45deg); }
+
+  /* Bottom Anchor CTA */
+  .bottom-cta {
+    position: relative; padding: 5em 0; text-align: center; color: #fff; overflow: hidden;
+    background: linear-gradient(135deg, #0a2540, #0374aa);
+  }
+  .bottom-cta::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: url('https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=2000&q=80');
+    background-size: cover; background-position: center; opacity: .25;
+    z-index: 0;
+  }
+  .bottom-cta::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(3, 116, 170, .82) 0%, rgba(10, 37, 64, .78) 100%);
+    z-index: 1;
+  }
+  .bottom-cta .wrap { position: relative; z-index: 2; }
+  .bottom-cta .gradient-text {
+    font-size: 4em; font-weight: 700; line-height: 1.1; letter-spacing: -.5px;
+    background: linear-gradient(90deg, var(--main-blue-light), var(--main-lime));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    margin: 0 0 .35em;
+  }
+  .bottom-cta .subtext {
+    color: #fff; font-size: 1.35em; font-weight: 400; line-height: 1.4;
+    max-width: 680px; margin: 0 auto 2em;
+  }
+
+  /* Footer */
+  footer.site {
+    background: var(--theme-black); color: var(--silver); padding: 2.5em 0; font-size: .82em;
+  }
+  footer.site .row { display: flex; gap: 36px; justify-content: space-between; align-items: flex-start; }
+  footer.site .disclaim { max-width: 780px; line-height: 1.6; }
+  footer.site .colophon { text-align: right; }
+
+  /* Responsive */
+  @media (max-width: 980px) {
+    .ti-block, .ti-block.reverse, .quiz, .advisor-cta,
+    .grid-mod.cols-4, .grid-mod.cols-3, .grid-mod.cols-5,
+    .provider-grid, .stats-band {
+      grid-template-columns: 1fr;
+    }
+    .ti-block.reverse .ti-image { order: 0; }
+    .hero h1 { font-size: 3em; }
+    .bottom-cta .gradient-text { font-size: 2.5em; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top context banner -->
+<div class="topbar">
+  <strong>Employer Reimbursement</strong>
+  <span class="sep">·</span>
+  Most employers cover programs like this. Here is how to claim yours.
+</div>
+
+<!-- Mockup context note -->
+<div class="mockup-note">
+  <strong>Mockup note:</strong> Generic employer-reimbursement LP rebuilt on the WSP services-page design system (Inter, lime CTAs, blue accents, photo hero with dark overlay, building-block layout). Original navy / playfair / crimson version saved alongside this file.
+</div>
+
+<!-- Nav brand bar -->
+<div class="wrap">
+  <div class="navbar">
+    <div class="brand-lockup">
+      <span class="mark">Wharton Online · Logo</span>
+      <span class="mark solid">Wall Street Prep · Logo</span>
+    </div>
+    <a class="btn btn-lime btn-sm" href="#book-advisor">Book a Consultation</a>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="breadcrumb">Wharton Online &nbsp;/&nbsp; FP&amp;A Certificate &nbsp;/&nbsp; Employer Reimbursement</div>
+    <h1>Your brochure is in. <span style="color: var(--main-blue-light);">Now claim your benefit.</span></h1>
+    <p class="subtitle">Most employers fully reimburse programs like the Wharton Online FP&amp;A Certificate. The benefit is rarely the barrier; the process is. We walk you through it.</p>
+    <div class="cta-row">
+      <a class="btn btn-lime" href="#book-advisor">Book a Consultation</a>
+      <a class="btn btn-outline-light" href="#brochure">Re-send the brochure</a>
+    </div>
+    <div class="meta-row">
+      <span><i class="fa-regular fa-calendar" style="color: var(--main-blue-light); margin-right: 8px;"></i><strong>Cohort starts June 8, 2026</strong></span>
+      <span><i class="fa-regular fa-clock" style="color: var(--main-blue-light); margin-right: 8px;"></i>Submit your reimbursement request by <strong>May 25</strong> to lock the early rate</span>
+    </div>
+  </div>
+</section>
+
+<!-- VALUE PROP — Text / Image block -->
+<section class="block theme-w">
+  <div class="wrap">
+    <div class="ti-block">
+      <div>
+        <span class="section-tag">The benefit, simplified</span>
+        <h2>The benefit is sitting unused. <span class="accent-blue">We help you claim it.</span></h2>
+        <p>More than 80% of large employers offer some form of tuition reimbursement or education benefit. Less than 5% of employees ever use it. The gap is rarely about eligibility; it is about not knowing where the portal lives, how to frame the manager conversation, or which tax line item to expect on a W-2.</p>
+        <p>Since 2024, more than 1,800 finance professionals have used their employer benefit to fund a Wall Street Prep or Wharton Online certificate. Your enrollment advisor has navigated 120+ employer benefit structures. They know the portal; they wrote the manager script; they will close the loop with your HR team if it stalls.</p>
+        <ul class="check">
+          <li>Identify your employer's benefit administrator in two minutes</li>
+          <li>Submit your reimbursement request with a proven template</li>
+          <li>Get manager approval using our pre-written email script</li>
+          <li>Enroll in time to lock the early cohort rate</li>
+        </ul>
+      </div>
+      <div class="ti-image">
+        <div class="cost-stack">
+          <span class="pill">Summer 2026 Cohort</span>
+          <h4>Wharton Online FP&amp;A Certificate</h4>
+          <div class="rows">
+            <div>
+              <div class="label">Tuition</div>
+              <div class="val">$4,800</div>
+            </div>
+            <div>
+              <div class="label">IRS §127 limit</div>
+              <div class="val">$5,250</div>
+            </div>
+            <div>
+              <div class="label">Typical cap</div>
+              <div class="val">$7,500+</div>
+            </div>
+          </div>
+          <div class="your-cost">
+            <div>
+              <div class="lbl">Cost to you</div>
+              <div class="figure">$0</div>
+            </div>
+            <div style="text-align: right; max-width: 160px;">
+              <div style="font-size: 11px; color: var(--meta); line-height: 1.5;">Fully reimbursable under most employer education benefits. Subject to your employer's approval and policy.</div>
+            </div>
+          </div>
+          <div class="footnote">
+            <strong style="color: var(--black);">Early-enrollment rate ends May 11.</strong> Submit your reimbursement request now to lock it. If approval extends past May 11, we will honor the early rate.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4-STEP STEPPER — List/Grid module (card variant) -->
+<section class="block theme-lt">
+  <div class="wrap">
+    <span class="section-tag">The path from here</span>
+    <h2>Four steps. <span class="accent-blue">One advisor at your side.</span></h2>
+    <p style="max-width: 780px; color: var(--meta); margin-bottom: 2em;">The exact mechanics vary by employer; the path does not. Average time from brochure download to enrolled, across our cohorts: about two weeks. Your advisor handles whatever your specific employer requires.</p>
+
+    <div class="grid-mod cols-5">
+      <div class="gitem-card current">
+        <span class="step-num">Step 01</span>
+        <h4>Check your benefit</h4>
+        <div class="meta">5 minutes · You are here</div>
+      </div>
+      <div class="gitem-card">
+        <span class="step-num">Step 02</span>
+        <h4>Submit your request</h4>
+        <div class="meta">10 to 20 minutes</div>
+      </div>
+      <div class="gitem-card">
+        <span class="step-num">Step 03</span>
+        <h4>Manager approval</h4>
+        <div class="meta">1 to 2 weeks</div>
+      </div>
+      <div class="gitem-card">
+        <span class="step-num">Step 04</span>
+        <h4>Enroll &amp; start</h4>
+        <div class="meta">June 8 cohort</div>
+      </div>
+      <div class="gitem-card">
+        <span class="step-num">After</span>
+        <h4>8-week program</h4>
+        <div class="meta">Online, live sessions</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 1.5em; color: var(--meta);">
+      Not sure where to start? <a href="#book-advisor"><strong>Book a call with your enrollment advisor →</strong></a>
+    </div>
+  </div>
+</section>
+
+<!-- ELIGIBILITY QUIZ -->
+<section class="block theme-w" id="eligibility">
+  <div class="wrap">
+    <span class="section-tag">Step 01 · Benefit check</span>
+    <h2>See what your employer covers. <span class="accent-blue">90 seconds.</span></h2>
+    <p style="max-width: 780px; color: var(--meta); margin-bottom: 2em;">Three quick questions to point you at the right path. Your answers come with you to your advisor call, so they can skip the discovery and get to logistics.</p>
+
+    <div class="quiz" id="quiz">
+      <div>
+        <h3>Tell us about your benefit setup</h3>
+        <p class="intro">No personal data leaves this page. Your selections preload your advisor call notes.</p>
+
+        <div class="q" data-q="hasBenefit">
+          <label class="qlabel">1. Does your employer offer tuition reimbursement or an education benefit?</label>
+          <div class="options">
+            <div class="opt" data-v="yes">Yes</div>
+            <div class="opt" data-v="unsure">Not sure</div>
+            <div class="opt" data-v="no">No / they do not</div>
+          </div>
+        </div>
+        <div class="q" data-q="admin">
+          <label class="qlabel">2. Who administers your employer's benefit?</label>
+          <div class="options">
+            <div class="opt" data-v="guild">Guild Education</div>
+            <div class="opt" data-v="edassist">EdAssist (Bright Horizons)</div>
+            <div class="opt" data-v="instride">InStride</div>
+            <div class="opt" data-v="direct">Direct (HR)</div>
+            <div class="opt" data-v="other">Other / Don't know</div>
+          </div>
+        </div>
+        <div class="q" data-q="used">
+          <label class="qlabel">3. Have you used your benefit in the last 12 months?</label>
+          <div class="options">
+            <div class="opt" data-v="no">No</div>
+            <div class="opt" data-v="some">Used some of it</div>
+            <div class="opt" data-v="all">Used all of it</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="quiz-result" id="quizResult">
+        <div class="result-eyebrow">Your result</div>
+        <h4 style="color: var(--black);">Answer the three questions to see your path.</h4>
+        <p>Most full-time employees at firms with 1,000+ employees have access to some form of education benefit, even if HR has not advertised it.</p>
+        <div class="ctas">
+          <a class="btn btn-outline btn-sm" href="#book-advisor">Talk to an advisor first</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STEPS 2 & 3 — Two Text/Image-style cards in a 2-col grid -->
+<section class="block theme-lt">
+  <div class="wrap">
+    <span class="section-tag">Steps 02 &amp; 03 · The procedural part</span>
+    <h2>Find your portal. <span class="accent-blue">Loop in your manager.</span></h2>
+    <p style="max-width: 780px; color: var(--meta); margin-bottom: 2em;">The mechanics vary across employers; the moves do not. Most learners clear both steps inside two weeks once they know which door to walk through.</p>
+
+    <div class="grid-mod cols-2">
+      <!-- Step 02 -->
+      <div class="pcard" id="submit-request">
+        <span class="step-num">Step 02</span>
+        <h3>Submit your reimbursement request</h3>
+        <p style="color: var(--meta);">Most large employers route this through one of four channels. If you know which one yours uses, you are 10 minutes away from a submitted request.</p>
+        <div class="provider-grid">
+          <div class="provider">
+            <div class="pname">Guild Education</div>
+            <div class="pdesc">JPMC, Walmart, Disney, Chipotle, Discover</div>
+          </div>
+          <div class="provider">
+            <div class="pname">EdAssist</div>
+            <div class="pdesc">Bank of America, Citi, PwC, IBM</div>
+          </div>
+          <div class="provider">
+            <div class="pname">InStride</div>
+            <div class="pdesc">Adobe, Uber, Anheuser-Busch, Caesars</div>
+          </div>
+          <div class="provider">
+            <div class="pname">Direct HR</div>
+            <div class="pdesc">Most midsize firms; reimbursement after completion</div>
+          </div>
+        </div>
+        <ul style="margin-top: 16px; padding-left: 22px; color: var(--black);">
+          <li>Find your portal (HR intranet, benefits page, or W-2 paperwork)</li>
+          <li>Search "Wharton Online FP&amp;A Certificate"</li>
+          <li>Select the Summer 2026 cohort starting June 8</li>
+          <li>Submit; the portal routes the request to your manager or HR</li>
+        </ul>
+        <p style="margin-top: 14px;">
+          <a class="inline-help" href="#book-advisor"><i class="fa-solid fa-phone" style="font-size: .85em;"></i> Not sure which portal yours uses? Two minutes with an advisor →</a>
+        </p>
+      </div>
+
+      <!-- Step 03 -->
+      <div class="pcard" id="manager-script">
+        <span class="step-num">Step 03 · The hidden gem</span>
+        <h3>Talk to your manager (we wrote it)</h3>
+        <p style="color: var(--meta);">Most stalls happen here. Use the script below; tweak in your voice. Average approval time across employers: 1 to 2 weeks.</p>
+
+        <div class="script" id="scriptBox">
+          <div class="toggle" onclick="document.getElementById('scriptBox').classList.toggle('open');">
+            <span><i class="fa-regular fa-envelope" style="color: var(--main-blue); margin-right: 8px;"></i>Preview the email template &amp; talking points</span>
+            <span class="plus">+</span>
+          </div>
+          <div class="body">
+            <pre class="email">Subject: Quick approval request – Wharton FP&amp;A Certificate (covered by our education benefit)
+
+Hi [Manager],
+
+I am planning to enroll in the Wharton Online FP&amp;A Certificate (8 weeks, online, starts June 8). It should be covered by our company's education benefit, so there is no cost to the team budget.
+
+Why now: the FP&amp;A function is being rebuilt around rolling forecasts, driver-based planning, and real-time scenario modeling. The program covers exactly those workflows and uses cases from leading top-corporations.
+
+Time commitment: roughly 4 to 6 hours a week, mostly evenings; live sessions are recorded.
+
+Next steps if you are open to it: I would submit through our benefits portal and you would receive a one-click approval request. Happy to walk through anything beforehand.
+
+Thanks,
+[Your name]</pre>
+            <ul class="talking">
+              <li><strong>Lead with the business case</strong>, not the personal goal. Approvers respond to team upside.</li>
+              <li><strong>Name the cost</strong> ($0 to the team) early; managers default-assume budget impact.</li>
+              <li><strong>Pre-empt the time question</strong>; vagueness reads as risk.</li>
+              <li><strong>Offer to walk through it</strong>; the offer alone tends to close the loop without a meeting.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STEP 4 + COHORT DATES -->
+<section class="block theme-w">
+  <div class="wrap">
+    <span class="section-tag">Step 04 · Enroll &amp; start</span>
+    <h2>Once approved, <span class="accent-blue">we take it from there.</span></h2>
+    <p style="max-width: 780px; color: var(--meta); margin-bottom: 2em;">Approval flow varies by employer. Either the benefits administrator direct-bills us, or you pay upfront and your employer reimburses you. Your advisor handles the bridge either way.</p>
+
+    <div class="grid-mod cols-2">
+      <div class="pcard">
+        <span class="step-num">What happens</span>
+        <h3>From approved to seated, in three clicks</h3>
+        <ul>
+          <li>Your portal sends an approval email with a unique enrollment link.</li>
+          <li>You confirm cohort and identity in our enrollment flow.</li>
+          <li>Payment routes to direct-bill (most providers) or upfront-then-reimbursed (some direct-HR programs); your advisor confirms which applies.</li>
+          <li>Course access lands in your inbox within 24 hours.</li>
+          <li>Onboarding email arrives one week before the June 8 start.</li>
+        </ul>
+        <p style="margin-top: 14px;"><a class="inline-help" href="#book-advisor"><i class="fa-solid fa-phone" style="font-size: .85em;"></i> Want a final review? Book a call →</a></p>
+      </div>
+      <div class="pcard dark">
+        <span class="step-num">Cohort schedule</span>
+        <h3>Key dates for the June 8 cohort</h3>
+        <ul>
+          <li><strong>May 11</strong> — Early enrollment rate ends</li>
+          <li><strong>May 25</strong> — Recommended employer-submission deadline</li>
+          <li><strong>June 1</strong> — Onboarding email and welcome kit</li>
+          <li><strong>June 8</strong> — Cohort kickoff (live session, 7 PM ET)</li>
+          <li><strong>Aug 3</strong> — Final week, capstone presentations</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BAND (dark) -->
+<section class="block tight theme-dk">
+  <div class="wrap">
+    <span class="section-tag">Track record</span>
+    <h2 style="color: #fff;">Already used by your peers <span style="color: var(--main-blue-light);">in finance.</span></h2>
+    <div class="stats-band">
+      <div class="stat">
+        <div class="num">1,800+</div>
+        <div class="desc">Employees enrolled with employer support since 2024 across our certificate catalog.</div>
+      </div>
+      <div class="stat">
+        <div class="num">120+</div>
+        <div class="desc">Distinct employers have reimbursed our programs, from global banks to midsize firms.</div>
+      </div>
+      <div class="stat">
+        <div class="num">96%</div>
+        <div class="desc">Of submitted requests at major employers move to enrolled within 14 days.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOCIAL PROOF -->
+<section class="block theme-lt-extra">
+  <div class="wrap">
+    <span class="section-tag">In their words</span>
+    <h2>From your peers, in finance.</h2>
+    <p style="max-width: 780px; color: var(--meta); margin-bottom: 2em;">Placeholder quotes for design. Real testimonials to be sourced from prior employer-reimbursed enrollees before launch.</p>
+    <div class="grid-mod cols-2">
+      <div class="quote-card">
+        <div class="mark">"</div>
+        <p>I didn't realize my company even had an education benefit until the advisor walked me through it. Manager approved in three days.</p>
+        <div class="author">FP&amp;A Senior Associate, global bank</div>
+      </div>
+      <div class="quote-card">
+        <div class="mark">"</div>
+        <p>The manager email template alone was worth the call. My director approved before I finished the second paragraph.</p>
+        <div class="author">Corporate Finance Manager, F500 industrial</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADVISOR MID-CTA -->
+<section class="block tight theme-w" id="book-advisor">
+  <div class="wrap">
+    <div class="advisor-cta">
+      <div>
+        <div class="ident">
+          <div class="avatar"></div>
+          <div>
+            <div class="label-line">Your enrollment advisor</div>
+            <div class="name">Aubrey Marsh · Available this week</div>
+          </div>
+        </div>
+        <h3>Have questions about your employer benefit or the program?</h3>
+        <p>15 minutes on the calendar, fewer if you only have one question. Aubrey has helped learners navigate education benefits at 100+ employers. If we have worked with your firm before, she already knows the portal.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <a class="btn btn-lime" href="#">Book a 15-min call</a>
+        <a class="btn btn-outline" href="#">Email Aubrey directly</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="block theme-w">
+  <div class="wrap">
+    <span class="section-tag">Employer benefit questions</span>
+    <h2>The six questions <span class="accent-blue">we hear most.</span></h2>
+    <p style="max-width: 780px; color: var(--meta); margin-bottom: 1.5em;">For anything employer-specific, your advisor handles it on the call.</p>
+
+    <div class="faq" id="faq">
+      <div class="faq-item">
+        <div class="faq-q">What if my employer doesn't offer tuition reimbursement? <span class="plus">+</span></div>
+        <div class="faq-a">A few things to check before assuming no. HR pages often bury education benefits under "learning &amp; development" or "professional development reimbursement." Some employers offer ad-hoc approval at the manager level even without a formal program. If neither path opens up, we offer monthly payment plans and alumni discounts; your advisor can walk through both.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How does IRS Section 127 work? <span class="plus">+</span></div>
+        <div class="faq-a">Section 127 of the Internal Revenue Code lets employers provide up to $5,250 per year in tax-free educational assistance to each employee. Amounts above that may be taxable to you as wages. Many employers offer caps above $5,250 (often $7,500 to $10,000); the portion above $5,250 typically appears on your W-2 as income.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What if my manager says no? <span class="plus">+</span></div>
+        <div class="faq-a">Manager pushback is almost always about timing, perceived business value, or budget assumptions. The script in Step 03 pre-empts all three. If it still gets a no, your advisor can help reframe with a follow-up email, escalate to L&amp;D if your employer has a separate path, or time the request for the following quarter.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Will this show up as taxable income on my W-2? <span class="plus">+</span></div>
+        <div class="faq-a">Up to $5,250 in employer-paid educational assistance is tax-free under Section 127. Amounts above that may be reported as additional wages on your W-2. Your employer's payroll team handles the reporting; your advisor cannot give tax advice, but can flag what to ask about.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I split pay between my employer and personal funds? <span class="plus">+</span></div>
+        <div class="faq-a">Often, yes. If your benefit cap covers part of tuition, you can pay the remainder out of pocket or through our monthly payment plan. Your advisor maps the options based on your benefit limit.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What if I change jobs mid-program? <span class="plus">+</span></div>
+        <div class="faq-a">Most employer reimbursement programs require you to remain employed through program completion (or for 6 to 12 months after). If you leave early, you may owe the company back the reimbursed amount. Read your employer's specific terms before submitting; your advisor can flag what to look for.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BOTTOM ANCHOR CTA -->
+<section class="bottom-cta">
+  <div class="wrap">
+    <h2 class="gradient-text">Claim what is yours.</h2>
+    <p class="subtext">Most JPMC, BofA, Citi, Walmart, and F500 employees can fully reimburse this certificate. Your advisor confirms it in 15 minutes.</p>
+    <a class="btn btn-lime" href="#">Book a Consultation</a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="site">
+  <div class="wrap">
+    <div class="row">
+      <div class="disclaim">
+        Not affiliated with any employer. Employees are responsible for verifying internal policies and obtaining approval for reimbursement. Brand and provider names are referenced for identification only; Wharton Online and Wall Street Prep are not partners of any specific employer or benefit administrator. Program tuition, content, and dates subject to change.
+      </div>
+      <div class="colophon">
+        © 2026 Wall Street Prep<br/>· Wharton Online
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Quiz logic
+  const answers = { hasBenefit: null, admin: null, used: null };
+  document.querySelectorAll('.q').forEach(q => {
+    const key = q.dataset.q;
+    q.querySelectorAll('.opt').forEach(o => {
+      o.addEventListener('click', () => {
+        q.querySelectorAll('.opt').forEach(x => x.classList.remove('selected'));
+        o.classList.add('selected');
+        answers[key] = o.dataset.v;
+        renderResult();
+      });
+    });
+  });
+
+  function renderResult() {
+    const r = document.getElementById('quizResult');
+    const { hasBenefit, admin, used } = answers;
+    if (!hasBenefit || !admin || !used) return;
+
+    let cls = 'quiz-result ';
+    let title = '';
+    let body = '';
+    let cta = '<a class="btn btn-lime btn-sm" href="#book-advisor">Book a 15-min advisor call</a><a class="btn btn-outline btn-sm" href="#submit-request">See submission steps</a>';
+
+    if (hasBenefit === 'no') {
+      cls += 'result-maybe';
+      title = 'Worth a second look before you assume no.';
+      body = 'Many employers tuck education reimbursement inside "L&D" or "professional development" budgets without calling it that. If nothing is there, we offer monthly payment plans and alumni discounts. Two minutes with an advisor clears it up.';
+      cta = '<a class="btn btn-lime btn-sm" href="#book-advisor">Talk to an advisor</a>';
+    } else if (hasBenefit === 'unsure' || admin === 'other') {
+      cls += 'result-maybe';
+      title = 'Quickest path: 5 minutes with an advisor.';
+      body = "Aubrey has worked with 100+ employers. Tell her where you work and she will know in two minutes whether you are covered and which portal to use.";
+      cta = '<a class="btn btn-lime btn-sm" href="#book-advisor">Find my benefit</a><a class="btn btn-outline btn-sm" href="#submit-request">See common portals</a>';
+    } else if (used === 'all') {
+      cls += 'result-flag';
+      title = 'Looks like this year\'s benefit is used up.';
+      body = 'Most caps reset January 1. Two options: defer to the next cohort, or split tuition (early payment now, reimbursement next benefit year). Your advisor can model both.';
+      cta = '<a class="btn btn-lime btn-sm" href="#book-advisor">Explore your options</a>';
+    } else if (hasBenefit === 'yes' && (admin === 'guild' || admin === 'edassist' || admin === 'instride' || admin === 'direct') && (used === 'no' || used === 'some')) {
+      cls += 'result-eligible';
+      title = 'You are set up to use your benefit.';
+      body = 'Move to Step 02: submit your request through your employer portal. We list the four most common ones below. If your firm uses one of them, you are about 10 minutes from a submitted request.';
+    } else {
+      cls += 'result-maybe';
+      title = 'Probably eligible; one quick call to confirm.';
+      body = 'Your situation looks workable. Your advisor will verify the exact pathway based on your employer.';
+    }
+
+    r.className = cls;
+    r.innerHTML = `
+      <div class="result-eyebrow">Your result</div>
+      <h4>${title}</h4>
+      <p>${body}</p>
+      <div class="ctas">${cta}</div>
+    `;
+  }
+
+  // FAQ toggles
+  document.querySelectorAll('.faq-item').forEach(item => {
+    item.addEventListener('click', () => item.classList.toggle('open'));
+  });
+</script>
+
+</body>
+</html>
