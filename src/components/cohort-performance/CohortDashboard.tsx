@@ -1,0 +1,67 @@
+'use client';
+
+import { useState } from 'react';
+import type { CohortData } from '@/data/cohortPerformance';
+import TabNav, { type Tab } from './TabNav';
+import OverviewTab from './OverviewTab';
+import ProgramTab from './ProgramTab';
+import ChannelTab from './ChannelTab';
+import PacingTab from './PacingTab';
+import PaidMediaTab from './PaidMediaTab';
+
+interface Props {
+  cohorts: CohortData[];
+  title: string;
+  subtitle: string;
+}
+
+export default function CohortDashboard({ cohorts, title, subtitle }: Props) {
+  const [activeTab, setActiveTab] = useState<Tab>('Overview');
+  const [activeCohort, setActiveCohort] = useState(cohorts[cohorts.length - 1].cohort);
+
+  const cohort = cohorts.find(c => c.cohort === activeCohort) ?? cohorts[cohorts.length - 1];
+  const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  return (
+    <div className="w-full">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            {cohort.status === 'active' && (
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            )}
+            <h1 className="text-xl font-bold text-white">
+              {title} — Cohort Performance
+            </h1>
+          </div>
+          <p className="text-sm text-gray-400">{subtitle} · Updated {now}</p>
+        </div>
+
+        {/* Cohort selector */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500 uppercase tracking-wider">Cohort</span>
+          <select
+            value={activeCohort}
+            onChange={e => setActiveCohort(e.target.value)}
+            className="bg-[#161b22] border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-white/20"
+          >
+            {[...cohorts].reverse().map(c => (
+              <option key={c.cohort} value={c.cohort}>
+                {c.cohort}{c.status === 'active' ? ' (Active)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <TabNav active={activeTab} onChange={setActiveTab} />
+
+      {activeTab === 'Overview'    && <OverviewTab cohort={cohort} allCohorts={cohorts} />}
+      {activeTab === 'By Program'  && <ProgramTab cohort={cohort} />}
+      {activeTab === 'By Channel'  && <ChannelTab cohort={cohort} />}
+      {activeTab === 'Pacing'      && <PacingTab cohort={cohort} allCohorts={cohorts} />}
+      {activeTab === 'Paid Media'  && <PaidMediaTab cohort={cohort} />}
+    </div>
+  );
+}

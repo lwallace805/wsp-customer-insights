@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, BarChart2, MessageSquare, Lightbulb,
-  GraduationCap, TrendingUp, ChevronDown,
+  GraduationCap, TrendingUp, ChevronDown, Users,
 } from 'lucide-react';
 
 const CUSTOMER_INSIGHTS = [
@@ -16,6 +16,11 @@ const CUSTOMER_INSIGHTS = [
 
 const MARKETING_DASHBOARDS = [
   { href: '/enrollment',   label: 'Enrollment Pacing',  icon: TrendingUp },
+];
+
+const COHORT_PERFORMANCE = [
+  { href: '/cohort-performance/wharton',  label: 'Wharton Online',   icon: Users },
+  { href: '/cohort-performance/columbia', label: 'Columbia / CBSEE', icon: Users },
 ];
 
 function DropdownMenu({
@@ -109,6 +114,13 @@ export default function NavBar() {
           <DropdownMenu
             label="Marketing Dashboards"
             items={MARKETING_DASHBOARDS}
+            activePath={pathname}
+          />
+
+          {/* Cohort Performance dropdown */}
+          <DropdownMenu
+            label="Cohort Performance"
+            items={COHORT_PERFORMANCE}
             activePath={pathname}
           />
         </div>
