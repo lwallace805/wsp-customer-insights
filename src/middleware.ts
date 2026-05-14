@@ -1,7 +1,7 @@
 import { withAuth } from 'next-auth/middleware';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
-const withAuthMiddleware = withAuth(
+export default withAuth(
   function middleware() {
     return NextResponse.next();
   },
@@ -15,15 +15,9 @@ const withAuthMiddleware = withAuth(
   }
 );
 
-export default function middleware(req: NextRequest) {
-  if (req.nextUrl.pathname.startsWith('/drafts')) {
-    return NextResponse.next();
-  }
-  return (withAuthMiddleware as unknown as (req: NextRequest) => Response)(req);
-}
-
 export const config = {
+  // Exclude /drafts from middleware so Vercel's CDN serves those static files directly.
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$|drafts).*)',
   ],
 };
