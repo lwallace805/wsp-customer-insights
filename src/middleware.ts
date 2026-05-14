@@ -3,12 +3,10 @@ import { NextResponse } from 'next/server';
 
 export default withAuth(
   function middleware() {
-    // Authenticated — let the request through
     return NextResponse.next();
   },
   {
     callbacks: {
-      // Allow access only when a valid JWT token exists
       authorized: ({ token }) => !!token,
     },
     pages: {
@@ -18,7 +16,8 @@ export default withAuth(
 );
 
 export const config = {
+  // Exclude /drafts from middleware so Vercel's CDN serves those static files directly.
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$|drafts).*)',
   ],
 };

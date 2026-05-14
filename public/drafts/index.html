@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WSP Drafts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: #0a2540;
+    color: #fff;
+    min-height: 100vh;
+    padding: 48px 32px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  header { margin-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 24px; }
+  header .label {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: #3fc0fd; font-weight: 600; margin-bottom: 8px;
+  }
+  header h1 { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -.3px; }
+  header p { color: #8294ab; font-size: 14px; margin: 8px 0 0; }
+  .grid { display: grid; gap: 14px; }
+  .card {
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px;
+    padding: 20px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    text-decoration: none;
+    transition: all .15s;
+  }
+  .card:hover {
+    background: rgba(255,255,255,.09);
+    border-color: rgba(63,192,253,.4);
+  }
+  .card .info .tag {
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: #3fc0fd; font-weight: 600; margin-bottom: 6px;
+  }
+  .card .info .title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 3px; }
+  .card .info .meta { font-size: 12px; color: #8294ab; }
+  .card .arrow { color: #3fc0fd; font-size: 18px; opacity: .7; }
+  .card:hover .arrow { opacity: 1; }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,.08); font-size: 12px; color: #4a5e72; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="label">Wall Street Prep · Internal</div>
+    <h1>Marketing Drafts</h1>
+    <p>In-progress pages for live preview. Add a new file to <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:3px;font-size:12px;">/public/drafts/</code> and link it below.</p>
+  </header>
+
+  <div class="grid">
+
+    <a class="card" href="Employer_Reimbursement_LP_mockup.html" target="_blank">
+      <div class="info">
+        <div class="tag">Employer Reimbursement LP · v1 Mockup</div>
+        <div class="title">FP&amp;A Certificate — Generic Thank-You Page</div>
+        <div class="meta">Navy / Playfair design — post-brochure-download lifecycle anchor</div>
+      </div>
+      <div class="arrow">→</div>
+    </a>
+
+    <a class="card" href="Employer_Reimbursement_LP_wsp_design.html" target="_blank">
+      <div class="info">
+        <div class="tag">Employer Reimbursement LP · WSP Design</div>
+        <div class="title">FP&amp;A Certificate — WSP Services Page Variant</div>
+        <div class="meta">Inter / lime / blue WSP design system — rebuilt on services-page template</div>
+      </div>
+      <div class="arrow">→</div>
+    </a>
+
+    <a class="card" href="Employer_Reimbursement_LP_simple.html" target="_blank">
+      <div class="info">
+        <div class="tag">Employer Reimbursement LP · Simple / Advisor-First</div>
+        <div class="title">FP&amp;A Certificate — Simplified Advisor-First Variant</div>
+        <div class="meta">Navy / Playfair — lighter feature set, A/B against the full v2 page</div>
+      </div>
+      <div class="arrow">→</div>
+    </a>
+
+  </div>
+
+  <footer>Wall Street Prep · Internal drafts — not for external distribution</footer>
+</div>
+</body>
+</html>
