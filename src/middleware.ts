@@ -1,22 +1,26 @@
 import { withAuth } from 'next-auth/middleware';
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
-export default withAuth(
+const withAuthMiddleware = withAuth(
   function middleware() {
     return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token, req }) => {
-        if (req.nextUrl.pathname.startsWith('/drafts')) return true;
-        return !!token;
-      },
+      authorized: ({ token }) => !!token,
     },
     pages: {
       signIn: '/login',
     },
   }
 );
+
+export default function middleware(req: NextRequest) {
+  if (req.nextUrl.pathname.startsWith('/drafts')) {
+    return NextResponse.next();
+  }
+  return (withAuthMiddleware as unknown as (req: NextRequest) => Response)(req);
+}
 
 export const config = {
   matcher: [
