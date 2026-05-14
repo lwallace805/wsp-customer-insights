@@ -1,0 +1,23 @@
+name: Deploy dev branch to stable preview URL
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        id: deploy
+        run: |
+          npm i -g vercel
+          DEPLOYMENT_URL=$(vercel --token ${{ secrets.VERCEL_TOKEN }} --yes 2>&1 | grep "https://" | tail -1)
+          echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+
+      - name: Assign stable alias
+        run: |
+          vercel alias set ${{ steps.deploy.outputs.url }} dev.wsp-customer-insights.vercel.app \
+            --token ${{ secrets.VERCEL_TOKEN }}
