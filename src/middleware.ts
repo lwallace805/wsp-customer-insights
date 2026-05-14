@@ -3,13 +3,14 @@ import { NextResponse } from 'next/server';
 
 export default withAuth(
   function middleware() {
-    // Authenticated — let the request through
     return NextResponse.next();
   },
   {
     callbacks: {
-      // Allow access only when a valid JWT token exists
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        if (req.nextUrl.pathname.startsWith('/drafts')) return true;
+        return !!token;
+      },
     },
     pages: {
       signIn: '/login',
@@ -19,6 +20,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$|drafts(?:/.*)?$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)',
   ],
 };
