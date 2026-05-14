@@ -60,7 +60,7 @@ export default function ProgramTab({ cohort }: Props) {
                 <Tooltip
                   contentStyle={{ background: '#161b22', border: '1px solid #ffffff20', borderRadius: 8, color: '#fff' }}
                   cursor={{ fill: '#ffffff08' }}
-                  formatter={(v: number) => [`$${v.toLocaleString()}`, undefined]}
+                  formatter={((v: number) => [`$${v.toLocaleString()}`, undefined]) as any}
                 />
                 <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
                 <Bar dataKey="Cost / Enroll" fill="#f59e0b" radius={[4, 4, 0, 0]} isAnimationActive={false} />

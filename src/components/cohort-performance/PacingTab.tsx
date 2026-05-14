@@ -76,7 +76,8 @@ export default function PacingTab({ cohort, allCohorts }: Props) {
             <Tooltip
               contentStyle={{ background: '#161b22', border: '1px solid #ffffff20', borderRadius: 8, color: '#fff', fontSize: 12 }}
               cursor={{ stroke: '#ffffff20' }}
-              formatter={(v: number | null) => v === null ? ['—', undefined] : [v.toLocaleString(), undefined]}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={((v: number | null | undefined) => v == null ? '—' : v.toLocaleString()) as any}
             />
             <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
 

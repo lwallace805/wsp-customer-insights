@@ -78,9 +78,10 @@ export default function PaidMediaTab({ cohort }: Props) {
             <Tooltip
               contentStyle={{ background: '#161b22', border: '1px solid #ffffff20', borderRadius: 8, color: '#fff', fontSize: 12 }}
               cursor={{ fill: '#ffffff05' }}
-              formatter={(v: number, name: string) =>
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={((v: number, name: string) =>
                 name.includes('Spend') ? [fmtDollar(v), name] : [fmt(v), name]
-              }
+              ) as any}
             />
             <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
             <Bar yAxisId="spend" dataKey="Spend (Actual)" fill="#3b82f6" opacity={0.8} radius={[4, 4, 0, 0]} isAnimationActive={false} />
@@ -103,9 +104,10 @@ export default function PaidMediaTab({ cohort }: Props) {
             <Tooltip
               contentStyle={{ background: '#161b22', border: '1px solid #ffffff20', borderRadius: 8, color: '#fff', fontSize: 12 }}
               cursor={{ fill: '#ffffff05' }}
-              formatter={(v: number, name: string) =>
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={((v: number, name: string) =>
                 name.includes('CVR') ? [`${v.toFixed(2)}%`, name] : [`$${v.toFixed(0)}`, name]
-              }
+              ) as any}
             />
             <Legend wrapperStyle={{ color: '#9ca3af', fontSize: 12 }} />
             <Line yAxisId="cvr" dataKey="CVR (%)" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
