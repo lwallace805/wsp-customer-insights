@@ -19,9 +19,12 @@ const MARKETING_DASHBOARDS = [
 ];
 
 const COHORT_PERFORMANCE = [
-  { href: '/cohort-performance/wharton',  label: 'Wharton Online',   icon: Users },
-  { href: '/cohort-performance/columbia', label: 'Columbia / CBSEE', icon: Users },
+  { href: '/cohort-performance/wharton',      label: 'Wharton Online',          icon: Users },
+  { href: '/cohort-performance/columbia',     label: 'Columbia / CBSEE',        icon: Users },
+  { href: '/dashboards/spring-2026.html',     label: 'Spring 2026 Performance', icon: TrendingUp, static: true },
 ];
+
+type NavItem = { href: string; label: string; icon: React.ElementType; static?: boolean };
 
 function DropdownMenu({
   label,
@@ -29,10 +32,10 @@ function DropdownMenu({
   activePath,
 }: {
   label: string;
-  items: { href: string; label: string; icon: React.ElementType }[];
+  items: NavItem[];
   activePath: string;
 }) {
-  const isGroupActive = items.some(i => activePath.startsWith(i.href));
+  const isGroupActive = items.some(i => !i.static && activePath.startsWith(i.href));
 
   return (
     <div className="relative group">
@@ -54,19 +57,22 @@ function DropdownMenu({
       {/* Dropdown panel — visible on hover */}
       <div className="absolute left-0 top-full pt-1 z-50 hidden group-hover:block">
         <div className="bg-white border border-gray-100 rounded-xl shadow-lg py-1 min-w-[200px]">
-          {items.map(({ href, label: itemLabel, icon: Icon }) => {
-            const isActive = activePath === href || activePath.startsWith(href + '/');
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
-                  isActive
-                    ? 'text-gray-900 bg-gray-50 font-medium'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <Icon size={14} className={isActive ? 'text-emerald-600' : 'text-gray-400'} />
+          {items.map(({ href, label: itemLabel, icon: Icon, static: isStatic }) => {
+            const isActive = !isStatic && (activePath === href || activePath.startsWith(href + '/'));
+            const className = `flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
+              isActive
+                ? 'text-gray-900 bg-gray-50 font-medium'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`;
+            const icon = <Icon size={14} className={isActive ? 'text-emerald-600' : 'text-gray-400'} />;
+            return isStatic ? (
+              <a key={href} href={href} className={className}>
+                {icon}
+                {itemLabel}
+              </a>
+            ) : (
+              <Link key={href} href={href} className={className}>
+                {icon}
                 {itemLabel}
               </Link>
             );

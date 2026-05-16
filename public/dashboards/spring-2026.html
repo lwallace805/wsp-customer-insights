@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Spring 2026 Cohort Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --navy: #0a2540;
+    --teal: #1f6f7c;
+    --gold: #c8a04a;
+    --red: #b53b3b;
+    --green: #3d8b5a;
+    --grey: #8a8a8a;
+    --light-grey: #cfcfcf;
+    --bg: #f4f1ec;
+    --card: #ffffff;
+    --border: #e6e1d8;
+    --text: #1a1a1a;
+    --text-muted: #6b6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  header { margin-bottom: 24px; }
+  h1 {
+    font-size: 28px;
+    color: var(--navy);
+    margin: 0 0 6px 0;
+    letter-spacing: -0.3px;
+  }
+  .sub {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .nav {
+    display: flex;
+    gap: 4px;
+    margin: 20px 0 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav button {
+    background: none;
+    border: none;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-family: inherit;
+    font-weight: 500;
+  }
+  .nav button.active {
+    color: var(--navy);
+    border-bottom-color: var(--navy);
+    font-weight: 600;
+  }
+  .nav button:hover:not(.active) { color: var(--text); }
+  section { display: none; }
+  section.active { display: block; }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .kpi-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .kpi-value { font-size: 32px; color: var(--navy); font-weight: 700; margin: 6px 0 2px 0; }
+  .kpi-sub { font-size: 12px; color: var(--text); }
+  .kpi-delta { font-size: 12px; font-weight: 700; margin-top: 4px; }
+  .delta-bad { color: var(--red); }
+  .delta-good { color: var(--green); }
+  .delta-warn { color: var(--gold); }
+  .panel-grid {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .panel-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .panel-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .panel-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .panel h3 {
+    margin: 0 0 14px 0;
+    font-size: 13px;
+    color: var(--navy);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .panel-tall { min-height: 320px; }
+  .chart-wrap { position: relative; height: 280px; }
+  .chart-wrap.tall { height: 340px; }
+  .chart-wrap.short { height: 200px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th:first-child, td:first-child { text-align: left; }
+  th { background: var(--bg); font-weight: 600; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+  tr:hover td { background: #fbfaf6; }
+  .pos { color: var(--green); font-weight: 600; }
+  .neg { color: var(--red); font-weight: 600; }
+  .neut { color: var(--text-muted); }
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .action-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--red);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .action-card.fn { border-left-color: var(--red); }
+  .action-card.pf { border-left-color: var(--green); }
+  .action-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--red);
+    margin-bottom: 6px;
+  }
+  .action-card.pf .action-tag { color: var(--green); }
+  .action-title { font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .action-body { font-size: 13px; color: var(--text); }
+  .toggle-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .toggle {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+  }
+  .toggle.active { background: var(--navy); color: white; border-color: var(--navy); }
+  footer {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  footer a { color: var(--teal); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  .callout {
+    background: #fef9ec;
+    border-left: 3px solid var(--gold);
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .red-flag {
+    background: #fbeaea;
+    border-left: 3px solid var(--red);
+  }
+  .green-flag {
+    background: #eaf5ee;
+    border-left: 3px solid var(--green);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Spring 2026 Cohort Performance</h1>
+  <div class="sub">Wharton certificate programs &nbsp;·&nbsp; Day 33 before deadline (May 13, 2026) &nbsp;·&nbsp; Goal: 1,225 enrollments</div>
+</header>
+
+<nav class="nav">
+  <button class="active" data-tab="overview">Overview</button>
+  <button data-tab="programs">By program</button>
+  <button data-tab="channels">By channel</button>
+  <button data-tab="paid">Paid media</button>
+  <button data-tab="actions">Action stack</button>
+</nav>
+
+<!-- OVERVIEW -->
+<section id="overview" class="active">
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Enrollments</div>
+      <div class="kpi-value">536</div>
+      <div class="kpi-sub">of 1,225 goal</div>
+      <div class="kpi-delta delta-bad">44% of goal · day 33 of cohort</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Forecast EOC</div>
+      <div class="kpi-value">590</div>
+      <div class="kpi-sub">vs Winter 2026: 1,020</div>
+      <div class="kpi-delta delta-bad">-42% vs Winter</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Leads</div>
+      <div class="kpi-value">12,001</div>
+      <div class="kpi-sub">vs 16,235 forecast</div>
+      <div class="kpi-delta delta-bad">-26% to plan</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Blended CVR</div>
+      <div class="kpi-value">4.47%</div>
+      <div class="kpi-sub">vs 3.63% forecast</div>
+      <div class="kpi-delta delta-good">+23% vs plan</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Position read.</strong> Cohort is behind on leads, ahead of forecast on CVR, well below historical baseline on CVR for the three core programs (PE, RE, FP&amp;A). Paid spend is roughly flat vs Winter 2026 in aggregate but reshuffled aggressively: Meta +116%, Google -16%, LinkedIn +13%. Brand SEM scaled +70% for flat enrollments.
+  </div>
+
+  <div class="panel-grid cols-2">
+    <div class="panel">
+      <h3>Cohort enrollment comparison</h3>
+      <div class="chart-wrap"><canvas id="cohortBar"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Daily enrollment pace vs goal</h3>
+      <div class="chart-wrap"><canvas id="paceLine"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel-grid cols-2">
+    <div class="panel">
+      <h3>Lead pacing vs Spring 2026 forecast</h3>
+      <div class="chart-wrap"><canvas id="leadPacing"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>CVR by program: actual vs historical vs target</h3>
+      <div class="chart-wrap"><canvas id="cvrCompare"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROGRAMS -->
+<section id="programs">
+  <div class="panel" style="margin-bottom: 16px;">
+    <h3>Program performance summary (Spring 2026, actuals to date)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Program</th>
+          <th>Leads</th>
+          <th>Enrolls</th>
+          <th>CVR</th>
+          <th>Historical CVR</th>
+          <th>Target CVR</th>
+          <th>Spend</th>
+          <th>CPL</th>
+          <th>CPE</th>
+          <th>ROAS</th>
+        </tr>
+      </thead>
+      <tbody id="programTable"></tbody>
+    </table>
+  </div>
+
+  <div class="panel-grid cols-2">
+    <div class="panel">
+      <h3>Enrollments: forecast vs Winter 2026 final</h3>
+      <div class="chart-wrap"><canvas id="enrollCompare"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>CPE by program</h3>
+      <div class="chart-wrap"><canvas id="cpeProgram"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel-grid cols-2">
+    <div class="panel">
+      <h3>RDI: only program beating its forecast</h3>
+      <div class="chart-wrap"><canvas id="rdiBeat"></canvas></div>
+      <div class="callout green-flag" style="margin-top:12px;">
+        RDI: 67 actuals vs 57 forecast (+18%). CPL highest in portfolio ($83) but CVR also highest (6.68%, +42% vs historical baseline). Worth a debrief on creative, lifecycle, intent targeting before the playbook gets diluted.
+      </div>
+    </div>
+    <div class="panel">
+      <h3>RE diagnosis: middle on lead pacing, worst on CVR lift</h3>
+      <div class="chart-wrap"><canvas id="reDiagnosis"></canvas></div>
+      <div class="callout red-flag" style="margin-top:12px;">
+        RE's problem isn't leads (-23% pacing, middle of pack). It's CVR collapse: 4.99% vs 6.59% historical = -24%. Plus a Google PMax click-quality breakdown: clicks -2% CoC but leads -64%.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHANNELS -->
+<section id="channels">
+  <div class="panel-grid cols-2">
+    <div class="panel">
+      <h3>Channel mix (Spring 2026 enrollments)</h3>
+      <div class="chart-wrap"><canvas id="channelMix"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>CVR by channel</h3>
+      <div class="chart-wrap"><canvas id="channelCvr"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Channel detail</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Channel</th>
+          <th>Enrollments</th>
+          <th>% of cohort</th>
+          <th>Leads</th>
+          <th>CVR</th>
+          <th>Direct spend</th>
+          <th>ROAS</th>
+          <th>CPL</th>
+          <th>CPE</th>
+        </tr>
+      </thead>
+      <tbody id="channelTable"></tbody>
+    </table>
+  </div>
+
+  <div class="callout green-flag" style="margin-top:16px;">
+    <strong>Email is the most leveraged channel in the cohort.</strong> 69 enrollments off 114 leads = 60.5% CVR. 13% of cohort enrollments at near-zero direct cost. Worth pressing harder for the remaining 33 days, plus building remarketing audiences from this list.
+  </div>
+  <div class="callout red-flag">
+    <strong>Offline/Direct is a black box.</strong> 136 enrollments (25% of cohort), CVR 11.6%, marked "Channel Unknown." Quarter of revenue is unattributed. Project to instrument before Summer 2026.
+  </div>
+</section>
+
+<!-- PAID -->
+<section id="paid">
+  <div class="toggle-row">
+    <button class="toggle active" data-cohort="all">All three cohorts</button>
+    <button class="toggle" data-cohort="coc">vs Winter 2026 (CoC)</button>
+    <button class="toggle" data-cohort="yoy">vs Spring 2025 (YoY)</button>
+  </div>
+
+  <div class="panel-grid cols-3">
+    <div class="panel">
+      <h3>Paid spend by platform</h3>
+      <div class="chart-wrap"><canvas id="paidSpend"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Paid leads by platform</h3>
+      <div class="chart-wrap"><canvas id="paidLeads"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>CPE by platform</h3>
+      <div class="chart-wrap"><canvas id="paidCpe"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel-grid cols-2">
+    <div class="panel">
+      <h3>Brand SEM: spend up, enrollments flat</h3>
+      <div class="chart-wrap"><canvas id="brandSem"></canvas></div>
+      <div class="callout red-flag" style="margin-top:12px;">
+        Brand SEM consumed $99K in Spring 2026 vs $58K in Winter 2026 (+70%) for 25 enrollments vs 26. CPE up 77% ($2,244 → $3,970). Brenden's #1 recommendation: cut to Winter daily spend rates immediately, reallocate ~$40K to ROAS-positive campaigns.
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Google PMax: PE and RE click-quality collapse</h3>
+      <div class="chart-wrap"><canvas id="pmaxIssue"></canvas></div>
+      <div class="callout red-flag" style="margin-top:12px;">
+        PE Google clicks -76% CoC on -25% spend cut. RE clicks -2% but leads -64% (click-to-lead fell from 5.9% to 2.2%). Brenden flags this as the "PMax Black Box Issue." Audit asset groups, audience signals, brand exclusions before adding more spend.
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Full paid platform comparison</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Platform / Cohort</th>
+          <th>Spend</th>
+          <th>Impressions</th>
+          <th>Clicks</th>
+          <th>Leads</th>
+          <th>Total enrolls</th>
+          <th>In-cohort enrolls</th>
+          <th>CPC</th>
+          <th>CPE</th>
+        </tr>
+      </thead>
+      <tbody id="paidTable"></tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <strong>The paid story.</strong> Aggregate paid spend across Google + Meta + LinkedIn is roughly flat vs Winter 2026 (~$520K vs ~$510K). Composition shifted dramatically: Google -$63K, Meta +$66K, LinkedIn +$7K. In-cohort enrollments from paid: 109 vs 111 = essentially flat. Meta absorbed Google's cut without a proportional lift. CPE worsened on every platform.
+  </div>
+</section>
+
+<!-- ACTIONS -->
+<section id="actions">
+  <div class="panel" style="margin-bottom:16px;">
+    <h3>This week (mid-cohort levers)</h3>
+    <div class="actions">
+      <div class="action-card fn">
+        <div class="action-tag">Fix now · paid media</div>
+        <div class="action-title">Cut Brand SEM to Winter daily spend rate</div>
+        <div class="action-body">Frees roughly $40K. Reallocate to Meta (with weekly CPE monitoring) and a new remarketing campaign. Brenden's #1 recommendation; the math is clean.</div>
+      </div>
+      <div class="action-card fn">
+        <div class="action-tag">Fix now · paid media</div>
+        <div class="action-title">Audit Google PMax for PE and RE</div>
+        <div class="action-body">Asset groups, audience signals, brand exclusions. Reallocating spend before fixing PMax just funds the leak.</div>
+      </div>
+      <div class="action-card fn">
+        <div class="action-tag">Fix now · lifecycle</div>
+        <div class="action-title">Launch remarketing on Meta / LI / Google</div>
+        <div class="action-body">Past-year HQSL audience. Carousel ads with deadline-focused messaging. Second touch on existing leads, no new media risk.</div>
+      </div>
+      <div class="action-card fn">
+        <div class="action-tag">Fix now · email</div>
+        <div class="action-title">Push email harder for remaining 33 days</div>
+        <div class="action-body">Converting at 60.5% on 114 leads. The list is sitting unused. Application-completion drips, scholarship/deadline pushes, faster sales follow-up.</div>
+      </div>
+      <div class="action-card fn">
+        <div class="action-tag">Fix now · attribution</div>
+        <div class="action-title">Pin down Andrew's comparison frame</div>
+        <div class="action-body">His -29% RE and -8% overall don't reconcile to either doc. Sync the slice before any of those numbers go external.</div>
+      </div>
+      <div class="action-card fn">
+        <div class="action-tag">Fix now · reporting</div>
+        <div class="action-title">Split LinkedIn FP&amp;A Employer Test</div>
+        <div class="action-body">~$11K of FP&amp;A LinkedIn spend is Employer Test. Either pull it into a separate line or footnote it. Otherwise the channel read is distorted.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Summer 2026 planning</h3>
+    <div class="actions">
+      <div class="action-card pf">
+        <div class="action-tag">Plan forward · attribution</div>
+        <div class="action-title">Instrument Offline/Direct</div>
+        <div class="action-body">25% of enrollments are coming from "Channel Unknown." Strategic blind spot. UTMs, call tracking, post-purchase survey.</div>
+      </div>
+      <div class="action-card pf">
+        <div class="action-tag">Plan forward · diversification</div>
+        <div class="action-title">Test Reddit and Quora</div>
+        <div class="action-body">Brenden's diversification recommendation. Low-cost way to learn before Fall 2026 cohort dependencies are locked in.</div>
+      </div>
+      <div class="action-card pf">
+        <div class="action-tag">Plan forward · program</div>
+        <div class="action-title">Codify the RDI playbook</div>
+        <div class="action-body">Only program beating CVR baseline (+42%) and forecast (+18%). Document the creative, targeting, lifecycle differences; consider porting to PE and RE.</div>
+      </div>
+      <div class="action-card pf">
+        <div class="action-tag">Plan forward · reporting</div>
+        <div class="action-title">Add paid-channel-only CVR vs trailing cohorts</div>
+        <div class="action-body">The "PPC CVR up 37%" claim needs a real anchor. Build a paid-only CVR series across the last four cohorts so this stops being a vibes argument.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Sources: <a href="https://docs.google.com/spreadsheets/d/1o5lfRmA1nAe0BDnYtZ1OJOnU9eB8y4WeJdGNL0_BE_Y/edit" target="_blank">Wharton Spring 2026 Cohort Performance Doc</a> · <a href="https://docs.google.com/spreadsheets/d/1YKdiHd3Zg5HcDp5moDOBAPl5BN3bf2OGhYZgyRuMLjU/edit" target="_blank">Paid Media Analysis (Brenden DelaRua)</a>. Snapshot as of May 13, 2026 actuals. Note: Paid Media Analysis labels the prior cohort "Winter 2025"; this dashboard uses "Winter 2026" throughout to match Andrew's framing.
+</footer>
+
+</div>
+
+<script>
+const NAVY = "#0a2540";
+const TEAL = "#1f6f7c";
+const GOLD = "#c8a04a";
+const RED = "#b53b3b";
+const GREEN = "#3d8b5a";
+const GREY = "#8a8a8a";
+const LIGHT = "#cfcfcf";
+
+Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+Chart.defaults.font.size = 11;
+Chart.defaults.color = "#1a1a1a";
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+Chart.defaults.plugins.legend.labels.boxHeight = 12;
+
+// ============ DATA ============
+const PROGRAMS = ["PE", "RE", "FP&A", "AVI", "RDI"];
+
+const programData = {
+  PE:   { leads: 2973, leadsFc: 4372, enrolls: 138, enrollFc: 138, spend: 104513.71, cpl: 35.15, cpe: 757.35, cvrAct: 4.64, cvrHist: 5.17, cvrTarget: 6.55, roas: 3.57, winter: 284 },
+  RE:   { leads: 2705, leadsFc: 3510, enrolls: 135, enrollFc: 175, spend: 143233.05, cpl: 52.95, cpe: 1060.99, cvrAct: 4.99, cvrHist: 6.59, cvrTarget: 9.06, roas: 2.54, winter: 338 },
+  "FP&A": { leads: 4191, leadsFc: 4655, enrolls: 140, enrollFc: 157, spend: 137471.52, cpl: 32.80, cpe: 981.94, cvrAct: 3.34, cvrHist: 4.36, cvrTarget: 4.65, roas: 2.75, winter: 245 },
+  AVI:  { leads: 1129, leadsFc: 1869, enrolls: 56, enrollFc: 63, spend: 63861.59, cpl: 56.56, cpe: 1140.39, cvrAct: 4.96, cvrHist: 4.72, cvrTarget: 6.39, roas: 2.37, winter: 97 },
+  RDI:  { leads: 1003, leadsFc: 1829, enrolls: 67, enrollFc: 57, spend: 82805.08, cpl: 82.56, cpe: 1235.90, cvrAct: 6.68, cvrHist: 4.70, cvrTarget: 8.25, roas: 2.18, winter: 56 },
+};
+
+const channels = [
+  { name: "Paid Ads (Google/FB/LI)", enrolls: 213, leads: 8739, spend: 692385.16, roas: 1.38, cpl: 79.23, cpe: 3250.63, color: NAVY },
+  { name: "Offline/Direct (Unknown)", enrolls: 136, leads: 1175, spend: 0, roas: null, cpl: null, cpe: null, color: GREY },
+  { name: "Email (to WSP list)", enrolls: 69, leads: 114, spend: 0, roas: null, cpl: null, cpe: null, color: GREEN },
+  { name: "Organic Search", enrolls: 66, leads: 1151, spend: 0, roas: null, cpl: null, cpe: null, color: TEAL },
+  { name: "Referrals", enrolls: 22, leads: 351, spend: 0, roas: null, cpl: null, cpe: null, color: GOLD },
+  { name: "WSP Website", enrolls: 18, leads: 261, spend: 0, roas: null, cpl: null, cpe: null, color: "#6f4e2c" },
+  { name: "Paid Affiliates", enrolls: 7, leads: 124, spend: 3000, roas: 6.30, cpl: 24.19, cpe: 428.57, color: "#a3a3a3" },
+  { name: "Sponsored Content", enrolls: 3, leads: 115, spend: 34600, roas: 0.23, cpl: 300.87, cpe: 11533.33, color: LIGHT },
+];
+
+const paidPlatform = {
+  Google:   { s25: { spend: 294590, leads: 6848, impressions: 15052828, clicks: 151413, enrolls: 137, inCohort: 94, cpc: 1.95, cpe: 2150 },
+              w26: { spend: 397254, leads: 4812, impressions: 22249253, clicks: 180063, enrolls: 110, inCohort: 80, cpc: 2.21, cpe: 3611 },
+              s26: { spend: 334433, leads: 2144, impressions: 13777550, clicks: 108604, enrolls: 87,  inCohort: 73, cpc: 3.08, cpe: 3844 } },
+  Meta:     { s25: { spend: 93149,  leads: 1453, impressions: 7528379,  clicks: 32085,  enrolls: 28,  inCohort: 14, cpc: 2.90, cpe: 3327 },
+              w26: { spend: 56307,  leads: 1804, impressions: 3940627,  clicks: 37820,  enrolls: 35,  inCohort: 20, cpc: 1.49, cpe: 1609 },
+              s26: { spend: 121813, leads: 2218, impressions: 6977933,  clicks: 60949,  enrolls: 46,  inCohort: 28, cpc: 2.00, cpe: 2648 } },
+  LinkedIn: { s25: { spend: 49735,  leads: 2229, impressions: 1782288,  clicks: 13256,  enrolls: 12,  inCohort: 7,  cpc: 3.75, cpe: 4145 },
+              w26: { spend: 56397,  leads: 3571, impressions: 2346517,  clicks: 22791,  enrolls: 26,  inCohort: 11, cpc: 2.47, cpe: 2169 },
+              s26: { spend: 63862,  leads: 2621, impressions: 1253107,  clicks: 11459,  enrolls: 16,  inCohort: 8,  cpc: 5.57, cpe: 3991 } },
+};
+
+const brandSemData = {
+  labels: ["Spring 2025", "Winter 2026", "Spring 2026"],
+  spend: [40902, 58350, 99263],
+  enrolls: [17, 26, 25],
+  cpe: [2406, 2244, 3971],
+};
+
+const pmaxIssue = {
+  programs: ["PE", "RE", "FP&A", "AVI"],
+  clicksCoC: [-76, -2, -29, -48],
+  leadsCoC: [-68, -64, -34, -71],
+  spendCoC: [-25, -7, -33, -57],
+};
+
+const reDiagnosisData = {
+  metrics: ["Lead pacing\nvs forecast", "CVR vs\nhistorical", "Google\nleads CoC"],
+  RE: [-23, -24, -64],
+  pack: [-32, -10, -54], // PE avg for context
+};
+
+// ============ HELPERS ============
+const fmtPct = v => (v > 0 ? "+" : "") + v.toFixed(0) + "%";
+const fmtMoney = v => "$" + Math.round(v).toLocaleString();
+const fmtMoneyK = v => "$" + Math.round(v / 1000) + "K";
+const fmtNum = v => v == null ? "—" : Number(v).toLocaleString();
+
+// ============ TAB NAV ============
+document.querySelectorAll(".nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ============ TABLES ============
+function fillProgramTable() {
+  const tbody = document.getElementById("programTable");
+  PROGRAMS.forEach(p => {
+    const d = programData[p];
+    const cvrDelta = ((d.cvrAct - d.cvrHist) / d.cvrHist) * 100;
+    const cvrClass = cvrDelta >= 0 ? "pos" : "neg";
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${p}</strong></td>
+        <td>${d.leads.toLocaleString()}</td>
+        <td>${d.enrolls}</td>
+        <td>${d.cvrAct.toFixed(2)}% <span class="${cvrClass}" style="font-size:11px;">(${fmtPct(cvrDelta)})</span></td>
+        <td class="neut">${d.cvrHist.toFixed(2)}%</td>
+        <td class="neut">${d.cvrTarget.toFixed(2)}%</td>
+        <td>${fmtMoneyK(d.spend)}</td>
+        <td>$${d.cpl.toFixed(0)}</td>
+        <td>$${Math.round(d.cpe).toLocaleString()}</td>
+        <td>$${d.roas.toFixed(2)}</td>
+      </tr>`;
+  });
+}
+
+function fillChannelTable() {
+  const tbody = document.getElementById("channelTable");
+  const totalEnrolls = channels.reduce((a, c) => a + c.enrolls, 0);
+  channels.forEach(c => {
+    const cvr = (c.enrolls / c.leads * 100);
+    const cvrClass = cvr >= 5 ? "pos" : cvr >= 2.5 ? "neut" : "neg";
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${c.name}</strong></td>
+        <td>${c.enrolls}</td>
+        <td>${(c.enrolls / totalEnrolls * 100).toFixed(1)}%</td>
+        <td>${c.leads.toLocaleString()}</td>
+        <td class="${cvrClass}">${cvr.toFixed(1)}%</td>
+        <td>${c.spend ? fmtMoneyK(c.spend) : "—"}</td>
+        <td>${c.roas != null ? "$" + c.roas.toFixed(2) : "—"}</td>
+        <td>${c.cpl != null ? "$" + c.cpl.toFixed(0) : "—"}</td>
+        <td>${c.cpe != null ? "$" + Math.round(c.cpe).toLocaleString() : "—"}</td>
+      </tr>`;
+  });
+}
+
+function fillPaidTable() {
+  const tbody = document.getElementById("paidTable");
+  Object.entries(paidPlatform).forEach(([platform, cohorts]) => {
+    ["s25", "w26", "s26"].forEach((key, i) => {
+      const c = cohorts[key];
+      const labels = { s25: "Spring 2025", w26: "Winter 2026", s26: "Spring 2026" };
+      const weight = key === "s26" ? "font-weight:700;" : "";
+      tbody.innerHTML += `
+        <tr style="${weight}">
+          <td>${i === 0 ? "<strong>" + platform + "</strong> · " : "&nbsp;&nbsp;&nbsp;"}${labels[key]}</td>
+          <td>${fmtMoneyK(c.spend)}</td>
+          <td>${c.impressions.toLocaleString()}</td>
+          <td>${c.clicks.toLocaleString()}</td>
+          <td>${c.leads.toLocaleString()}</td>
+          <td>${c.enrolls}</td>
+          <td>${c.inCohort}</td>
+          <td>$${c.cpc.toFixed(2)}</td>
+          <td>$${c.cpe.toLocaleString()}</td>
+        </tr>`;
+    });
+  });
+}
+
+// ============ CHARTS ============
+function makeChart(id, config) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return null;
+  return new Chart(ctx, config);
+}
+
+// Overview: cohort comparison bar
+makeChart("cohortBar", {
+  type: "bar",
+  data: {
+    labels: ["Spring 2025", "Fall 2025", "Winter 2026", "Spring 2026\n(actual)", "Spring 2026\n(forecast)", "Spring 2026\n(goal)"],
+    datasets: [{
+      label: "Enrollments",
+      data: [1035, 883, 1020, 536, 590, 1225],
+      backgroundColor: [LIGHT, LIGHT, GREY, NAVY, TEAL, GOLD],
+      borderWidth: 0,
+    }]
+  },
+  options: {
+    indexAxis: "x",
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: "#eee" } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// Daily pace
+const paceData = [
+  { day: 35, goal: 432, actual: 511 },
+  { day: 33, goal: 551, actual: 536 },
+  { day: 30, goal: 609, actual: null },
+  { day: 25, goal: 668, actual: null },
+  { day: 20, goal: 726, actual: null },
+  { day: 15, goal: 819, actual: null },
+  { day: 10, goal: 943, actual: null },
+  { day: 5, goal: 1170, actual: null },
+  { day: 0, goal: 1225, actual: null },
+];
+makeChart("paceLine", {
+  type: "line",
+  data: {
+    labels: paceData.map(d => "Day " + d.day),
+    datasets: [
+      { label: "Goal pace", data: paceData.map(d => d.goal), borderColor: GOLD, backgroundColor: "rgba(200,160,74,0.12)", tension: 0.3, fill: true },
+      { label: "Actual", data: paceData.map(d => d.actual), borderColor: NAVY, backgroundColor: NAVY, tension: 0.3, spanGaps: false, pointRadius: 4 }
+    ]
+  },
+  options: {
+    plugins: { legend: { position: "bottom" } },
+    scales: { y: { beginAtZero: true } }
+  }
+});
+
+// Lead pacing horizontal bar
+makeChart("leadPacing", {
+  type: "bar",
+  data: {
+    labels: PROGRAMS,
+    datasets: [{
+      label: "% gap to forecast",
+      data: PROGRAMS.map(p => ((programData[p].leads - programData[p].leadsFc) / programData[p].leadsFc * 100)),
+      backgroundColor: PROGRAMS.map(p => {
+        const v = (programData[p].leads - programData[p].leadsFc) / programData[p].leadsFc * 100;
+        return v < -25 ? RED : v < -15 ? GOLD : GREEN;
+      }),
+      borderWidth: 0,
+    }]
+  },
+  options: {
+    indexAxis: "y",
+    plugins: { legend: { display: false } },
+    scales: { x: { ticks: { callback: v => v + "%" } } }
+  }
+});
+
+// CVR triple bar
+makeChart("cvrCompare", {
+  type: "bar",
+  data: {
+    labels: PROGRAMS,
+    datasets: [
+      { label: "Historical baseline", data: PROGRAMS.map(p => programData[p].cvrHist), backgroundColor: GREY },
+      { label: "Spring 2026 actual", data: PROGRAMS.map(p => programData[p].cvrAct), backgroundColor: PROGRAMS.map(p => programData[p].cvrAct >= programData[p].cvrHist ? GREEN : RED) },
+      { label: "Target to hit goal", data: PROGRAMS.map(p => programData[p].cvrTarget), backgroundColor: NAVY },
+    ]
+  },
+  options: {
+    plugins: { legend: { position: "bottom" } },
+    scales: { y: { beginAtZero: true, ticks: { callback: v => v + "%" } } }
+  }
+});
+
+// Enrollment compare
+makeChart("enrollCompare", {
+  type: "bar",
+  data: {
+    labels: PROGRAMS,
+    datasets: [
+      { label: "Winter 2026 final", data: PROGRAMS.map(p => programData[p].winter), backgroundColor: GREY },
+      { label: "Spring 2026 forecast", data: PROGRAMS.map(p => programData[p].enrollFc), backgroundColor: NAVY },
+      { label: "Spring 2026 actual to date", data: PROGRAMS.map(p => programData[p].enrolls), backgroundColor: TEAL },
+    ]
+  },
+  options: {
+    plugins: { legend: { position: "bottom" } },
+    scales: { y: { beginAtZero: true } }
+  }
+});
+
+// CPE program
+makeChart("cpeProgram", {
+  type: "bar",
+  data: {
+    labels: PROGRAMS,
+    datasets: [{
+      label: "CPE",
+      data: PROGRAMS.map(p => programData[p].cpe),
+      backgroundColor: PROGRAMS.map(p => programData[p].cpe > 1100 ? RED : programData[p].cpe > 900 ? GOLD : GREEN),
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { callback: v => "$" + v.toLocaleString() } } }
+  }
+});
+
+// RDI beat chart
+makeChart("rdiBeat", {
+  type: "bar",
+  data: {
+    labels: ["Forecast", "Actual to date"],
+    datasets: [{
+      label: "RDI Enrollments",
+      data: [57, 67],
+      backgroundColor: [GREY, GREEN],
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true } }
+  }
+});
+
+// RE diagnosis
+makeChart("reDiagnosis", {
+  type: "bar",
+  data: {
+    labels: ["Lead pacing\nvs forecast", "CVR vs\nhistorical", "Google leads\nCoC"],
+    datasets: [
+      { label: "RE", data: [-23, -24, -64], backgroundColor: RED },
+      { label: "Portfolio avg (ex RE)", data: [-32, -7, -56], backgroundColor: GREY },
+    ]
+  },
+  options: {
+    plugins: { legend: { position: "bottom" } },
+    scales: { y: { ticks: { callback: v => v + "%" } } }
+  }
+});
+
+// Channel mix doughnut
+makeChart("channelMix", {
+  type: "doughnut",
+  data: {
+    labels: channels.map(c => c.name),
+    datasets: [{
+      data: channels.map(c => c.enrolls),
+      backgroundColor: channels.map(c => c.color),
+      borderWidth: 2,
+      borderColor: "#fff",
+    }]
+  },
+  options: {
+    plugins: { legend: { position: "right", labels: { boxWidth: 10, font: { size: 10 } } } },
+    cutout: "55%",
+  }
+});
+
+// Channel CVR bar
+const sortedChannels = [...channels].sort((a, b) => (b.enrolls / b.leads) - (a.enrolls / a.leads));
+makeChart("channelCvr", {
+  type: "bar",
+  data: {
+    labels: sortedChannels.map(c => c.name),
+    datasets: [{
+      label: "CVR",
+      data: sortedChannels.map(c => c.enrolls / c.leads * 100),
+      backgroundColor: sortedChannels.map(c => c.color),
+    }]
+  },
+  options: {
+    indexAxis: "y",
+    plugins: { legend: { display: false } },
+    scales: { x: { ticks: { callback: v => v + "%" } } }
+  }
+});
+
+// PAID: spend, leads, cpe per platform
+let paidView = "all";
+let spendChart, leadsChart, cpeChart;
+function renderPaidCharts() {
+  if (spendChart) spendChart.destroy();
+  if (leadsChart) leadsChart.destroy();
+  if (cpeChart) cpeChart.destroy();
+
+  const platforms = Object.keys(paidPlatform);
+  const cohortKeys = paidView === "yoy" ? ["s25", "s26"] : paidView === "coc" ? ["w26", "s26"] : ["s25", "w26", "s26"];
+  const cohortLabels = { s25: "Spring 2025", w26: "Winter 2026", s26: "Spring 2026" };
+  const cohortColors = { s25: LIGHT, w26: GREY, s26: NAVY };
+
+  const datasets = cohortKeys.map(k => ({
+    label: cohortLabels[k],
+    data: platforms.map(p => paidPlatform[p][k].spend),
+    backgroundColor: cohortColors[k],
+  }));
+  spendChart = makeChart("paidSpend", {
+    type: "bar",
+    data: { labels: platforms, datasets },
+    options: {
+      plugins: { legend: { position: "bottom" } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => "$" + (v/1000) + "K" } } }
+    }
+  });
+
+  const leadsDs = cohortKeys.map(k => ({
+    label: cohortLabels[k],
+    data: platforms.map(p => paidPlatform[p][k].leads),
+    backgroundColor: cohortColors[k],
+  }));
+  leadsChart = makeChart("paidLeads", {
+    type: "bar",
+    data: { labels: platforms, datasets: leadsDs },
+    options: {
+      plugins: { legend: { position: "bottom" } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  const cpeDs = cohortKeys.map(k => ({
+    label: cohortLabels[k],
+    data: platforms.map(p => paidPlatform[p][k].cpe),
+    backgroundColor: cohortColors[k],
+  }));
+  cpeChart = makeChart("paidCpe", {
+    type: "bar",
+    data: { labels: platforms, datasets: cpeDs },
+    options: {
+      plugins: { legend: { position: "bottom" } },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => "$" + v.toLocaleString() } } }
+    }
+  });
+}
+
+document.querySelectorAll(".toggle").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".toggle").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    paidView = btn.dataset.cohort;
+    renderPaidCharts();
+  });
+});
+
+// Brand SEM combo
+makeChart("brandSem", {
+  type: "bar",
+  data: {
+    labels: brandSemData.labels,
+    datasets: [
+      { type: "bar", label: "Brand SEM spend", data: brandSemData.spend, backgroundColor: NAVY, yAxisID: "y" },
+      { type: "line", label: "Brand enrollments", data: brandSemData.enrolls, borderColor: RED, backgroundColor: RED, yAxisID: "y1", tension: 0.2, pointRadius: 6, borderWidth: 3 },
+    ]
+  },
+  options: {
+    plugins: { legend: { position: "bottom" } },
+    scales: {
+      y: { beginAtZero: true, position: "left", ticks: { callback: v => "$" + (v/1000) + "K" }, title: { display: true, text: "Spend" } },
+      y1: { beginAtZero: true, position: "right", grid: { drawOnChartArea: false }, max: 35, title: { display: true, text: "Enrollments" } },
+    }
+  }
+});
+
+// PMax issue
+makeChart("pmaxIssue", {
+  type: "bar",
+  data: {
+    labels: pmaxIssue.programs,
+    datasets: [
+      { label: "Spend CoC %", data: pmaxIssue.spendCoC, backgroundColor: LIGHT },
+      { label: "Clicks CoC %", data: pmaxIssue.clicksCoC, backgroundColor: GREY },
+      { label: "Leads CoC %", data: pmaxIssue.leadsCoC, backgroundColor: RED },
+    ]
+  },
+  options: {
+    plugins: { legend: { position: "bottom" } },
+    scales: { y: { ticks: { callback: v => v + "%" } } }
+  }
+});
+
+// Initial render
+fillProgramTable();
+fillChannelTable();
+fillPaidTable();
+renderPaidCharts();
+</script>
+
+</body>
+</html>
