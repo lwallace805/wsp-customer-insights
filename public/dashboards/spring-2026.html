@@ -7,81 +7,25 @@
 <style>
   :root {
     color-scheme: light;
-    --navy: #0a2540;
-    --teal: #1f6f7c;
-    --gold: #c8a04a;
-    --red: #b53b3b;
-    --green: #3d8b5a;
-    --grey: #8a8a8a;
-    --light-grey: #cfcfcf;
-    --bg: #f4f1ec;
-    --card: #ffffff;
-    --border: #e6e1d8;
-    --text: #1a1a1a;
-    --text-muted: #6b6b6b;
+    --navy: #0a2540; --teal: #1f6f7c; --gold: #c8a04a; --red: #b53b3b;
+    --green: #3d8b5a; --grey: #8a8a8a; --light-grey: #cfcfcf;
+    --bg: #f4f1ec; --card: #ffffff; --border: #e6e1d8;
+    --text: #1a1a1a; --text-muted: #6b6b6b;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-    font-size: 14px;
-    line-height: 1.45;
-  }
-  .container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 24px;
-  }
-  header { margin-bottom: 24px; }
-  h1 {
-    font-size: 28px;
-    color: var(--navy);
-    margin: 0 0 6px 0;
-    letter-spacing: -0.3px;
-  }
-  .sub {
-    color: var(--text-muted);
-    font-size: 13px;
-  }
-  .nav {
-    display: flex;
-    gap: 4px;
-    margin: 20px 0 24px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .nav button {
-    background: none;
-    border: none;
-    padding: 10px 16px;
-    font-size: 13px;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    font-family: inherit;
-    font-weight: 500;
-  }
-  .nav button.active {
-    color: var(--navy);
-    border-bottom-color: var(--navy);
-    font-weight: 600;
-  }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; font-size: 14px; line-height: 1.45; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  header { margin-bottom: 20px; }
+  h1 { font-size: 28px; color: var(--navy); margin: 0 0 6px 0; letter-spacing: -0.3px; }
+  .sub { color: var(--text-muted); font-size: 13px; }
+  .nav { display: flex; gap: 4px; margin: 20px 0 24px 0; border-bottom: 1px solid var(--border); }
+  .nav button { background: none; border: none; padding: 10px 16px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; font-family: inherit; font-weight: 500; }
+  .nav button.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
   .nav button:hover:not(.active) { color: var(--text); }
   section { display: none; }
   section.active { display: block; }
-  .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  .kpi {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 18px;
-  }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
   .kpi-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
   .kpi-value { font-size: 32px; color: var(--navy); font-weight: 700; margin: 6px 0 2px 0; }
   .kpi-sub { font-size: 12px; color: var(--text); }
@@ -89,32 +33,13 @@
   .delta-bad { color: var(--red); }
   .delta-good { color: var(--green); }
   .delta-warn { color: var(--gold); }
-  .panel-grid {
-    display: grid;
-    gap: 16px;
-    margin-bottom: 16px;
-  }
+  .panel-grid { display: grid; gap: 16px; margin-bottom: 16px; }
   .panel-grid.cols-2 { grid-template-columns: 1fr 1fr; }
   .panel-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-  .panel-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
-  .panel {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 18px;
-  }
-  .panel h3 {
-    margin: 0 0 14px 0;
-    font-size: 13px;
-    color: var(--navy);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-  }
-  .panel-tall { min-height: 320px; }
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
+  .panel h3 { margin: 0 0 14px 0; font-size: 13px; color: var(--navy); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
   .chart-wrap { position: relative; height: 280px; }
-  .chart-wrap.tall { height: 340px; }
-  .chart-wrap.short { height: 200px; }
+  .chart-wrap.tall { height: 360px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); }
   th:first-child, td:first-child { text-align: left; }
@@ -123,69 +48,32 @@
   .pos { color: var(--green); font-weight: 600; }
   .neg { color: var(--red); font-weight: 600; }
   .neut { color: var(--text-muted); }
-  .actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-  .action-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-left: 4px solid var(--red);
-    border-radius: 6px;
-    padding: 16px;
-  }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .action-card { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--red); border-radius: 6px; padding: 16px; }
   .action-card.fn { border-left-color: var(--red); }
   .action-card.pf { border-left-color: var(--green); }
-  .action-tag {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: var(--red);
-    margin-bottom: 6px;
-  }
+  .action-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--red); margin-bottom: 6px; }
   .action-card.pf .action-tag { color: var(--green); }
   .action-title { font-weight: 700; color: var(--navy); margin-bottom: 4px; }
   .action-body { font-size: 13px; color: var(--text); }
   .toggle-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-  .toggle {
-    padding: 5px 12px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--text-muted);
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
-    font-family: inherit;
-  }
+  .toggle { padding: 5px 12px; border: 1px solid var(--border); background: var(--card); color: var(--text-muted); border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; font-family: inherit; }
   .toggle.active { background: var(--navy); color: white; border-color: var(--navy); }
-  footer {
-    margin-top: 32px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    font-size: 11px;
-    color: var(--text-muted);
-  }
+  footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted); }
   footer a { color: var(--teal); text-decoration: none; }
   footer a:hover { text-decoration: underline; }
-  .callout {
-    background: #fef9ec;
-    border-left: 3px solid var(--gold);
-    padding: 10px 14px;
-    border-radius: 4px;
-    font-size: 13px;
-    margin-bottom: 16px;
-  }
-  .red-flag {
-    background: #fbeaea;
-    border-left: 3px solid var(--red);
-  }
-  .green-flag {
-    background: #eaf5ee;
-    border-left: 3px solid var(--green);
-  }
+  .callout { background: #fef9ec; border-left: 3px solid var(--gold); padding: 10px 14px; border-radius: 4px; font-size: 13px; margin-bottom: 14px; }
+  .red-flag { background: #fbeaea; border-left: 3px solid var(--red); }
+  .green-flag { background: #eaf5ee; border-left: 3px solid var(--green); }
+  .program-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .program-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .program-card .name { font-size: 18px; font-weight: 700; color: var(--navy); }
+  .program-card .pace { font-size: 22px; font-weight: 700; margin: 6px 0 2px 0; }
+  .program-card .pace.on { color: var(--green); }
+  .program-card .pace.off { color: var(--red); }
+  .program-card .pace.ahead { color: var(--green); }
+  .program-card .label { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.4px; }
+  .program-card .detail { font-size: 11px; color: var(--text); margin-top: 8px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -193,7 +81,7 @@
 
 <header>
   <h1>Spring 2026 Cohort Performance</h1>
-  <div class="sub">Wharton certificate programs &nbsp;·&nbsp; Day 33 before deadline (May 13, 2026) &nbsp;·&nbsp; Goal: 1,225 enrollments</div>
+  <div class="sub">Wharton certificate programs &nbsp;·&nbsp; Day 33 before deadline (May 13, 2026) &nbsp;·&nbsp; 33 days of marketing cycle remaining &nbsp;·&nbsp; Goal: 1,225 enrollments</div>
 </header>
 
 <nav class="nav">
@@ -208,22 +96,22 @@
 <section id="overview" class="active">
   <div class="kpi-grid">
     <div class="kpi">
-      <div class="kpi-label">Enrollments</div>
+      <div class="kpi-label">Enrollments to date</div>
       <div class="kpi-value">536</div>
-      <div class="kpi-sub">of 1,225 goal</div>
-      <div class="kpi-delta delta-bad">44% of goal · day 33 of cohort</div>
+      <div class="kpi-sub">vs 590 paced target</div>
+      <div class="kpi-delta delta-warn">-9% behind pace · day 33 of cohort</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Forecast EOC</div>
-      <div class="kpi-value">590</div>
-      <div class="kpi-sub">vs Winter 2026: 1,020</div>
-      <div class="kpi-delta delta-bad">-42% vs Winter</div>
+      <div class="kpi-label">At-pace EOC projection</div>
+      <div class="kpi-value">~1,113</div>
+      <div class="kpi-sub">if today's pace ratio holds</div>
+      <div class="kpi-delta delta-good">+9% vs Winter 2026 (1,020)</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">Leads</div>
+      <div class="kpi-label">Leads to date</div>
       <div class="kpi-value">12,001</div>
-      <div class="kpi-sub">vs 16,235 forecast</div>
-      <div class="kpi-delta delta-bad">-26% to plan</div>
+      <div class="kpi-sub">vs 16,235 paced</div>
+      <div class="kpi-delta delta-bad">-26% to plan · back-half risk</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">Blended CVR</div>
@@ -234,28 +122,64 @@
   </div>
 
   <div class="callout">
-    <strong>Position read.</strong> Cohort is behind on leads, ahead of forecast on CVR, well below historical baseline on CVR for the three core programs (PE, RE, FP&amp;A). Paid spend is roughly flat vs Winter 2026 in aggregate but reshuffled aggressively: Meta +116%, Google -16%, LinkedIn +13%. Brand SEM scaled +70% for flat enrollments.
+    <strong>Position read.</strong> Cohort is 9% behind paced target with 33 days remaining. End-of-cohort goal (1,225) is itself +20% vs Winter 2026 (1,020), so the cohort had aggressive growth baked in. At current pace, projects to ~1,113 = +9% vs Winter. Four of five programs project to land above Winter 2026 final. RE is the only program meaningfully behind pace (-23%). Lead deficit (-26%) is the back-half risk because the historical demand curve back-loads heavily.
   </div>
 
   <div class="panel-grid cols-2">
     <div class="panel">
-      <h3>Cohort enrollment comparison</h3>
-      <div class="chart-wrap"><canvas id="cohortBar"></canvas></div>
+      <h3>Cumulative enrollment trajectory: actual vs paced target</h3>
+      <div class="chart-wrap tall"><canvas id="pacingTotal"></canvas></div>
     </div>
     <div class="panel">
-      <h3>Daily enrollment pace vs goal</h3>
-      <div class="chart-wrap"><canvas id="paceLine"></canvas></div>
+      <h3>Daily expected enrollments (historical curve, remaining 33 days)</h3>
+      <div class="chart-wrap tall"><canvas id="dailyCurve"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Program pace status at day 33</h3>
+    <div class="program-grid">
+      <div class="program-card">
+        <div class="name">PE</div>
+        <div class="pace on">ON PACE</div>
+        <div class="label">138 actual / 138 paced</div>
+        <div class="detail">EOC target: 323 · vs Winter 284 · Projection: <strong>323 (+14% vs Winter)</strong></div>
+      </div>
+      <div class="program-card">
+        <div class="name">RE</div>
+        <div class="pace off">-23%</div>
+        <div class="label">135 actual / 175 paced</div>
+        <div class="detail">EOC target: 363 · vs Winter 338 · Projection: <strong>280 (-17% vs Winter)</strong></div>
+      </div>
+      <div class="program-card">
+        <div class="name">FP&amp;A</div>
+        <div class="pace off">-11%</div>
+        <div class="label">140 actual / 157 paced</div>
+        <div class="detail">EOC target: 300 · vs Winter 245 · Projection: <strong>268 (+9% vs Winter)</strong></div>
+      </div>
+      <div class="program-card">
+        <div class="name">AVI</div>
+        <div class="pace off">-11%</div>
+        <div class="label">56 actual / 63 paced</div>
+        <div class="detail">EOC target: 114 · vs Winter 97 · Projection: <strong>101 (+4% vs Winter)</strong></div>
+      </div>
+      <div class="program-card">
+        <div class="name">RDI</div>
+        <div class="pace ahead">+18%</div>
+        <div class="label">67 actual / 57 paced</div>
+        <div class="detail">EOC target: 125 · vs Winter ~56 · Projection: <strong>147 (+163% vs Winter)</strong></div>
+      </div>
     </div>
   </div>
 
   <div class="panel-grid cols-2">
     <div class="panel">
-      <h3>Lead pacing vs Spring 2026 forecast</h3>
-      <div class="chart-wrap"><canvas id="leadPacing"></canvas></div>
+      <h3>Pace gap by program (day 33)</h3>
+      <div class="chart-wrap"><canvas id="paceGap"></canvas></div>
     </div>
     <div class="panel">
-      <h3>CVR by program: actual vs historical vs target</h3>
-      <div class="chart-wrap"><canvas id="cvrCompare"></canvas></div>
+      <h3>At-pace projection vs Winter 2026 final</h3>
+      <div class="chart-wrap"><canvas id="projVsWinter"></canvas></div>
     </div>
   </div>
 </section>
@@ -263,50 +187,52 @@
 <!-- PROGRAMS -->
 <section id="programs">
   <div class="panel" style="margin-bottom: 16px;">
-    <h3>Program performance summary (Spring 2026, actuals to date)</h3>
+    <h3>Program pace status (Spring 2026, day 33)</h3>
     <table>
       <thead>
         <tr>
           <th>Program</th>
-          <th>Leads</th>
-          <th>Enrolls</th>
-          <th>CVR</th>
-          <th>Historical CVR</th>
-          <th>Target CVR</th>
-          <th>Spend</th>
-          <th>CPL</th>
-          <th>CPE</th>
-          <th>ROAS</th>
+          <th>Current</th>
+          <th>Paced</th>
+          <th>Pace gap</th>
+          <th>EOC goal</th>
+          <th>At-pace projection</th>
+          <th>Winter 2026 final</th>
+          <th>vs Winter</th>
+          <th>Need/day to hit goal</th>
         </tr>
       </thead>
-      <tbody id="programTable"></tbody>
+      <tbody id="paceTable"></tbody>
     </table>
   </div>
 
-  <div class="panel-grid cols-2">
+  <div class="toggle-row">
+    <button class="toggle active" data-prog="total">Total</button>
+    <button class="toggle" data-prog="PE">PE</button>
+    <button class="toggle" data-prog="RE">RE</button>
+    <button class="toggle" data-prog="FPA">FP&amp;A</button>
+    <button class="toggle" data-prog="AVI">AVI</button>
+    <button class="toggle" data-prog="RDI">RDI</button>
+  </div>
+
+  <div class="panel">
+    <h3 id="trajTitle">Total enrollment trajectory</h3>
+    <div class="chart-wrap tall"><canvas id="programTraj"></canvas></div>
+  </div>
+
+  <div class="panel-grid cols-2" style="margin-top:16px;">
     <div class="panel">
-      <h3>Enrollments: forecast vs Winter 2026 final</h3>
-      <div class="chart-wrap"><canvas id="enrollCompare"></canvas></div>
+      <h3>Spring 2026 CVR by program vs historical baseline vs target</h3>
+      <div class="chart-wrap"><canvas id="cvrCompare"></canvas></div>
+      <div class="callout red-flag" style="margin-top:12px;">
+        PE -10%, RE -24%, FP&amp;A -23% vs historical CVR. CVR-to-baseline recovery is the highest-leverage non-spend lever in the remaining 33 days.
+      </div>
     </div>
     <div class="panel">
       <h3>CPE by program</h3>
       <div class="chart-wrap"><canvas id="cpeProgram"></canvas></div>
-    </div>
-  </div>
-
-  <div class="panel-grid cols-2">
-    <div class="panel">
-      <h3>RDI: only program beating its forecast</h3>
-      <div class="chart-wrap"><canvas id="rdiBeat"></canvas></div>
       <div class="callout green-flag" style="margin-top:12px;">
-        RDI: 67 actuals vs 57 forecast (+18%). CPL highest in portfolio ($83) but CVR also highest (6.68%, +42% vs historical baseline). Worth a debrief on creative, lifecycle, intent targeting before the playbook gets diluted.
-      </div>
-    </div>
-    <div class="panel">
-      <h3>RE diagnosis: middle on lead pacing, worst on CVR lift</h3>
-      <div class="chart-wrap"><canvas id="reDiagnosis"></canvas></div>
-      <div class="callout red-flag" style="margin-top:12px;">
-        RE's problem isn't leads (-23% pacing, middle of pack). It's CVR collapse: 4.99% vs 6.59% historical = -24%. Plus a Google PMax click-quality breakdown: clicks -2% CoC but leads -64%.
+        PE CPE $757 is portfolio-best despite Google PMax issues. RDI CPE $1,236 highest but justified by +18% over forecast.
       </div>
     </div>
   </div>
@@ -316,7 +242,7 @@
 <section id="channels">
   <div class="panel-grid cols-2">
     <div class="panel">
-      <h3>Channel mix (Spring 2026 enrollments)</h3>
+      <h3>Channel mix (Spring 2026 enrollments to date)</h3>
       <div class="chart-wrap"><canvas id="channelMix"></canvas></div>
     </div>
     <div class="panel">
@@ -331,7 +257,7 @@
       <thead>
         <tr>
           <th>Channel</th>
-          <th>Enrollments</th>
+          <th>Enrolls</th>
           <th>% of cohort</th>
           <th>Leads</th>
           <th>CVR</th>
@@ -346,10 +272,10 @@
   </div>
 
   <div class="callout green-flag" style="margin-top:16px;">
-    <strong>Email is the most leveraged channel in the cohort.</strong> 69 enrollments off 114 leads = 60.5% CVR. 13% of cohort enrollments at near-zero direct cost. Worth pressing harder for the remaining 33 days, plus building remarketing audiences from this list.
+    <strong>Email is the deadline-week multiplier.</strong> 69 enrollments off 114 leads = 60.5% CVR. 13% of cohort at near-zero direct cost. The historical demand curve assumes 358 more enrollments come in the final 14 days; email + remarketing on the past-year HQSL list is the cleanest path to capture that volume.
   </div>
   <div class="callout red-flag">
-    <strong>Offline/Direct is a black box.</strong> 136 enrollments (25% of cohort), CVR 11.6%, marked "Channel Unknown." Quarter of revenue is unattributed. Project to instrument before Summer 2026.
+    <strong>Offline/Direct is a 25% black box.</strong> 136 enrollments, CVR 11.6%, marked "Channel Unknown." A quarter of revenue is unattributed. Project for Summer 2026 planning.
   </div>
 </section>
 
@@ -378,17 +304,17 @@
 
   <div class="panel-grid cols-2">
     <div class="panel">
-      <h3>Brand SEM: spend up, enrollments flat</h3>
+      <h3>Brand SEM: spend up 70%, enrollments flat</h3>
       <div class="chart-wrap"><canvas id="brandSem"></canvas></div>
       <div class="callout red-flag" style="margin-top:12px;">
-        Brand SEM consumed $99K in Spring 2026 vs $58K in Winter 2026 (+70%) for 25 enrollments vs 26. CPE up 77% ($2,244 → $3,970). Brenden's #1 recommendation: cut to Winter daily spend rates immediately, reallocate ~$40K to ROAS-positive campaigns.
+        $99K vs $58K (+70%) for 25 vs 26 enrollments. CPE +77%. Brenden's #1 recommendation: cut to Winter daily rate immediately, frees ~$40K to reallocate to Meta + remarketing.
       </div>
     </div>
     <div class="panel">
       <h3>Google PMax: PE and RE click-quality collapse</h3>
       <div class="chart-wrap"><canvas id="pmaxIssue"></canvas></div>
       <div class="callout red-flag" style="margin-top:12px;">
-        PE Google clicks -76% CoC on -25% spend cut. RE clicks -2% but leads -64% (click-to-lead fell from 5.9% to 2.2%). Brenden flags this as the "PMax Black Box Issue." Audit asset groups, audience signals, brand exclusions before adding more spend.
+        PE Google clicks -76% CoC on -25% spend cut. RE clicks -2% but leads -64% (click-to-lead fell 5.9% → 2.2%). Audit asset groups, audience signals, brand exclusions before adding more spend.
       </div>
     </div>
   </div>
@@ -414,7 +340,7 @@
   </div>
 
   <div class="callout">
-    <strong>The paid story.</strong> Aggregate paid spend across Google + Meta + LinkedIn is roughly flat vs Winter 2026 (~$520K vs ~$510K). Composition shifted dramatically: Google -$63K, Meta +$66K, LinkedIn +$7K. In-cohort enrollments from paid: 109 vs 111 = essentially flat. Meta absorbed Google's cut without a proportional lift. CPE worsened on every platform.
+    <strong>Paid composition shifted, aggregate is flat.</strong> Google + Meta + LinkedIn total: $520K (Spring 2026) vs $510K (Winter 2026). Composition: Google -$63K, Meta +$66K, LinkedIn +$7K. In-cohort enrollments from paid: 109 vs 111 = flat. Meta absorbed Google's cut without proportional lift; CPE worsened on every platform.
   </div>
 </section>
 
@@ -426,32 +352,32 @@
       <div class="action-card fn">
         <div class="action-tag">Fix now · paid media</div>
         <div class="action-title">Cut Brand SEM to Winter daily spend rate</div>
-        <div class="action-body">Frees roughly $40K. Reallocate to Meta (with weekly CPE monitoring) and a new remarketing campaign. Brenden's #1 recommendation; the math is clean.</div>
+        <div class="action-body">Frees ~$40K. Reallocate to Meta (weekly CPE monitoring) and remarketing. Brenden's #1 recommendation.</div>
       </div>
       <div class="action-card fn">
         <div class="action-tag">Fix now · paid media</div>
         <div class="action-title">Audit Google PMax for PE and RE</div>
-        <div class="action-body">Asset groups, audience signals, brand exclusions. Reallocating spend before fixing PMax just funds the leak.</div>
+        <div class="action-body">Asset groups, audience signals, brand exclusions. Fix before reallocating spend into a broken setup.</div>
       </div>
       <div class="action-card fn">
         <div class="action-tag">Fix now · lifecycle</div>
         <div class="action-title">Launch remarketing on Meta / LI / Google</div>
-        <div class="action-body">Past-year HQSL audience. Carousel ads with deadline-focused messaging. Second touch on existing leads, no new media risk.</div>
+        <div class="action-body">Past-year HQSL audience, carousel ads with deadline-focused messaging. Second touch on existing leads.</div>
       </div>
       <div class="action-card fn">
         <div class="action-tag">Fix now · email</div>
-        <div class="action-title">Push email harder for remaining 33 days</div>
-        <div class="action-body">Converting at 60.5% on 114 leads. The list is sitting unused. Application-completion drips, scholarship/deadline pushes, faster sales follow-up.</div>
+        <div class="action-title">Push email for the 33-day deadline window</div>
+        <div class="action-body">60.5% CVR on 114 leads. List is sitting unused. Application-completion drips, scholarship/deadline pushes, faster sales follow-up.</div>
       </div>
       <div class="action-card fn">
-        <div class="action-tag">Fix now · attribution</div>
-        <div class="action-title">Pin down Andrew's comparison frame</div>
-        <div class="action-body">His -29% RE and -8% overall don't reconcile to either doc. Sync the slice before any of those numbers go external.</div>
+        <div class="action-tag">Fix now · CVR recovery</div>
+        <div class="action-title">Rebuild PE / RE / FP&amp;A toward historical CVR</div>
+        <div class="action-body">Three core programs running -10% to -24% below historical baseline. Highest-leverage non-spend lever for the remaining 33 days.</div>
       </div>
       <div class="action-card fn">
         <div class="action-tag">Fix now · reporting</div>
         <div class="action-title">Split LinkedIn FP&amp;A Employer Test</div>
-        <div class="action-body">~$11K of FP&amp;A LinkedIn spend is Employer Test. Either pull it into a separate line or footnote it. Otherwise the channel read is distorted.</div>
+        <div class="action-body">~$11K of FP&amp;A LinkedIn spend is the Employer Test. Either pull it out or footnote it; the channel read is otherwise distorted.</div>
       </div>
     </div>
   </div>
@@ -462,41 +388,36 @@
       <div class="action-card pf">
         <div class="action-tag">Plan forward · attribution</div>
         <div class="action-title">Instrument Offline/Direct</div>
-        <div class="action-body">25% of enrollments are coming from "Channel Unknown." Strategic blind spot. UTMs, call tracking, post-purchase survey.</div>
+        <div class="action-body">25% of enrollments in "Channel Unknown." UTMs, call tracking, post-purchase survey.</div>
       </div>
       <div class="action-card pf">
         <div class="action-tag">Plan forward · diversification</div>
         <div class="action-title">Test Reddit and Quora</div>
-        <div class="action-body">Brenden's diversification recommendation. Low-cost way to learn before Fall 2026 cohort dependencies are locked in.</div>
+        <div class="action-body">Brenden's recommendation. Low-cost learning before Fall 2026 dependencies are locked.</div>
       </div>
       <div class="action-card pf">
         <div class="action-tag">Plan forward · program</div>
         <div class="action-title">Codify the RDI playbook</div>
-        <div class="action-body">Only program beating CVR baseline (+42%) and forecast (+18%). Document the creative, targeting, lifecycle differences; consider porting to PE and RE.</div>
+        <div class="action-body">Only program beating CVR baseline (+42%) and forecast (+18%). Document creative, targeting, lifecycle differences; consider porting to PE/RE.</div>
       </div>
       <div class="action-card pf">
         <div class="action-tag">Plan forward · reporting</div>
-        <div class="action-title">Add paid-channel-only CVR vs trailing cohorts</div>
-        <div class="action-body">The "PPC CVR up 37%" claim needs a real anchor. Build a paid-only CVR series across the last four cohorts so this stops being a vibes argument.</div>
+        <div class="action-title">Paid-channel CVR series across trailing cohorts</div>
+        <div class="action-body">The "PPC CVR up 37%" reading needs a real anchor. Build paid-only CVR series across the last four cohorts.</div>
       </div>
     </div>
   </div>
 </section>
 
 <footer>
-  Sources: <a href="https://docs.google.com/spreadsheets/d/1o5lfRmA1nAe0BDnYtZ1OJOnU9eB8y4WeJdGNL0_BE_Y/edit" target="_blank">Wharton Spring 2026 Cohort Performance Doc</a> · <a href="https://docs.google.com/spreadsheets/d/1YKdiHd3Zg5HcDp5moDOBAPl5BN3bf2OGhYZgyRuMLjU/edit" target="_blank">Paid Media Analysis (Brenden DelaRua)</a>. Snapshot as of May 13, 2026 actuals. Note: Paid Media Analysis labels the prior cohort "Winter 2025"; this dashboard uses "Winter 2026" throughout to match Andrew's framing.
+  Sources: <a href="https://docs.google.com/spreadsheets/d/1o5lfRmA1nAe0BDnYtZ1OJOnU9eB8y4WeJdGNL0_BE_Y/edit" target="_blank">Wharton Spring 2026 Cohort Performance Doc</a> (Pacing V2 tab) · <a href="https://docs.google.com/spreadsheets/d/1YKdiHd3Zg5HcDp5moDOBAPl5BN3bf2OGhYZgyRuMLjU/edit" target="_blank">Paid Media Analysis</a>. Snapshot of May 13, 2026 actuals. Mid-cohort framing: actuals reflect day 33 of ~70-day cycle; "at-pace projection" assumes today's pace ratio holds through deadline. "Winter 2026" = the cohort labeled "Winter 2025" in Paid Media Analysis (Oct 2025–Jan 2026).
 </footer>
 
 </div>
 
 <script>
-const NAVY = "#0a2540";
-const TEAL = "#1f6f7c";
-const GOLD = "#c8a04a";
-const RED = "#b53b3b";
-const GREEN = "#3d8b5a";
-const GREY = "#8a8a8a";
-const LIGHT = "#cfcfcf";
+const NAVY = "#0a2540", TEAL = "#1f6f7c", GOLD = "#c8a04a", RED = "#b53b3b";
+const GREEN = "#3d8b5a", GREY = "#8a8a8a", LIGHT = "#cfcfcf";
 
 Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 Chart.defaults.font.size = 11;
@@ -504,15 +425,15 @@ Chart.defaults.color = "#1a1a1a";
 Chart.defaults.plugins.legend.labels.boxWidth = 12;
 Chart.defaults.plugins.legend.labels.boxHeight = 12;
 
-// ============ DATA ============
-const PROGRAMS = ["PE", "RE", "FP&A", "AVI", "RDI"];
+// ============ PACING DATA (Pacing V2 tab) ============
+const PACING = [{"d":102,"ta":14,"tp":26,"PE_a":4,"PE_p":6,"RE_a":3,"RE_p":6,"FPA_a":5,"FPA_p":8,"AVI_a":2,"AVI_p":6,"RDI_a":0,"RDI_p":0},{"d":101,"ta":16,"tp":27,"PE_a":4,"PE_p":6,"RE_a":4,"RE_p":6,"FPA_a":6,"FPA_p":9,"AVI_a":2,"AVI_p":6,"RDI_a":0,"RDI_p":0},{"d":100,"ta":17,"tp":30,"PE_a":4,"PE_p":7,"RE_a":5,"RE_p":7,"FPA_a":6,"FPA_p":9,"AVI_a":2,"AVI_p":7,"RDI_a":0,"RDI_p":0},{"d":99,"ta":18,"tp":30,"PE_a":5,"PE_p":7,"RE_a":5,"RE_p":7,"FPA_a":6,"FPA_p":9,"AVI_a":2,"AVI_p":7,"RDI_a":0,"RDI_p":0},{"d":98,"ta":19,"tp":33,"PE_a":5,"PE_p":8,"RE_a":5,"RE_p":8,"FPA_a":7,"FPA_p":10,"AVI_a":2,"AVI_p":7,"RDI_a":0,"RDI_p":0},{"d":97,"ta":22,"tp":38,"PE_a":8,"PE_p":9,"RE_a":5,"RE_p":9,"FPA_a":7,"FPA_p":11,"AVI_a":2,"AVI_p":9,"RDI_a":0,"RDI_p":0},{"d":96,"ta":23,"tp":40,"PE_a":8,"PE_p":9,"RE_a":6,"RE_p":10,"FPA_a":7,"FPA_p":12,"AVI_a":2,"AVI_p":9,"RDI_a":0,"RDI_p":0},{"d":95,"ta":25,"tp":41,"PE_a":9,"PE_p":9,"RE_a":6,"RE_p":11,"FPA_a":8,"FPA_p":12,"AVI_a":2,"AVI_p":9,"RDI_a":0,"RDI_p":0},{"d":94,"ta":26,"tp":43,"PE_a":9,"PE_p":10,"RE_a":6,"RE_p":11,"FPA_a":9,"FPA_p":13,"AVI_a":2,"AVI_p":9,"RDI_a":0,"RDI_p":0},{"d":93,"ta":26,"tp":44,"PE_a":9,"PE_p":10,"RE_a":6,"RE_p":12,"FPA_a":9,"FPA_p":13,"AVI_a":2,"AVI_p":9,"RDI_a":0,"RDI_p":0},{"d":92,"ta":28,"tp":46,"PE_a":9,"PE_p":11,"RE_a":7,"RE_p":12,"FPA_a":9,"FPA_p":14,"AVI_a":2,"AVI_p":9,"RDI_a":1,"RDI_p":0},{"d":91,"ta":33,"tp":48,"PE_a":12,"PE_p":12,"RE_a":8,"RE_p":13,"FPA_a":9,"FPA_p":14,"AVI_a":3,"AVI_p":9,"RDI_a":1,"RDI_p":0},{"d":90,"ta":39,"tp":50,"PE_a":16,"PE_p":13,"RE_a":8,"RE_p":13,"FPA_a":10,"FPA_p":15,"AVI_a":3,"AVI_p":9,"RDI_a":2,"RDI_p":0},{"d":89,"ta":42,"tp":53,"PE_a":16,"PE_p":13,"RE_a":9,"RE_p":14,"FPA_a":11,"FPA_p":16,"AVI_a":4,"AVI_p":10,"RDI_a":2,"RDI_p":0},{"d":88,"ta":45,"tp":55,"PE_a":17,"PE_p":15,"RE_a":10,"RE_p":14,"FPA_a":12,"FPA_p":16,"AVI_a":4,"AVI_p":10,"RDI_a":2,"RDI_p":0},{"d":87,"ta":46,"tp":57,"PE_a":17,"PE_p":16,"RE_a":11,"RE_p":14,"FPA_a":12,"FPA_p":17,"AVI_a":4,"AVI_p":10,"RDI_a":2,"RDI_p":0},{"d":86,"ta":46,"tp":59,"PE_a":17,"PE_p":17,"RE_a":11,"RE_p":15,"FPA_a":12,"FPA_p":17,"AVI_a":4,"AVI_p":10,"RDI_a":2,"RDI_p":0},{"d":85,"ta":47,"tp":60,"PE_a":17,"PE_p":17,"RE_a":12,"RE_p":15,"FPA_a":12,"FPA_p":18,"AVI_a":4,"AVI_p":10,"RDI_a":2,"RDI_p":0},{"d":84,"ta":49,"tp":62,"PE_a":17,"PE_p":18,"RE_a":12,"RE_p":16,"FPA_a":14,"FPA_p":18,"AVI_a":4,"AVI_p":10,"RDI_a":2,"RDI_p":0},{"d":83,"ta":52,"tp":66,"PE_a":17,"PE_p":20,"RE_a":12,"RE_p":16,"FPA_a":17,"FPA_p":19,"AVI_a":4,"AVI_p":11,"RDI_a":2,"RDI_p":0},{"d":82,"ta":56,"tp":68,"PE_a":18,"PE_p":20,"RE_a":12,"RE_p":17,"FPA_a":20,"FPA_p":19,"AVI_a":4,"AVI_p":12,"RDI_a":2,"RDI_p":0},{"d":81,"ta":59,"tp":69,"PE_a":20,"PE_p":20,"RE_a":12,"RE_p":17,"FPA_a":21,"FPA_p":20,"AVI_a":4,"AVI_p":12,"RDI_a":2,"RDI_p":0},{"d":80,"ta":65,"tp":73,"PE_a":21,"PE_p":21,"RE_a":13,"RE_p":18,"FPA_a":22,"FPA_p":21,"AVI_a":7,"AVI_p":13,"RDI_a":2,"RDI_p":0},{"d":79,"ta":67,"tp":76,"PE_a":21,"PE_p":23,"RE_a":13,"RE_p":18,"FPA_a":24,"FPA_p":21,"AVI_a":7,"AVI_p":13,"RDI_a":2,"RDI_p":1},{"d":78,"ta":68,"tp":81,"PE_a":21,"PE_p":24,"RE_a":13,"RE_p":21,"FPA_a":25,"FPA_p":22,"AVI_a":7,"AVI_p":13,"RDI_a":2,"RDI_p":1},{"d":77,"ta":70,"tp":85,"PE_a":21,"PE_p":26,"RE_a":13,"RE_p":22,"FPA_a":27,"FPA_p":23,"AVI_a":7,"AVI_p":13,"RDI_a":2,"RDI_p":1},{"d":76,"ta":73,"tp":89,"PE_a":21,"PE_p":27,"RE_a":15,"RE_p":23,"FPA_a":27,"FPA_p":24,"AVI_a":8,"AVI_p":14,"RDI_a":2,"RDI_p":1},{"d":75,"ta":74,"tp":93,"PE_a":21,"PE_p":28,"RE_a":15,"RE_p":23,"FPA_a":28,"FPA_p":25,"AVI_a":8,"AVI_p":15,"RDI_a":2,"RDI_p":2},{"d":74,"ta":80,"tp":98,"PE_a":22,"PE_p":29,"RE_a":17,"RE_p":23,"FPA_a":30,"FPA_p":26,"AVI_a":9,"AVI_p":16,"RDI_a":2,"RDI_p":4},{"d":73,"ta":84,"tp":105,"PE_a":23,"PE_p":32,"RE_a":17,"RE_p":24,"FPA_a":31,"FPA_p":28,"AVI_a":10,"AVI_p":16,"RDI_a":3,"RDI_p":5},{"d":72,"ta":86,"tp":105,"PE_a":23,"PE_p":32,"RE_a":18,"RE_p":24,"FPA_a":31,"FPA_p":28,"AVI_a":10,"AVI_p":16,"RDI_a":4,"RDI_p":5},{"d":71,"ta":86,"tp":107,"PE_a":23,"PE_p":32,"RE_a":18,"RE_p":25,"FPA_a":31,"FPA_p":29,"AVI_a":10,"AVI_p":16,"RDI_a":4,"RDI_p":5},{"d":70,"ta":92,"tp":112,"PE_a":26,"PE_p":33,"RE_a":20,"RE_p":25,"FPA_a":31,"FPA_p":31,"AVI_a":10,"AVI_p":17,"RDI_a":5,"RDI_p":6},{"d":69,"ta":104,"tp":117,"PE_a":30,"PE_p":33,"RE_a":24,"RE_p":28,"FPA_a":34,"FPA_p":32,"AVI_a":10,"AVI_p":17,"RDI_a":6,"RDI_p":7},{"d":68,"ta":114,"tp":121,"PE_a":31,"PE_p":35,"RE_a":27,"RE_p":29,"FPA_a":36,"FPA_p":33,"AVI_a":11,"AVI_p":17,"RDI_a":9,"RDI_p":7},{"d":67,"ta":118,"tp":128,"PE_a":33,"PE_p":37,"RE_a":27,"RE_p":31,"FPA_a":38,"FPA_p":34,"AVI_a":11,"AVI_p":19,"RDI_a":9,"RDI_p":7},{"d":66,"ta":119,"tp":133,"PE_a":33,"PE_p":38,"RE_a":27,"RE_p":33,"FPA_a":39,"FPA_p":36,"AVI_a":11,"AVI_p":19,"RDI_a":9,"RDI_p":7},{"d":65,"ta":122,"tp":137,"PE_a":33,"PE_p":38,"RE_a":28,"RE_p":34,"FPA_a":40,"FPA_p":38,"AVI_a":11,"AVI_p":19,"RDI_a":10,"RDI_p":8},{"d":64,"ta":123,"tp":140,"PE_a":33,"PE_p":38,"RE_a":28,"RE_p":34,"FPA_a":41,"FPA_p":40,"AVI_a":11,"AVI_p":19,"RDI_a":10,"RDI_p":9},{"d":63,"ta":130,"tp":144,"PE_a":37,"PE_p":38,"RE_a":29,"RE_p":36,"FPA_a":42,"FPA_p":42,"AVI_a":11,"AVI_p":19,"RDI_a":11,"RDI_p":9},{"d":62,"ta":134,"tp":151,"PE_a":38,"PE_p":39,"RE_a":31,"RE_p":37,"FPA_a":42,"FPA_p":44,"AVI_a":12,"AVI_p":20,"RDI_a":11,"RDI_p":11},{"d":61,"ta":139,"tp":156,"PE_a":38,"PE_p":39,"RE_a":34,"RE_p":40,"FPA_a":44,"FPA_p":45,"AVI_a":12,"AVI_p":21,"RDI_a":11,"RDI_p":11},{"d":60,"ta":146,"tp":160,"PE_a":39,"PE_p":40,"RE_a":36,"RE_p":40,"FPA_a":46,"FPA_p":47,"AVI_a":12,"AVI_p":21,"RDI_a":13,"RDI_p":12},{"d":59,"ta":156,"tp":167,"PE_a":43,"PE_p":41,"RE_a":39,"RE_p":42,"FPA_a":48,"FPA_p":49,"AVI_a":13,"AVI_p":23,"RDI_a":13,"RDI_p":12},{"d":58,"ta":158,"tp":169,"PE_a":43,"PE_p":41,"RE_a":39,"RE_p":44,"FPA_a":49,"FPA_p":49,"AVI_a":13,"AVI_p":23,"RDI_a":14,"RDI_p":12},{"d":57,"ta":165,"tp":175,"PE_a":44,"PE_p":42,"RE_a":41,"RE_p":46,"FPA_a":52,"FPA_p":50,"AVI_a":14,"AVI_p":24,"RDI_a":14,"RDI_p":13},{"d":56,"ta":176,"tp":181,"PE_a":48,"PE_p":44,"RE_a":42,"RE_p":48,"FPA_a":55,"FPA_p":51,"AVI_a":15,"AVI_p":25,"RDI_a":16,"RDI_p":13},{"d":55,"ta":186,"tp":191,"PE_a":52,"PE_p":46,"RE_a":44,"RE_p":50,"FPA_a":56,"FPA_p":54,"AVI_a":16,"AVI_p":26,"RDI_a":18,"RDI_p":15},{"d":54,"ta":192,"tp":197,"PE_a":52,"PE_p":47,"RE_a":45,"RE_p":53,"FPA_a":58,"FPA_p":56,"AVI_a":17,"AVI_p":26,"RDI_a":20,"RDI_p":15},{"d":53,"ta":200,"tp":204,"PE_a":54,"PE_p":49,"RE_a":46,"RE_p":54,"FPA_a":62,"FPA_p":58,"AVI_a":17,"AVI_p":27,"RDI_a":21,"RDI_p":16},{"d":52,"ta":204,"tp":209,"PE_a":56,"PE_p":50,"RE_a":46,"RE_p":56,"FPA_a":64,"FPA_p":60,"AVI_a":17,"AVI_p":27,"RDI_a":21,"RDI_p":16},{"d":51,"ta":207,"tp":214,"PE_a":56,"PE_p":52,"RE_a":46,"RE_p":56,"FPA_a":65,"FPA_p":61,"AVI_a":18,"AVI_p":27,"RDI_a":22,"RDI_p":18},{"d":50,"ta":214,"tp":221,"PE_a":59,"PE_p":54,"RE_a":46,"RE_p":59,"FPA_a":65,"FPA_p":63,"AVI_a":20,"AVI_p":27,"RDI_a":24,"RDI_p":18},{"d":49,"ta":223,"tp":232,"PE_a":63,"PE_p":57,"RE_a":48,"RE_p":62,"FPA_a":66,"FPA_p":66,"AVI_a":20,"AVI_p":27,"RDI_a":26,"RDI_p":20},{"d":48,"ta":230,"tp":240,"PE_a":66,"PE_p":57,"RE_a":50,"RE_p":64,"FPA_a":68,"FPA_p":69,"AVI_a":20,"AVI_p":29,"RDI_a":26,"RDI_p":21},{"d":47,"ta":239,"tp":252,"PE_a":67,"PE_p":59,"RE_a":56,"RE_p":67,"FPA_a":69,"FPA_p":75,"AVI_a":21,"AVI_p":30,"RDI_a":26,"RDI_p":21},{"d":46,"ta":252,"tp":262,"PE_a":70,"PE_p":61,"RE_a":59,"RE_p":69,"FPA_a":71,"FPA_p":80,"AVI_a":24,"AVI_p":30,"RDI_a":28,"RDI_p":22},{"d":45,"ta":260,"tp":273,"PE_a":72,"PE_p":65,"RE_a":60,"RE_p":72,"FPA_a":72,"FPA_p":83,"AVI_a":26,"AVI_p":31,"RDI_a":30,"RDI_p":22},{"d":44,"ta":264,"tp":282,"PE_a":73,"PE_p":66,"RE_a":60,"RE_p":73,"FPA_a":73,"FPA_p":87,"AVI_a":26,"AVI_p":34,"RDI_a":32,"RDI_p":22},{"d":43,"ta":269,"tp":296,"PE_a":74,"PE_p":69,"RE_a":62,"RE_p":74,"FPA_a":73,"FPA_p":96,"AVI_a":28,"AVI_p":34,"RDI_a":32,"RDI_p":23},{"d":42,"ta":276,"tp":315,"PE_a":74,"PE_p":74,"RE_a":62,"RE_p":77,"FPA_a":76,"FPA_p":104,"AVI_a":30,"AVI_p":35,"RDI_a":34,"RDI_p":25},{"d":41,"ta":296,"tp":344,"PE_a":79,"PE_p":78,"RE_a":65,"RE_p":85,"FPA_a":83,"FPA_p":114,"AVI_a":31,"AVI_p":37,"RDI_a":38,"RDI_p":30},{"d":40,"ta":314,"tp":365,"PE_a":84,"PE_p":80,"RE_a":70,"RE_p":91,"FPA_a":88,"FPA_p":120,"AVI_a":32,"AVI_p":40,"RDI_a":40,"RDI_p":34},{"d":39,"ta":336,"tp":390,"PE_a":92,"PE_p":89,"RE_a":74,"RE_p":101,"FPA_a":94,"FPA_p":124,"AVI_a":35,"AVI_p":41,"RDI_a":41,"RDI_p":35},{"d":38,"ta":365,"tp":413,"PE_a":98,"PE_p":92,"RE_a":82,"RE_p":108,"FPA_a":101,"FPA_p":130,"AVI_a":42,"AVI_p":44,"RDI_a":42,"RDI_p":39},{"d":37,"ta":381,"tp":434,"PE_a":100,"PE_p":96,"RE_a":85,"RE_p":118,"FPA_a":108,"FPA_p":134,"AVI_a":44,"AVI_p":45,"RDI_a":44,"RDI_p":41},{"d":36,"ta":421,"tp":468,"PE_a":115,"PE_p":105,"RE_a":94,"RE_p":134,"FPA_a":113,"FPA_p":138,"AVI_a":48,"AVI_p":48,"RDI_a":51,"RDI_p":43},{"d":35,"ta":511,"tp":560,"PE_a":133,"PE_p":133,"RE_a":126,"RE_p":165,"FPA_a":133,"FPA_p":152,"AVI_a":55,"AVI_p":56,"RDI_a":64,"RDI_p":54},{"d":34,"ta":528,"tp":577,"PE_a":136,"PE_p":137,"RE_a":132,"RE_p":169,"FPA_a":139,"FPA_p":155,"AVI_a":55,"AVI_p":61,"RDI_a":66,"RDI_p":55},{"d":33,"ta":536,"tp":590,"PE_a":138,"PE_p":138,"RE_a":135,"RE_p":175,"FPA_a":140,"FPA_p":157,"AVI_a":56,"AVI_p":63,"RDI_a":67,"RDI_p":57},{"d":32,"ta":536,"tp":603,"PE_a":138,"PE_p":140,"RE_a":135,"RE_p":179,"FPA_a":140,"FPA_p":161,"AVI_a":56,"AVI_p":65,"RDI_a":67,"RDI_p":58},{"d":31,"ta":536,"tp":621,"PE_a":138,"PE_p":145,"RE_a":135,"RE_p":187,"FPA_a":140,"FPA_p":163,"AVI_a":56,"AVI_p":66,"RDI_a":67,"RDI_p":60},{"d":30,"ta":536,"tp":624,"PE_a":138,"PE_p":146,"RE_a":135,"RE_p":188,"FPA_a":140,"FPA_p":164,"AVI_a":56,"AVI_p":66,"RDI_a":67,"RDI_p":60},{"d":29,"ta":536,"tp":633,"PE_a":138,"PE_p":150,"RE_a":135,"RE_p":191,"FPA_a":140,"FPA_p":166,"AVI_a":56,"AVI_p":66,"RDI_a":67,"RDI_p":60},{"d":28,"ta":536,"tp":648,"PE_a":138,"PE_p":154,"RE_a":135,"RE_p":198,"FPA_a":140,"FPA_p":168,"AVI_a":56,"AVI_p":67,"RDI_a":67,"RDI_p":61},{"d":27,"ta":536,"tp":661,"PE_a":138,"PE_p":157,"RE_a":135,"RE_p":203,"FPA_a":140,"FPA_p":171,"AVI_a":56,"AVI_p":68,"RDI_a":67,"RDI_p":62},{"d":26,"ta":536,"tp":671,"PE_a":138,"PE_p":161,"RE_a":135,"RE_p":208,"FPA_a":140,"FPA_p":172,"AVI_a":56,"AVI_p":68,"RDI_a":67,"RDI_p":62},{"d":25,"ta":536,"tp":684,"PE_a":138,"PE_p":164,"RE_a":135,"RE_p":213,"FPA_a":140,"FPA_p":176,"AVI_a":56,"AVI_p":69,"RDI_a":67,"RDI_p":62},{"d":24,"ta":536,"tp":695,"PE_a":138,"PE_p":167,"RE_a":135,"RE_p":217,"FPA_a":140,"FPA_p":179,"AVI_a":56,"AVI_p":70,"RDI_a":67,"RDI_p":62},{"d":23,"ta":536,"tp":701,"PE_a":138,"PE_p":168,"RE_a":135,"RE_p":219,"FPA_a":140,"FPA_p":180,"AVI_a":56,"AVI_p":72,"RDI_a":67,"RDI_p":62},{"d":22,"ta":536,"tp":710,"PE_a":138,"PE_p":170,"RE_a":135,"RE_p":221,"FPA_a":140,"FPA_p":183,"AVI_a":56,"AVI_p":74,"RDI_a":67,"RDI_p":62},{"d":21,"ta":536,"tp":725,"PE_a":138,"PE_p":172,"RE_a":135,"RE_p":226,"FPA_a":140,"FPA_p":188,"AVI_a":56,"AVI_p":75,"RDI_a":67,"RDI_p":64},{"d":20,"ta":536,"tp":737,"PE_a":138,"PE_p":177,"RE_a":135,"RE_p":231,"FPA_a":140,"FPA_p":189,"AVI_a":56,"AVI_p":75,"RDI_a":67,"RDI_p":65},{"d":19,"ta":536,"tp":756,"PE_a":138,"PE_p":182,"RE_a":135,"RE_p":238,"FPA_a":140,"FPA_p":194,"AVI_a":56,"AVI_p":75,"RDI_a":67,"RDI_p":67},{"d":18,"ta":536,"tp":774,"PE_a":138,"PE_p":186,"RE_a":135,"RE_p":242,"FPA_a":140,"FPA_p":200,"AVI_a":56,"AVI_p":77,"RDI_a":67,"RDI_p":69},{"d":17,"ta":536,"tp":803,"PE_a":138,"PE_p":198,"RE_a":135,"RE_p":249,"FPA_a":140,"FPA_p":206,"AVI_a":56,"AVI_p":79,"RDI_a":67,"RDI_p":71},{"d":16,"ta":536,"tp":817,"PE_a":138,"PE_p":202,"RE_a":135,"RE_p":253,"FPA_a":140,"FPA_p":210,"AVI_a":56,"AVI_p":81,"RDI_a":67,"RDI_p":71},{"d":15,"ta":536,"tp":837,"PE_a":138,"PE_p":206,"RE_a":135,"RE_p":256,"FPA_a":140,"FPA_p":221,"AVI_a":56,"AVI_p":82,"RDI_a":67,"RDI_p":72},{"d":14,"ta":536,"tp":867,"PE_a":138,"PE_p":215,"RE_a":135,"RE_p":261,"FPA_a":140,"FPA_p":229,"AVI_a":56,"AVI_p":85,"RDI_a":67,"RDI_p":77},{"d":13,"ta":536,"tp":893,"PE_a":138,"PE_p":219,"RE_a":135,"RE_p":270,"FPA_a":140,"FPA_p":236,"AVI_a":56,"AVI_p":87,"RDI_a":67,"RDI_p":81},{"d":12,"ta":536,"tp":925,"PE_a":138,"PE_p":227,"RE_a":135,"RE_p":282,"FPA_a":140,"FPA_p":240,"AVI_a":56,"AVI_p":90,"RDI_a":67,"RDI_p":86},{"d":11,"ta":536,"tp":950,"PE_a":138,"PE_p":236,"RE_a":135,"RE_p":288,"FPA_a":140,"FPA_p":245,"AVI_a":56,"AVI_p":91,"RDI_a":67,"RDI_p":90},{"d":10,"ta":536,"tp":977,"PE_a":138,"PE_p":246,"RE_a":135,"RE_p":297,"FPA_a":140,"FPA_p":249,"AVI_a":56,"AVI_p":93,"RDI_a":67,"RDI_p":92},{"d":9,"ta":536,"tp":997,"PE_a":138,"PE_p":253,"RE_a":135,"RE_p":301,"FPA_a":140,"FPA_p":252,"AVI_a":56,"AVI_p":94,"RDI_a":67,"RDI_p":97},{"d":8,"ta":536,"tp":1041,"PE_a":138,"PE_p":269,"RE_a":135,"RE_p":311,"FPA_a":140,"FPA_p":258,"AVI_a":56,"AVI_p":100,"RDI_a":67,"RDI_p":103},{"d":7,"ta":536,"tp":1142,"PE_a":138,"PE_p":302,"RE_a":135,"RE_p":337,"FPA_a":140,"FPA_p":278,"AVI_a":56,"AVI_p":106,"RDI_a":67,"RDI_p":119},{"d":6,"ta":536,"tp":1168,"PE_a":138,"PE_p":307,"RE_a":135,"RE_p":347,"FPA_a":140,"FPA_p":282,"AVI_a":56,"AVI_p":108,"RDI_a":67,"RDI_p":124},{"d":5,"ta":536,"tp":1180,"PE_a":138,"PE_p":310,"RE_a":135,"RE_p":349,"FPA_a":140,"FPA_p":287,"AVI_a":56,"AVI_p":110,"RDI_a":67,"RDI_p":124},{"d":4,"ta":536,"tp":1186,"PE_a":138,"PE_p":311,"RE_a":135,"RE_p":349,"FPA_a":140,"FPA_p":291,"AVI_a":56,"AVI_p":111,"RDI_a":67,"RDI_p":124},{"d":3,"ta":536,"tp":1194,"PE_a":138,"PE_p":314,"RE_a":135,"RE_p":350,"FPA_a":140,"FPA_p":294,"AVI_a":56,"AVI_p":111,"RDI_a":67,"RDI_p":125},{"d":2,"ta":536,"tp":1199,"PE_a":138,"PE_p":315,"RE_a":135,"RE_p":351,"FPA_a":140,"FPA_p":296,"AVI_a":56,"AVI_p":112,"RDI_a":67,"RDI_p":125},{"d":1,"ta":536,"tp":1206,"PE_a":138,"PE_p":317,"RE_a":135,"RE_p":355,"FPA_a":140,"FPA_p":297,"AVI_a":56,"AVI_p":112,"RDI_a":67,"RDI_p":125},{"d":0,"ta":536,"tp":1225,"PE_a":138,"PE_p":323,"RE_a":135,"RE_p":363,"FPA_a":140,"FPA_p":300,"AVI_a":56,"AVI_p":114,"RDI_a":67,"RDI_p":125}];
 
-const programData = {
-  PE:   { leads: 2973, leadsFc: 4372, enrolls: 138, enrollFc: 138, spend: 104513.71, cpl: 35.15, cpe: 757.35, cvrAct: 4.64, cvrHist: 5.17, cvrTarget: 6.55, roas: 3.57, winter: 284 },
-  RE:   { leads: 2705, leadsFc: 3510, enrolls: 135, enrollFc: 175, spend: 143233.05, cpl: 52.95, cpe: 1060.99, cvrAct: 4.99, cvrHist: 6.59, cvrTarget: 9.06, roas: 2.54, winter: 338 },
-  "FP&A": { leads: 4191, leadsFc: 4655, enrolls: 140, enrollFc: 157, spend: 137471.52, cpl: 32.80, cpe: 981.94, cvrAct: 3.34, cvrHist: 4.36, cvrTarget: 4.65, roas: 2.75, winter: 245 },
-  AVI:  { leads: 1129, leadsFc: 1869, enrolls: 56, enrollFc: 63, spend: 63861.59, cpl: 56.56, cpe: 1140.39, cvrAct: 4.96, cvrHist: 4.72, cvrTarget: 6.39, roas: 2.37, winter: 97 },
-  RDI:  { leads: 1003, leadsFc: 1829, enrolls: 67, enrollFc: 57, spend: 82805.08, cpl: 82.56, cpe: 1235.90, cvrAct: 6.68, cvrHist: 4.70, cvrTarget: 8.25, roas: 2.18, winter: 56 },
+const PROG_INFO = {
+  PE:   { winter: 284, goal: 323, cur: 138, paced: 138, cvrAct: 4.64, cvrHist: 5.17, cvrTarget: 6.55, cpe: 757.35, color: NAVY },
+  RE:   { winter: 338, goal: 363, cur: 135, paced: 175, cvrAct: 4.99, cvrHist: 6.59, cvrTarget: 9.06, cpe: 1060.99, color: RED },
+  "FP&A": { winter: 245, goal: 300, cur: 140, paced: 157, cvrAct: 3.34, cvrHist: 4.36, cvrTarget: 4.65, cpe: 981.94, color: TEAL },
+  AVI:  { winter: 97,  goal: 114, cur: 56,  paced: 63,  cvrAct: 4.96, cvrHist: 4.72, cvrTarget: 6.39, cpe: 1140.39, color: GOLD },
+  RDI:  { winter: 56,  goal: 125, cur: 67,  paced: 57,  cvrAct: 6.68, cvrHist: 4.70, cvrTarget: 8.25, cpe: 1235.90, color: GREEN },
 };
 
 const channels = [
@@ -542,27 +463,14 @@ const brandSemData = {
   labels: ["Spring 2025", "Winter 2026", "Spring 2026"],
   spend: [40902, 58350, 99263],
   enrolls: [17, 26, 25],
-  cpe: [2406, 2244, 3971],
 };
 
 const pmaxIssue = {
   programs: ["PE", "RE", "FP&A", "AVI"],
+  spendCoC: [-25, -7, -33, -57],
   clicksCoC: [-76, -2, -29, -48],
   leadsCoC: [-68, -64, -34, -71],
-  spendCoC: [-25, -7, -33, -57],
 };
-
-const reDiagnosisData = {
-  metrics: ["Lead pacing\nvs forecast", "CVR vs\nhistorical", "Google\nleads CoC"],
-  RE: [-23, -24, -64],
-  pack: [-32, -10, -54], // PE avg for context
-};
-
-// ============ HELPERS ============
-const fmtPct = v => (v > 0 ? "+" : "") + v.toFixed(0) + "%";
-const fmtMoney = v => "$" + Math.round(v).toLocaleString();
-const fmtMoneyK = v => "$" + Math.round(v / 1000) + "K";
-const fmtNum = v => v == null ? "—" : Number(v).toLocaleString();
 
 // ============ TAB NAV ============
 document.querySelectorAll(".nav button").forEach(btn => {
@@ -574,30 +482,36 @@ document.querySelectorAll(".nav button").forEach(btn => {
   });
 });
 
-// ============ TABLES ============
-function fillProgramTable() {
-  const tbody = document.getElementById("programTable");
-  PROGRAMS.forEach(p => {
-    const d = programData[p];
-    const cvrDelta = ((d.cvrAct - d.cvrHist) / d.cvrHist) * 100;
-    const cvrClass = cvrDelta >= 0 ? "pos" : "neg";
+// ============ HELPERS ============
+const fmtPct = v => (v > 0 ? "+" : "") + v.toFixed(0) + "%";
+const fmtMoneyK = v => "$" + Math.round(v / 1000) + "K";
+
+function buildPaceTable() {
+  const tbody = document.getElementById("paceTable");
+  ["PE", "RE", "FP&A", "AVI", "RDI"].forEach(p => {
+    const d = PROG_INFO[p];
+    const gap = (d.cur - d.paced) / d.paced * 100;
+    const proj = Math.round(d.goal * (d.cur / d.paced));
+    const vsWinter = (proj - d.winter) / d.winter * 100;
+    const needPerDay = ((d.goal - d.cur) / 33).toFixed(1);
+    const gapCls = gap >= -2 ? "pos" : gap >= -15 ? "neut" : "neg";
+    const winterCls = vsWinter >= 0 ? "pos" : "neg";
     tbody.innerHTML += `
       <tr>
         <td><strong>${p}</strong></td>
-        <td>${d.leads.toLocaleString()}</td>
-        <td>${d.enrolls}</td>
-        <td>${d.cvrAct.toFixed(2)}% <span class="${cvrClass}" style="font-size:11px;">(${fmtPct(cvrDelta)})</span></td>
-        <td class="neut">${d.cvrHist.toFixed(2)}%</td>
-        <td class="neut">${d.cvrTarget.toFixed(2)}%</td>
-        <td>${fmtMoneyK(d.spend)}</td>
-        <td>$${d.cpl.toFixed(0)}</td>
-        <td>$${Math.round(d.cpe).toLocaleString()}</td>
-        <td>$${d.roas.toFixed(2)}</td>
+        <td>${d.cur}</td>
+        <td>${d.paced}</td>
+        <td class="${gapCls}">${fmtPct(gap)}</td>
+        <td>${d.goal}</td>
+        <td><strong>${proj}</strong></td>
+        <td class="neut">${d.winter}</td>
+        <td class="${winterCls}">${fmtPct(vsWinter)}</td>
+        <td>${needPerDay}/day</td>
       </tr>`;
   });
 }
 
-function fillChannelTable() {
+function buildChannelTable() {
   const tbody = document.getElementById("channelTable");
   const totalEnrolls = channels.reduce((a, c) => a + c.enrolls, 0);
   channels.forEach(c => {
@@ -618,7 +532,7 @@ function fillChannelTable() {
   });
 }
 
-function fillPaidTable() {
+function buildPaidTable() {
   const tbody = document.getElementById("paidTable");
   Object.entries(paidPlatform).forEach(([platform, cohorts]) => {
     ["s25", "w26", "s26"].forEach((key, i) => {
@@ -641,75 +555,85 @@ function fillPaidTable() {
   });
 }
 
-// ============ CHARTS ============
 function makeChart(id, config) {
   const ctx = document.getElementById(id);
   if (!ctx) return null;
   return new Chart(ctx, config);
 }
 
-// Overview: cohort comparison bar
-makeChart("cohortBar", {
+// ============ CHARTS ============
+
+// Cumulative trajectory total
+// X = day before deadline (102 → 0, reversed so cohort progresses left-to-right)
+// Two lines: actual (truncates at today, day 33) and paced target (full)
+const pacingLabels = PACING.map(p => "Day " + p.d);
+const totalActuals = PACING.map(p => p.ta);
+const totalPaced = PACING.map(p => p.tp);
+// Find index where actual stops growing (today = day 33)
+const todayIdx = PACING.findIndex(p => p.d === 33);
+const actualLine = totalActuals.map((v, i) => i <= todayIdx ? v : null);
+
+makeChart("pacingTotal", {
+  type: "line",
+  data: {
+    labels: pacingLabels,
+    datasets: [
+      { label: "Paced target", data: totalPaced, borderColor: GOLD, backgroundColor: "rgba(200,160,74,0.12)", fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+      { label: "Actual", data: actualLine, borderColor: NAVY, backgroundColor: NAVY, tension: 0.2, pointRadius: 0, borderWidth: 3, spanGaps: false }
+    ]
+  },
+  options: {
+    plugins: {
+      legend: { position: "bottom" },
+      tooltip: { mode: "index", intersect: false }
+    },
+    scales: {
+      x: { reverse: false, ticks: { maxTicksLimit: 10, callback: function(val, i) { const d = PACING[i]; return d ? "D-" + d.d : ""; } } },
+      y: { beginAtZero: true, title: { display: true, text: "Cumulative enrollments" } }
+    },
+    interaction: { mode: "index", intersect: false }
+  }
+});
+
+// Daily curve - remaining 33 days expected enrolls
+const remainingDays = PACING.filter(p => p.d <= 33).slice().reverse(); // 33 down to 0
+// Compute daily expected from cumulative paced diff
+const dailyExpected = [];
+for (let i = 0; i < remainingDays.length; i++) {
+  if (i === 0) dailyExpected.push(0);
+  else dailyExpected.push(Math.max(0, remainingDays[i-1].tp - remainingDays[i].tp));
+}
+// Use day before deadline as labels
+makeChart("dailyCurve", {
   type: "bar",
   data: {
-    labels: ["Spring 2025", "Fall 2025", "Winter 2026", "Spring 2026\n(actual)", "Spring 2026\n(forecast)", "Spring 2026\n(goal)"],
+    labels: remainingDays.map(p => "D-" + p.d),
     datasets: [{
-      label: "Enrollments",
-      data: [1035, 883, 1020, 536, 590, 1225],
-      backgroundColor: [LIGHT, LIGHT, GREY, NAVY, TEAL, GOLD],
-      borderWidth: 0,
+      label: "Expected daily enrollments (historical curve)",
+      data: dailyExpected,
+      backgroundColor: remainingDays.map(p => p.d <= 7 ? RED : p.d <= 14 ? GOLD : NAVY),
     }]
   },
   options: {
-    indexAxis: "x",
     plugins: { legend: { display: false } },
     scales: {
-      y: { beginAtZero: true, grid: { color: "#eee" } },
-      x: { grid: { display: false } }
+      x: { ticks: { maxTicksLimit: 12 } },
+      y: { beginAtZero: true, title: { display: true, text: "Enrollments expected this day" } }
     }
   }
 });
 
-// Daily pace
-const paceData = [
-  { day: 35, goal: 432, actual: 511 },
-  { day: 33, goal: 551, actual: 536 },
-  { day: 30, goal: 609, actual: null },
-  { day: 25, goal: 668, actual: null },
-  { day: 20, goal: 726, actual: null },
-  { day: 15, goal: 819, actual: null },
-  { day: 10, goal: 943, actual: null },
-  { day: 5, goal: 1170, actual: null },
-  { day: 0, goal: 1225, actual: null },
-];
-makeChart("paceLine", {
-  type: "line",
-  data: {
-    labels: paceData.map(d => "Day " + d.day),
-    datasets: [
-      { label: "Goal pace", data: paceData.map(d => d.goal), borderColor: GOLD, backgroundColor: "rgba(200,160,74,0.12)", tension: 0.3, fill: true },
-      { label: "Actual", data: paceData.map(d => d.actual), borderColor: NAVY, backgroundColor: NAVY, tension: 0.3, spanGaps: false, pointRadius: 4 }
-    ]
-  },
-  options: {
-    plugins: { legend: { position: "bottom" } },
-    scales: { y: { beginAtZero: true } }
-  }
-});
-
-// Lead pacing horizontal bar
-makeChart("leadPacing", {
+// Pace gap by program
+const progNames = ["PE", "RE", "FP&A", "AVI", "RDI"];
+const paceGapValues = progNames.map(p => (PROG_INFO[p].cur - PROG_INFO[p].paced) / PROG_INFO[p].paced * 100);
+makeChart("paceGap", {
   type: "bar",
   data: {
-    labels: PROGRAMS,
+    labels: progNames,
     datasets: [{
-      label: "% gap to forecast",
-      data: PROGRAMS.map(p => ((programData[p].leads - programData[p].leadsFc) / programData[p].leadsFc * 100)),
-      backgroundColor: PROGRAMS.map(p => {
-        const v = (programData[p].leads - programData[p].leadsFc) / programData[p].leadsFc * 100;
-        return v < -25 ? RED : v < -15 ? GOLD : GREEN;
-      }),
-      borderWidth: 0,
+      label: "Pace gap %",
+      data: paceGapValues,
+      backgroundColor: paceGapValues.map(v => v >= -2 ? GREEN : v >= -15 ? GOLD : RED),
     }]
   },
   options: {
@@ -719,15 +643,33 @@ makeChart("leadPacing", {
   }
 });
 
-// CVR triple bar
+// Projection vs Winter
+const projValues = progNames.map(p => Math.round(PROG_INFO[p].goal * (PROG_INFO[p].cur / PROG_INFO[p].paced)));
+const winterValues = progNames.map(p => PROG_INFO[p].winter);
+makeChart("projVsWinter", {
+  type: "bar",
+  data: {
+    labels: progNames,
+    datasets: [
+      { label: "Winter 2026 final", data: winterValues, backgroundColor: GREY },
+      { label: "At-pace projection (Spring 2026)", data: projValues, backgroundColor: progNames.map((p, i) => projValues[i] >= winterValues[i] ? GREEN : RED) },
+    ]
+  },
+  options: {
+    plugins: { legend: { position: "bottom" } },
+    scales: { y: { beginAtZero: true } }
+  }
+});
+
+// CVR compare
 makeChart("cvrCompare", {
   type: "bar",
   data: {
-    labels: PROGRAMS,
+    labels: progNames,
     datasets: [
-      { label: "Historical baseline", data: PROGRAMS.map(p => programData[p].cvrHist), backgroundColor: GREY },
-      { label: "Spring 2026 actual", data: PROGRAMS.map(p => programData[p].cvrAct), backgroundColor: PROGRAMS.map(p => programData[p].cvrAct >= programData[p].cvrHist ? GREEN : RED) },
-      { label: "Target to hit goal", data: PROGRAMS.map(p => programData[p].cvrTarget), backgroundColor: NAVY },
+      { label: "Historical baseline", data: progNames.map(p => PROG_INFO[p].cvrHist), backgroundColor: GREY },
+      { label: "Spring 2026 actual", data: progNames.map(p => PROG_INFO[p].cvrAct), backgroundColor: progNames.map(p => PROG_INFO[p].cvrAct >= PROG_INFO[p].cvrHist ? GREEN : RED) },
+      { label: "Target to hit goal", data: progNames.map(p => PROG_INFO[p].cvrTarget), backgroundColor: NAVY },
     ]
   },
   options: {
@@ -736,32 +678,15 @@ makeChart("cvrCompare", {
   }
 });
 
-// Enrollment compare
-makeChart("enrollCompare", {
-  type: "bar",
-  data: {
-    labels: PROGRAMS,
-    datasets: [
-      { label: "Winter 2026 final", data: PROGRAMS.map(p => programData[p].winter), backgroundColor: GREY },
-      { label: "Spring 2026 forecast", data: PROGRAMS.map(p => programData[p].enrollFc), backgroundColor: NAVY },
-      { label: "Spring 2026 actual to date", data: PROGRAMS.map(p => programData[p].enrolls), backgroundColor: TEAL },
-    ]
-  },
-  options: {
-    plugins: { legend: { position: "bottom" } },
-    scales: { y: { beginAtZero: true } }
-  }
-});
-
 // CPE program
 makeChart("cpeProgram", {
   type: "bar",
   data: {
-    labels: PROGRAMS,
+    labels: progNames,
     datasets: [{
       label: "CPE",
-      data: PROGRAMS.map(p => programData[p].cpe),
-      backgroundColor: PROGRAMS.map(p => programData[p].cpe > 1100 ? RED : programData[p].cpe > 900 ? GOLD : GREEN),
+      data: progNames.map(p => PROG_INFO[p].cpe),
+      backgroundColor: progNames.map(p => PROG_INFO[p].cpe > 1100 ? RED : PROG_INFO[p].cpe > 900 ? GOLD : GREEN),
     }]
   },
   options: {
@@ -770,37 +695,42 @@ makeChart("cpeProgram", {
   }
 });
 
-// RDI beat chart
-makeChart("rdiBeat", {
-  type: "bar",
-  data: {
-    labels: ["Forecast", "Actual to date"],
-    datasets: [{
-      label: "RDI Enrollments",
-      data: [57, 67],
-      backgroundColor: [GREY, GREEN],
-    }]
-  },
-  options: {
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true } }
-  }
-});
+// Per-program trajectory chart (controlled by toggle)
+let trajChart;
+function renderTrajectory(prog) {
+  const ctx = document.getElementById("programTraj");
+  if (trajChart) trajChart.destroy();
+  const fieldA = prog === "total" ? "ta" : prog + "_a";
+  const fieldP = prog === "total" ? "tp" : prog + "_p";
+  const actualLine = PACING.map((p, i) => p.d >= 33 ? p[fieldA] : null);
+  const pacedLine = PACING.map(p => p[fieldP]);
+  document.getElementById("trajTitle").textContent = (prog === "total" ? "Total" : prog === "FPA" ? "FP&A" : prog) + " enrollment trajectory";
+  trajChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: pacingLabels,
+      datasets: [
+        { label: "Paced target", data: pacedLine, borderColor: GOLD, backgroundColor: "rgba(200,160,74,0.12)", fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        { label: "Actual", data: actualLine, borderColor: NAVY, backgroundColor: NAVY, tension: 0.2, pointRadius: 0, borderWidth: 3, spanGaps: false }
+      ]
+    },
+    options: {
+      plugins: { legend: { position: "bottom" }, tooltip: { mode: "index", intersect: false } },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, callback: function(val, i) { const d = PACING[i]; return d ? "D-" + d.d : ""; } } },
+        y: { beginAtZero: true, title: { display: true, text: "Cumulative enrollments" } }
+      },
+      interaction: { mode: "index", intersect: false }
+    }
+  });
+}
 
-// RE diagnosis
-makeChart("reDiagnosis", {
-  type: "bar",
-  data: {
-    labels: ["Lead pacing\nvs forecast", "CVR vs\nhistorical", "Google leads\nCoC"],
-    datasets: [
-      { label: "RE", data: [-23, -24, -64], backgroundColor: RED },
-      { label: "Portfolio avg (ex RE)", data: [-32, -7, -56], backgroundColor: GREY },
-    ]
-  },
-  options: {
-    plugins: { legend: { position: "bottom" } },
-    scales: { y: { ticks: { callback: v => v + "%" } } }
-  }
+document.querySelectorAll(".toggle[data-prog]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".toggle[data-prog]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderTrajectory(btn.dataset.prog);
+  });
 });
 
 // Channel mix doughnut
@@ -821,7 +751,7 @@ makeChart("channelMix", {
   }
 });
 
-// Channel CVR bar
+// Channel CVR
 const sortedChannels = [...channels].sort((a, b) => (b.enrolls / b.leads) - (a.enrolls / a.leads));
 makeChart("channelCvr", {
   type: "bar",
@@ -840,65 +770,49 @@ makeChart("channelCvr", {
   }
 });
 
-// PAID: spend, leads, cpe per platform
+// PAID charts
 let paidView = "all";
 let spendChart, leadsChart, cpeChart;
 function renderPaidCharts() {
   if (spendChart) spendChart.destroy();
   if (leadsChart) leadsChart.destroy();
   if (cpeChart) cpeChart.destroy();
-
   const platforms = Object.keys(paidPlatform);
   const cohortKeys = paidView === "yoy" ? ["s25", "s26"] : paidView === "coc" ? ["w26", "s26"] : ["s25", "w26", "s26"];
   const cohortLabels = { s25: "Spring 2025", w26: "Winter 2026", s26: "Spring 2026" };
   const cohortColors = { s25: LIGHT, w26: GREY, s26: NAVY };
 
-  const datasets = cohortKeys.map(k => ({
-    label: cohortLabels[k],
-    data: platforms.map(p => paidPlatform[p][k].spend),
-    backgroundColor: cohortColors[k],
-  }));
-  spendChart = makeChart("paidSpend", {
+  spendChart = new Chart(document.getElementById("paidSpend"), {
     type: "bar",
-    data: { labels: platforms, datasets },
-    options: {
-      plugins: { legend: { position: "bottom" } },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => "$" + (v/1000) + "K" } } }
-    }
+    data: {
+      labels: platforms,
+      datasets: cohortKeys.map(k => ({ label: cohortLabels[k], data: platforms.map(p => paidPlatform[p][k].spend), backgroundColor: cohortColors[k] }))
+    },
+    options: { plugins: { legend: { position: "bottom" } }, scales: { y: { beginAtZero: true, ticks: { callback: v => "$" + (v/1000) + "K" } } } }
   });
 
-  const leadsDs = cohortKeys.map(k => ({
-    label: cohortLabels[k],
-    data: platforms.map(p => paidPlatform[p][k].leads),
-    backgroundColor: cohortColors[k],
-  }));
-  leadsChart = makeChart("paidLeads", {
+  leadsChart = new Chart(document.getElementById("paidLeads"), {
     type: "bar",
-    data: { labels: platforms, datasets: leadsDs },
-    options: {
-      plugins: { legend: { position: "bottom" } },
-      scales: { y: { beginAtZero: true } }
-    }
+    data: {
+      labels: platforms,
+      datasets: cohortKeys.map(k => ({ label: cohortLabels[k], data: platforms.map(p => paidPlatform[p][k].leads), backgroundColor: cohortColors[k] }))
+    },
+    options: { plugins: { legend: { position: "bottom" } }, scales: { y: { beginAtZero: true } } }
   });
 
-  const cpeDs = cohortKeys.map(k => ({
-    label: cohortLabels[k],
-    data: platforms.map(p => paidPlatform[p][k].cpe),
-    backgroundColor: cohortColors[k],
-  }));
-  cpeChart = makeChart("paidCpe", {
+  cpeChart = new Chart(document.getElementById("paidCpe"), {
     type: "bar",
-    data: { labels: platforms, datasets: cpeDs },
-    options: {
-      plugins: { legend: { position: "bottom" } },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => "$" + v.toLocaleString() } } }
-    }
+    data: {
+      labels: platforms,
+      datasets: cohortKeys.map(k => ({ label: cohortLabels[k], data: platforms.map(p => paidPlatform[p][k].cpe), backgroundColor: cohortColors[k] }))
+    },
+    options: { plugins: { legend: { position: "bottom" } }, scales: { y: { beginAtZero: true, ticks: { callback: v => "$" + v.toLocaleString() } } } }
   });
 }
 
-document.querySelectorAll(".toggle").forEach(btn => {
+document.querySelectorAll(".toggle[data-cohort]").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".toggle").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".toggle[data-cohort]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     paidView = btn.dataset.cohort;
     renderPaidCharts();
@@ -942,9 +856,10 @@ makeChart("pmaxIssue", {
 });
 
 // Initial render
-fillProgramTable();
-fillChannelTable();
-fillPaidTable();
+buildPaceTable();
+buildChannelTable();
+buildPaidTable();
+renderTrajectory("total");
 renderPaidCharts();
 </script>
 
