@@ -24,7 +24,7 @@
   .nav button:hover:not(.active) { color: var(--text); }
   section { display: none; }
   section.active { display: block; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 20px; }
   .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
   .kpi-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
   .kpi-value { font-size: 32px; color: var(--navy); font-weight: 700; margin: 6px 0 2px 0; }
@@ -119,10 +119,16 @@
       <div class="kpi-sub">vs 3.63% forecast</div>
       <div class="kpi-delta delta-good">+23% vs plan</div>
     </div>
+    <div class="kpi">
+      <div class="kpi-label">Paid Click-to-Lead CVR</div>
+      <div class="kpi-value">3.86%</div>
+      <div class="kpi-sub">vs 4.23% Winter 2026</div>
+      <div class="kpi-delta delta-bad">-9% CoC · -28% vs Spring 2025</div>
+    </div>
   </div>
 
   <div class="callout">
-    <strong>Position read.</strong> Cohort is 9% behind paced target with 33 days remaining. End-of-cohort goal (1,225) is itself +20% vs Winter 2026 (1,020), so the cohort had aggressive growth baked in. At current pace, projects to ~1,113 = +9% vs Winter. Four of five programs project to land above Winter 2026 final. RE is the only program meaningfully behind pace (-23%). Lead deficit (-26%) is the back-half risk because the historical demand curve back-loads heavily.
+    <strong>Position read.</strong> Cohort is 9% behind paced target with 33 days remaining. End-of-cohort goal (1,225) is itself +20% vs Winter 2026 (1,020), so the cohort had aggressive growth baked in. At current pace, projects to ~1,113 = +9% vs Winter. Four of five programs project to land above Winter 2026 final. RE is the only program meaningfully behind pace (-23%). Lead deficit (-26%) is the back-half risk because the historical demand curve back-loads heavily. Paid click-to-lead CVR is 3.86% — down from 4.23% in Winter and 5.35% in Spring 2025 — with Google's CTL collapsing to 1.97%, the primary driver.
   </div>
 
   <div class="panel-grid cols-2">
@@ -302,6 +308,14 @@
     </div>
   </div>
 
+  <div class="panel" style="margin-bottom:16px;">
+    <h3>Click-to-lead CVR by platform</h3>
+    <div class="chart-wrap"><canvas id="ctlChart"></canvas></div>
+    <div class="callout red-flag" style="margin-top:12px;">
+      Google CTL CVR has collapsed three cohorts in a row: 4.52% (Spring 2025) → 2.67% (Winter 2026) → 1.97% (Spring 2026). Clicks are landing but not converting — consistent with PMax serving broad/low-intent traffic. Meta also declining (4.53% → 3.64%). LinkedIn improving (15.67% → 22.87%) but volume is small.
+    </div>
+  </div>
+
   <div class="panel-grid cols-2">
     <div class="panel">
       <h3>Brand SEM: spend up 70%, enrollments flat</h3>
@@ -329,6 +343,7 @@
           <th>Impressions</th>
           <th>Clicks</th>
           <th>Leads</th>
+          <th>Click-to-Lead CVR</th>
           <th>Total enrolls</th>
           <th>In-cohort enrolls</th>
           <th>CPC</th>
@@ -340,7 +355,7 @@
   </div>
 
   <div class="callout">
-    <strong>Paid composition shifted, aggregate is flat.</strong> Google + Meta + LinkedIn total: $520K (Spring 2026) vs $510K (Winter 2026). Composition: Google -$63K, Meta +$66K, LinkedIn +$7K. In-cohort enrollments from paid: 109 vs 111 = flat. Meta absorbed Google's cut without proportional lift; CPE worsened on every platform.
+    <strong>Paid composition shifted, aggregate is flat.</strong> Google + Meta + LinkedIn total: $520K (Spring 2026) vs $510K (Winter 2026). Composition: Google -$63K, Meta +$66K, LinkedIn +$7K. In-cohort enrollments from paid: 109 vs 111 = flat. Meta absorbed Google's cut without proportional lift; CPE worsened on every platform. Blended paid click-to-lead CVR: 3.86% (Spring 2026) vs 4.23% (Winter 2026) vs 5.35% (Spring 2025) — deteriorating every cohort, driven almost entirely by Google.
   </div>
 </section>
 
@@ -546,6 +561,7 @@ function buildPaidTable() {
           <td>${c.impressions.toLocaleString()}</td>
           <td>${c.clicks.toLocaleString()}</td>
           <td>${c.leads.toLocaleString()}</td>
+          <td>${(c.leads / c.clicks * 100).toFixed(2)}%</td>
           <td>${c.enrolls}</td>
           <td>${c.inCohort}</td>
           <td>$${c.cpc.toFixed(2)}</td>
@@ -852,6 +868,33 @@ makeChart("pmaxIssue", {
   options: {
     plugins: { legend: { position: "bottom" } },
     scales: { y: { ticks: { callback: v => v + "%" } } }
+  }
+});
+
+// Click-to-lead CVR chart
+const ctlPlatforms = Object.keys(paidPlatform);
+const ctlCohortKeys = ["s25", "w26", "s26"];
+const ctlLabels = { s25: "Spring 2025", w26: "Winter 2026", s26: "Spring 2026" };
+const ctlColors = { s25: LIGHT, w26: GREY, s26: NAVY };
+makeChart("ctlChart", {
+  type: "bar",
+  data: {
+    labels: ctlPlatforms,
+    datasets: ctlCohortKeys.map(k => ({
+      label: ctlLabels[k],
+      data: ctlPlatforms.map(p => parseFloat((paidPlatform[p][k].leads / paidPlatform[p][k].clicks * 100).toFixed(2))),
+      backgroundColor: ctlColors[k],
+    }))
+  },
+  options: {
+    plugins: { legend: { position: "bottom" } },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: { display: true, text: "Click-to-Lead CVR (%)" },
+        ticks: { callback: v => v + "%" }
+      }
+    }
   }
 });
 
