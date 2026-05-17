@@ -252,7 +252,7 @@
       <div class="chart-wrap"><canvas id="channelMix"></canvas></div>
     </div>
     <div class="panel">
-      <h3>CVR by channel</h3>
+      <h3>Lead-to-Enroll CVR by channel</h3>
       <div class="chart-wrap"><canvas id="channelCvr"></canvas></div>
     </div>
   </div>
@@ -265,12 +265,15 @@
           <th>Channel</th>
           <th>Enrolls</th>
           <th>% of cohort</th>
+          <th>Clicks</th>
           <th>Leads</th>
-          <th>CVR</th>
+          <th>Click-to-Lead CVR</th>
+          <th>Lead-to-Enroll CVR</th>
           <th>Direct spend</th>
           <th>ROAS</th>
           <th>CPL</th>
           <th>CPE</th>
+
         </tr>
       </thead>
       <tbody id="channelTable"></tbody>
@@ -452,14 +455,14 @@ const PROG_INFO = {
 };
 
 const channels = [
-  { name: "Paid Ads (Google/FB/LI)", enrolls: 213, leads: 8739, spend: 692385.16, roas: 1.38, cpl: 79.23, cpe: 3250.63, color: NAVY },
-  { name: "Offline/Direct (Unknown)", enrolls: 136, leads: 1175, spend: 0, roas: null, cpl: null, cpe: null, color: GREY },
-  { name: "Email (to WSP list)", enrolls: 69, leads: 114, spend: 0, roas: null, cpl: null, cpe: null, color: GREEN },
-  { name: "Organic Search", enrolls: 66, leads: 1151, spend: 0, roas: null, cpl: null, cpe: null, color: TEAL },
-  { name: "Referrals", enrolls: 22, leads: 351, spend: 0, roas: null, cpl: null, cpe: null, color: GOLD },
-  { name: "WSP Website", enrolls: 18, leads: 261, spend: 0, roas: null, cpl: null, cpe: null, color: "#6f4e2c" },
-  { name: "Paid Affiliates", enrolls: 7, leads: 124, spend: 3000, roas: 6.30, cpl: 24.19, cpe: 428.57, color: "#a3a3a3" },
-  { name: "Sponsored Content", enrolls: 3, leads: 115, spend: 34600, roas: 0.23, cpl: 300.87, cpe: 11533.33, color: LIGHT },
+  { name: "Paid Ads (Google/FB/LI)", enrolls: 213, leads: 8739, clicks: 181012, spend: 692385.16, roas: 1.38, cpl: 79.23, cpe: 3250.63, color: NAVY },
+  { name: "Offline/Direct (Unknown)", enrolls: 136, leads: 1175, clicks: null, spend: 0, roas: null, cpl: null, cpe: null, color: GREY },
+  { name: "Email (to WSP list)", enrolls: 69, leads: 114, clicks: null, spend: 0, roas: null, cpl: null, cpe: null, color: GREEN },
+  { name: "Organic Search", enrolls: 66, leads: 1151, clicks: null, spend: 0, roas: null, cpl: null, cpe: null, color: TEAL },
+  { name: "Referrals", enrolls: 22, leads: 351, clicks: null, spend: 0, roas: null, cpl: null, cpe: null, color: GOLD },
+  { name: "WSP Website", enrolls: 18, leads: 261, clicks: null, spend: 0, roas: null, cpl: null, cpe: null, color: "#6f4e2c" },
+  { name: "Paid Affiliates", enrolls: 7, leads: 124, clicks: null, spend: 3000, roas: 6.30, cpl: 24.19, cpe: 428.57, color: "#a3a3a3" },
+  { name: "Sponsored Content", enrolls: 3, leads: 115, clicks: null, spend: 34600, roas: 0.23, cpl: 300.87, cpe: 11533.33, color: LIGHT },
 ];
 
 const paidPlatform = {
@@ -530,15 +533,19 @@ function buildChannelTable() {
   const tbody = document.getElementById("channelTable");
   const totalEnrolls = channels.reduce((a, c) => a + c.enrolls, 0);
   channels.forEach(c => {
-    const cvr = (c.enrolls / c.leads * 100);
-    const cvrClass = cvr >= 5 ? "pos" : cvr >= 2.5 ? "neut" : "neg";
+    const lte = (c.enrolls / c.leads * 100);
+    const lteClass = lte >= 5 ? "pos" : lte >= 2.5 ? "neut" : "neg";
+    const ctl = c.clicks != null ? (c.leads / c.clicks * 100) : null;
+    const ctlClass = ctl == null ? "" : ctl >= 5 ? "pos" : ctl >= 3 ? "neut" : "neg";
     tbody.innerHTML += `
       <tr>
         <td><strong>${c.name}</strong></td>
         <td>${c.enrolls}</td>
         <td>${(c.enrolls / totalEnrolls * 100).toFixed(1)}%</td>
+        <td>${c.clicks != null ? c.clicks.toLocaleString() : "—"}</td>
         <td>${c.leads.toLocaleString()}</td>
-        <td class="${cvrClass}">${cvr.toFixed(1)}%</td>
+        <td class="${ctlClass}">${ctl != null ? ctl.toFixed(2) + "%" : "—"}</td>
+        <td class="${lteClass}">${lte.toFixed(1)}%</td>
         <td>${c.spend ? fmtMoneyK(c.spend) : "—"}</td>
         <td>${c.roas != null ? "$" + c.roas.toFixed(2) : "—"}</td>
         <td>${c.cpl != null ? "$" + c.cpl.toFixed(0) : "—"}</td>
