@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FP&A Certificate — Employer Reimbursement LP (Mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --wharton-navy: #13294B;
+    --wharton-blue: #1F4E82;
+    --wharton-blue-mid: #2A6098;
+    --wharton-blue-lt: #EAF1F8;
+    --wharton-blue-lt2: #F3F7FB;
+    --wharton-gold: #A8986B;
+    --wharton-gold-lt: #F5F1E8;
+    --ink: #1A1A1A;
+    --meta: #5A6472;
+    --line: #E0E5EA;
+    --paper: #FFFFFF;
+    --paper-soft: #F6F8FA;
+    --crimson: #C8102E;
+    --crimson-hover: #A40D24;
+    --green: #1F7A4F;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  a { color: var(--wharton-blue-mid); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 32px; }
+
+  /* Mockup note */
+  .mockup-note {
+    background: #FFF8E5; border-left: 3px solid var(--wharton-gold); color: #5A4A1F;
+    font-size: 12.5px; padding: 10px 14px; max-width: 1100px;
+    margin: 10px auto 0; border-radius: 0 4px 4px 0;
+  }
+  .mockup-note strong { color: #3A2F12; }
+
+  /* ─── NAV ─── */
+  .site-nav {
+    background: var(--wharton-navy);
+    padding: 0 32px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .site-nav .inner {
+    max-width: 1100px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 60px;
+  }
+  .nav-logos { display: flex; align-items: center; gap: 20px; }
+  .nav-logo-box {
+    border: 1px dashed rgba(255,255,255,.3); color: rgba(255,255,255,.7);
+    padding: 6px 12px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    border-radius: 2px;
+  }
+  .nav-logo-box.solid { border-style: solid; border-color: rgba(255,255,255,.25); color: #fff; }
+  .nav-actions { display: flex; gap: 12px; align-items: center; }
+  .nav-link { color: rgba(255,255,255,.75); font-size: 13.5px; font-weight: 500; text-decoration: none; }
+  .nav-link:hover { color: #fff; text-decoration: none; }
+  .btn { display: inline-block; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; border: 0; border-radius: 4px; padding: 10px 20px; transition: all .15s; }
+  .btn-navy { background: #fff; color: var(--wharton-navy); }
+  .btn-navy:hover { background: #f0f4f8; text-decoration: none; }
+  .btn-primary { background: var(--crimson); color: #fff; }
+  .btn-primary:hover { background: var(--crimson-hover); text-decoration: none; }
+  .btn-outline-dark { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+  .btn-outline-dark:hover { border-color: var(--wharton-navy); text-decoration: none; }
+  .btn-outline-light { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,.4); }
+  .btn-outline-light:hover { border-color: #fff; text-decoration: none; }
+  .btn-lg { padding: 13px 26px; font-size: 15px; }
+  .btn-arrow::after { content: " →"; }
+
+  /* ─── HERO ─── */
+  .hero {
+    background: linear-gradient(150deg, var(--wharton-navy) 0%, var(--wharton-blue) 100%);
+    color: #fff; padding: 56px 0 64px;
+  }
+  .hero .grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 60px; align-items: start; }
+  .hero-badge {
+    display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .04em;
+    background: rgba(168,152,107,.2); border: 1px solid rgba(168,152,107,.5);
+    color: #E8D89A; padding: 7px 14px; border-radius: 4px;
+    margin-bottom: 20px; line-height: 1.4;
+  }
+  .hero-badge .employers { color: #fff; font-weight: 700; }
+  .hero h1 {
+    font-size: 42px; font-weight: 700; line-height: 1.15; letter-spacing: -.3px;
+    margin: 0 0 16px; color: #fff;
+  }
+  .hero .dates-row {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .hero .badge-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+    border-radius: 999px; padding: 5px 12px; font-size: 12.5px; color: rgba(255,255,255,.85);
+  }
+  .hero .sub {
+    font-size: 16px; color: rgba(255,255,255,.8); line-height: 1.6; margin-bottom: 28px; max-width: 520px;
+  }
+  .hero .sub strong { color: #fff; }
+  .hero .cta-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+  /* Brochure form card */
+  .brochure-card {
+    background: #fff; border-radius: 8px; padding: 30px 28px;
+    box-shadow: 0 16px 48px rgba(0,0,0,.22);
+  }
+  .brochure-card .card-eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--wharton-blue-mid); margin-bottom: 10px;
+  }
+  .brochure-card h3 { font-size: 20px; font-weight: 700; color: var(--ink); margin: 0 0 6px; }
+  .brochure-card .card-sub { font-size: 13.5px; color: var(--meta); margin-bottom: 20px; line-height: 1.5; }
+  .form-field { margin-bottom: 14px; }
+  .form-field label { display: block; font-size: 12px; font-weight: 600; color: var(--meta); margin-bottom: 5px; letter-spacing: .04em; text-transform: uppercase; }
+  .form-field input {
+    width: 100%; border: 1.5px solid var(--line); border-radius: 4px;
+    padding: 10px 12px; font-size: 14px; font-family: inherit; color: var(--ink);
+    background: #fff; transition: border-color .15s;
+  }
+  .form-field input:focus { outline: none; border-color: var(--wharton-blue-mid); }
+  .form-field input::placeholder { color: #A8B0BA; }
+  .brochure-card .submit-btn {
+    width: 100%; background: var(--wharton-navy); color: #fff; border: 0;
+    border-radius: 4px; padding: 13px; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: inherit; transition: background .15s;
+  }
+  .brochure-card .submit-btn:hover { background: var(--wharton-blue); }
+  .brochure-card .form-note {
+    font-size: 11.5px; color: #8A96A2; text-align: center; margin-top: 10px; line-height: 1.5;
+  }
+  .brochure-card .alt-cta {
+    text-align: center; margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--line); font-size: 13px; color: var(--meta);
+  }
+  .brochure-card .alt-cta a { color: var(--wharton-blue-mid); font-weight: 600; }
+
+  /* ─── QUICK FACTS ─── */
+  .quick-facts {
+    background: var(--paper-soft); border-bottom: 1px solid var(--line);
+    padding: 24px 0;
+  }
+  .quick-facts .inner {
+    display: flex; gap: 0; flex-wrap: wrap;
+  }
+  .qf-item {
+    flex: 1; min-width: 160px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 24px; border-right: 1px solid var(--line);
+  }
+  .qf-item:last-child { border-right: 0; }
+  .qf-icon { font-size: 20px; flex-shrink: 0; }
+  .qf-label { font-size: 11px; color: var(--meta); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
+  .qf-val { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+
+  /* ─── SECTIONS ─── */
+  section.block { padding: 72px 0; }
+  section.block.tight { padding: 52px 0; }
+  section.soft { background: var(--paper-soft); }
+  section.navy { background: var(--wharton-navy); color: #fff; }
+  .section-tag {
+    font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--wharton-blue-mid); margin-bottom: 12px; display: block;
+  }
+  section.navy .section-tag { color: #A8C8E0; }
+  h2.section-title { font-size: 34px; font-weight: 700; line-height: 1.2; margin: 0 0 14px; letter-spacing: -.2px; }
+  section.navy h2.section-title { color: #fff; }
+  .section-lede { color: var(--meta); max-width: 700px; font-size: 16px; margin-bottom: 40px; }
+  section.navy .section-lede { color: #A8BAC8; }
+
+  /* ─── REIMBURSEMENT MODULE ─── */
+  .reimb-module {
+    background: linear-gradient(135deg, var(--wharton-navy) 0%, var(--wharton-blue) 100%);
+    border-radius: 10px; padding: 40px 44px; color: #fff;
+    margin: 52px 0 0;
+  }
+  .reimb-module .module-tag {
+    font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    color: #A8C8E0; margin-bottom: 14px; display: block;
+  }
+  .reimb-module h3 { font-size: 26px; font-weight: 700; margin: 0 0 8px; line-height: 1.2; }
+  .reimb-module .module-sub { color: rgba(255,255,255,.75); font-size: 15px; margin-bottom: 28px; max-width: 600px; line-height: 1.6; }
+  .reimb-module .cost-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    border: 1px solid rgba(255,255,255,.15); border-radius: 6px; overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .cost-col {
+    padding: 18px 20px; border-right: 1px solid rgba(255,255,255,.15);
+  }
+  .cost-col:last-child { border-right: 0; background: rgba(255,255,255,.07); }
+  .cost-col .clabel { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); margin-bottom: 6px; }
+  .cost-col .cval { font-size: 24px; font-weight: 700; color: #fff; }
+  .cost-col:last-child .cval { color: #7DD8A8; font-size: 32px; }
+  .cost-col .cnote { font-size: 11px; color: rgba(255,255,255,.5); margin-top: 4px; }
+  .reimb-module .proof-strip {
+    display: flex; gap: 28px; flex-wrap: wrap; align-items: center;
+    padding-top: 20px; border-top: 1px solid rgba(255,255,255,.12);
+    font-size: 13px; color: rgba(255,255,255,.65);
+  }
+  .reimb-module .proof-strip strong { color: #fff; }
+  .reimb-module .module-cta {
+    margin-top: 22px;
+  }
+
+  /* ─── VALUE PROPS ─── */
+  .vp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .vp-card {
+    background: var(--paper-soft); border: 1px solid var(--line);
+    border-radius: 8px; padding: 28px;
+  }
+  .vp-card .icon { font-size: 26px; margin-bottom: 14px; }
+  .vp-card h4 { font-size: 16px; font-weight: 700; margin: 0 0 8px; }
+  .vp-card p { font-size: 14px; color: var(--meta); margin: 0; line-height: 1.6; }
+
+  /* ─── STATS ─── */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+  .stat-col {
+    text-align: center; padding: 36px 20px;
+    border-right: 1px solid rgba(255,255,255,.1);
+  }
+  .stat-col:last-child { border-right: 0; }
+  .stat-col .snum { font-size: 42px; font-weight: 800; color: #fff; line-height: 1; margin-bottom: 8px; letter-spacing: -.5px; }
+  .stat-col .sdesc { font-size: 13.5px; color: #A8BAC8; max-width: 160px; margin: 0 auto; line-height: 1.5; }
+
+  /* ─── TESTIMONIALS ─── */
+  .testimonials { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .tcard {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+    padding: 28px;
+  }
+  .tcard .stars { color: var(--wharton-gold); font-size: 14px; margin-bottom: 12px; letter-spacing: 2px; }
+  .tcard blockquote { font-size: 14.5px; color: var(--ink); line-height: 1.65; margin: 0 0 16px; font-style: italic; }
+  .tcard .author { font-size: 12.5px; color: var(--meta); font-weight: 600; }
+  .tcard .employer { font-size: 12px; color: #A0AAB4; margin-top: 2px; }
+
+  /* ─── CURRICULUM ─── */
+  .curriculum { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .module-card {
+    border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px;
+    display: flex; gap: 16px; align-items: flex-start;
+    background: var(--paper);
+  }
+  .module-card .mnum {
+    flex-shrink: 0; width: 36px; height: 36px; border-radius: 6px;
+    background: var(--wharton-blue-lt); color: var(--wharton-blue-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; letter-spacing: .04em;
+  }
+  .module-card h5 { font-size: 14.5px; font-weight: 700; margin: 0 0 4px; }
+  .module-card p { font-size: 12.5px; color: var(--meta); margin: 0; line-height: 1.5; }
+
+  /* ─── TUITION ─── */
+  .tuition-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  .tuition-card {
+    background: var(--paper); border: 1.5px solid var(--line); border-radius: 8px; padding: 32px;
+  }
+  .tuition-card .price-main { font-size: 44px; font-weight: 800; color: var(--ink); line-height: 1; margin: 14px 0 6px; }
+  .tuition-card .price-alt { font-size: 16px; color: var(--meta); margin-bottom: 20px; }
+  .tuition-card ul {
+    list-style: none; padding: 0; margin: 0 0 24px;
+    border-top: 1px solid var(--line); padding-top: 20px;
+  }
+  .tuition-card ul li {
+    font-size: 14px; color: var(--meta); padding: 6px 0;
+    border-bottom: 1px solid var(--line); display: flex; justify-content: space-between;
+  }
+  .tuition-card ul li strong { color: var(--ink); font-weight: 600; }
+
+  /* ─── EMPLOYER LOGOS ─── */
+  .logos-strip {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 28px;
+  }
+  .logo-pill {
+    border: 1px solid var(--line); border-radius: 4px;
+    padding: 7px 14px; font-size: 12px; font-weight: 600; color: var(--meta);
+    background: var(--paper);
+  }
+
+  /* ─── FACULTY ─── */
+  .faculty-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .faculty-card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 24px;
+  }
+  .faculty-card .avatar {
+    width: 60px; height: 60px; border-radius: 50%;
+    background: linear-gradient(135deg, #B0CFE3, #6F95B1);
+    margin-bottom: 14px;
+  }
+  .faculty-card h5 { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
+  .faculty-card .title { font-size: 12.5px; color: var(--meta); margin-bottom: 10px; line-height: 1.4; }
+  .faculty-card p { font-size: 13px; color: var(--meta); margin: 0; line-height: 1.55; }
+
+  /* ─── PROCESS / GETTING STARTED ─── */
+  .process-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .pstep {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 28px;
+    position: relative;
+  }
+  .pstep .step-num {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--wharton-navy);
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; margin-bottom: 16px;
+  }
+  .pstep h4 { font-size: 16px; font-weight: 700; margin: 0 0 8px; }
+  .pstep p { font-size: 14px; color: var(--meta); margin: 0; line-height: 1.6; }
+
+  /* ─── FAQ ─── */
+  .faq { border-top: 1px solid var(--line); max-width: 820px; }
+  .faq-item { border-bottom: 1px solid var(--line); padding: 18px 0; cursor: pointer; }
+  .faq-q { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; gap: 16px; }
+  .faq-plus { font-size: 22px; color: var(--meta); flex-shrink: 0; transition: transform .2s; }
+  .faq-a { display: none; padding-top: 12px; color: var(--meta); font-size: 14.5px; line-height: 1.7; max-width: 720px; }
+  .faq-item.open .faq-a { display: block; }
+  .faq-item.open .faq-plus { transform: rotate(45deg); }
+
+  /* ─── BOTTOM CTA ─── */
+  .bottom-cta {
+    background: linear-gradient(135deg, var(--wharton-navy) 0%, var(--wharton-blue) 100%);
+    color: #fff; padding: 72px 0; text-align: center;
+  }
+  .bottom-cta h2 { font-size: 38px; font-weight: 700; margin: 0 0 12px; }
+  .bottom-cta p { color: rgba(255,255,255,.75); max-width: 600px; margin: 0 auto 32px; font-size: 16px; line-height: 1.6; }
+  .bottom-cta .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+  /* ─── FOOTER ─── */
+  footer.site {
+    background: #0B1929; color: #6A7A8A; padding: 36px 0 28px; font-size: 12.5px;
+  }
+  footer.site .row { display: flex; gap: 36px; justify-content: space-between; align-items: flex-start; }
+  footer.site .disclaim { max-width: 740px; font-style: italic; line-height: 1.65; }
+  footer.site .colophon { text-align: right; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 960px) {
+    .hero .grid, .tuition-grid { grid-template-columns: 1fr; }
+    .stats-row, .vp-grid, .testimonials, .faculty-grid, .process-steps { grid-template-columns: repeat(2, 1fr); }
+    .reimb-module .cost-grid { grid-template-columns: repeat(2, 1fr); }
+    .hero h1 { font-size: 34px; }
+    .reimb-module { padding: 28px 24px; }
+  }
+  @media (max-width: 640px) {
+    .stats-row, .vp-grid, .testimonials, .faculty-grid, .process-steps, .curriculum { grid-template-columns: 1fr; }
+    .quick-facts .inner { flex-direction: column; }
+    .qf-item { border-right: 0; border-bottom: 1px solid var(--line); padding: 12px 0; }
+    h2.section-title { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Mockup note -->
+<div class="mockup-note">
+  <strong>Mockup note:</strong> Page 1 of the employer reimbursement funnel. Replicates the Wharton FP&A program page design system with two employer-reimbursement additions: (1) a badge above the hero headline and updated sub-copy, (2) a reimbursement module after the tuition section. Primary CTA is "Get the Brochure" with a lead capture form. All other program content is faithful to the live page structure.
+</div>
+
+<!-- NAV -->
+<nav class="site-nav">
+  <div class="inner">
+    <div class="nav-logos">
+      <span class="nav-logo-box">Wharton Online · Logo</span>
+      <span class="nav-logo-box solid">Wall Street Prep · Logo</span>
+    </div>
+    <div class="nav-actions">
+      <a class="nav-link" href="#">Login</a>
+      <a class="btn btn-navy" href="#brochure-form">Get the Brochure</a>
+      <a class="btn btn-primary" href="#">Enroll Now</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="grid">
+      <div>
+        <div class="hero-badge">
+          <span class="employers">Goldman Sachs, JPMorgan, Citi, BofA,</span> and 120+ other employers cover this program through their education benefits.
+        </div>
+        <h1>Financial Planning &amp; Analysis Certificate Program — <em style="font-style:italic; color:#A8C8E0;">Covered by Most Employers</em></h1>
+        <div class="dates-row">
+          <span class="badge-pill">📅 Jun 8 – Aug 2, 2026</span>
+          <span class="badge-pill">⏱ 8 Weeks</span>
+          <span class="badge-pill">💻 Online</span>
+        </div>
+        <p class="sub">Tuition is <strong>$4,800</strong>. Most employer education benefits cover it in full under IRS Section 127. An enrollment advisor can confirm your eligibility in 15 minutes — get the brochure to start.</p>
+        <div class="cta-row">
+          <a class="btn btn-navy btn-lg btn-arrow" href="#brochure-form">Get the Brochure</a>
+          <a class="btn btn-outline-light" href="#">Enroll Now</a>
+        </div>
+      </div>
+
+      <!-- Brochure lead form -->
+      <div class="brochure-card" id="brochure-form">
+        <div class="card-eyebrow">Free Program Brochure</div>
+        <h3>Get the FP&amp;A Certificate brochure</h3>
+        <p class="card-sub">Curriculum, faculty, outcomes, and cohort schedule. Takes 30 seconds.</p>
+        <div class="form-field">
+          <label>First name</label>
+          <input type="text" placeholder="Sarah" />
+        </div>
+        <div class="form-field">
+          <label>Last name</label>
+          <input type="text" placeholder="Chen" />
+        </div>
+        <div class="form-field">
+          <label>Work email</label>
+          <input type="email" placeholder="sarah@company.com" />
+        </div>
+        <div class="form-field">
+          <label>Company</label>
+          <input type="text" placeholder="Goldman Sachs" />
+        </div>
+        <button class="submit-btn">Get the Brochure →</button>
+        <p class="form-note">No spam. Brochure arrives in your inbox within 2 minutes.</p>
+        <p class="alt-cta">Ready to enroll? <a href="#">Apply directly →</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUICK FACTS -->
+<div class="quick-facts">
+  <div class="wrap">
+    <div class="inner">
+      <div class="qf-item">
+        <span class="qf-icon">⏱</span>
+        <div>
+          <div class="qf-label">Duration</div>
+          <div class="qf-val">8 Weeks · 10 hrs/week</div>
+        </div>
+      </div>
+      <div class="qf-item">
+        <span class="qf-icon">💻</span>
+        <div>
+          <div class="qf-label">Format</div>
+          <div class="qf-val">Online · Live Sessions</div>
+        </div>
+      </div>
+      <div class="qf-item">
+        <span class="qf-icon">🎓</span>
+        <div>
+          <div class="qf-label">Certificate</div>
+          <div class="qf-val">Wharton Online + WSP</div>
+        </div>
+      </div>
+      <div class="qf-item">
+        <span class="qf-icon">💰</span>
+        <div>
+          <div class="qf-label">Tuition</div>
+          <div class="qf-val">$4,800 or $1,000/mo</div>
+        </div>
+      </div>
+      <div class="qf-item">
+        <span class="qf-icon">📋</span>
+        <div>
+          <div class="qf-label">CPE Credits</div>
+          <div class="qf-val">65 CPE Credits</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VALUE PROPS -->
+<section class="block soft tight">
+  <div class="wrap">
+    <span class="section-tag">Why this program</span>
+    <h2 class="section-title">FP&amp;A is being rebuilt around new tools. This is the curriculum for that.</h2>
+    <p class="section-lede">Developed by Wharton faculty and Wall Street Prep, this is the only certificate program that combines academic rigor with the applied FP&A workflows finance teams are hiring for right now.</p>
+    <div class="vp-grid">
+      <div class="vp-card">
+        <div class="icon">🏛</div>
+        <h4>Wharton faculty, applied curriculum</h4>
+        <p>Built by Wharton professors in partnership with Wall Street Prep practitioners — academic credentials with real-world FP&amp;A workflow coverage.</p>
+      </div>
+      <div class="vp-card">
+        <div class="icon">📊</div>
+        <h4>Rolling forecasts, driver-based modeling, AI</h4>
+        <p>The three capabilities FP&amp;A teams are rebuilding around. Module 8 covers AI tools and the future of the FP&amp;A function explicitly.</p>
+      </div>
+      <div class="vp-card">
+        <div class="icon">🏆</div>
+        <h4>5,000+ learners, 750+ employers</h4>
+        <p>Professionals from JPMorgan, Goldman Sachs, Deloitte, Amazon, and 750+ other employers have completed this program.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="block navy tight">
+  <div class="wrap">
+    <span class="section-tag">By the numbers</span>
+    <h2 class="section-title">Already used by your peers in finance.</h2>
+    <div class="stats-row">
+      <div class="stat-col">
+        <div class="snum">5,000+</div>
+        <div class="sdesc">Learners enrolled across all cohorts since launch</div>
+      </div>
+      <div class="stat-col">
+        <div class="snum">750+</div>
+        <div class="sdesc">Employers represented in the learner base</div>
+      </div>
+      <div class="stat-col">
+        <div class="snum">120+</div>
+        <div class="sdesc">Employers have reimbursed this program through education benefits</div>
+      </div>
+      <div class="stat-col">
+        <div class="snum">96%</div>
+        <div class="sdesc">Of employer reimbursement requests approved within 14 days</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="block soft tight">
+  <div class="wrap">
+    <span class="section-tag">In their words</span>
+    <h2 class="section-title">From finance professionals who completed the program.</h2>
+    <p class="section-lede">Placeholder quotes for design. Real testimonials to be sourced before launch.</p>
+    <div class="testimonials">
+      <div class="tcard">
+        <div class="stars">★★★★★</div>
+        <blockquote>"The driver-based forecasting module alone changed how I run our monthly close. I brought three new models back to my team the week after I finished it."</blockquote>
+        <div class="author">FP&amp;A Senior Associate</div>
+        <div class="employer">Global Investment Bank</div>
+      </div>
+      <div class="tcard">
+        <div class="stars">★★★★★</div>
+        <blockquote>"My employer covered 100% of the tuition. The advisor found our portal in two minutes and walked me through the approval request. I never would have figured that out on my own."</blockquote>
+        <div class="author">Corporate Finance Manager</div>
+        <div class="employer">F500 Industrial</div>
+      </div>
+      <div class="tcard">
+        <div class="stars">★★★★★</div>
+        <blockquote>"I came in as a senior FP&amp;A analyst. The business partnering and scenario modeling modules are what I needed to move into a finance director conversation."</blockquote>
+        <div class="author">Finance Director</div>
+        <div class="employer">Technology Company, 3,000+ employees</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CURRICULUM -->
+<section class="block tight">
+  <div class="wrap">
+    <span class="section-tag">Curriculum</span>
+    <h2 class="section-title">8 modules. The full FP&amp;A function, covered.</h2>
+    <p class="section-lede">From the planning cycle and budgeting to AI tools and business partnering. Each module includes video lectures, case studies, and applied exercises.</p>
+    <div class="curriculum">
+      <div class="module-card">
+        <div class="mnum">M1</div>
+        <div>
+          <h5>FP&amp;A Introduction</h5>
+          <p>The role of FP&amp;A in the organization, key responsibilities, and how leading finance teams are structured.</p>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="mnum">M2</div>
+        <div>
+          <h5>Planning Cycle &amp; Budgeting</h5>
+          <p>Annual planning frameworks, zero-based and driver-based budgeting, and operating plan construction.</p>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="mnum">M3</div>
+        <div>
+          <h5>Forecasting</h5>
+          <p>Rolling forecast design, driver trees, revenue and expense modeling, and forecast accuracy measurement.</p>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="mnum">M4</div>
+        <div>
+          <h5>Financial Analysis</h5>
+          <p>Variance analysis, KPI frameworks, management reporting, and performance review structures.</p>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="mnum">M5</div>
+        <div>
+          <h5>Financial Modeling</h5>
+          <p>Three-statement model builds, scenario modeling, sensitivity analysis, and working capital modeling.</p>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="mnum">M6</div>
+        <div>
+          <h5>Business Partnering</h5>
+          <p>Influencing without authority, translating financial insights for non-finance stakeholders, and executive communication.</p>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="mnum">M7</div>
+        <div>
+          <h5>Reporting &amp; Storytelling</h5>
+          <p>Board and management deck construction, data visualization principles, and narrative framing of financial results.</p>
+        </div>
+      </div>
+      <div class="module-card">
+        <div class="mnum">M8</div>
+        <div>
+          <h5>AI &amp; the Future of FP&amp;A</h5>
+          <p>AI tools in the FP&amp;A workflow, automation of routine analysis, and the skills that remain human-led.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FACULTY -->
+<section class="block soft tight">
+  <div class="wrap">
+    <span class="section-tag">Faculty</span>
+    <h2 class="section-title">Wharton professors. Wall Street Prep practitioners.</h2>
+    <p class="section-lede">Program directors and lead instructors — with full faculty roster available in the brochure.</p>
+    <div class="faculty-grid">
+      <div class="faculty-card">
+        <div class="avatar"></div>
+        <h5>Christopher Ittner</h5>
+        <div class="title">EY Professor of Accounting, The Wharton School</div>
+        <p>Research focus on performance measurement systems, strategic management accounting, and value-based management.</p>
+      </div>
+      <div class="faculty-card">
+        <div class="avatar"></div>
+        <h5>Christian Wattig</h5>
+        <div class="title">Managing Director, Wall Street Prep</div>
+        <p>20+ years in FP&amp;A, including Head of Finance roles at several global organizations. Lead architect of the applied curriculum.</p>
+      </div>
+      <div class="faculty-card">
+        <div class="avatar"></div>
+        <h5>40+ Instructors</h5>
+        <div class="title">CFOs, Finance Directors &amp; Industry Practitioners</div>
+        <p>Keynote sessions from CFOs and senior finance executives across financial services, technology, and industrial sectors.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TUITION + REIMBURSEMENT MODULE -->
+<section class="block tight">
+  <div class="wrap">
+    <span class="section-tag">Tuition &amp; enrollment</span>
+    <h2 class="section-title">Tuition details.</h2>
+    <div class="tuition-grid">
+      <div class="tuition-card">
+        <div class="section-tag" style="margin-bottom:6px;">Pay in full</div>
+        <div class="price-main">$4,800</div>
+        <div class="price-alt">One-time payment</div>
+        <ul>
+          <li><span>Program access</span> <strong>8 weeks</strong></li>
+          <li><span>Certificate</span> <strong>Wharton Online + WSP</strong></li>
+          <li><span>CPE credits</span> <strong>65 credits</strong></li>
+          <li><span>Alumni network</span> <strong>Included</strong></li>
+        </ul>
+        <a class="btn btn-primary btn-arrow" href="#brochure-form" style="display:block;text-align:center;">Get the Brochure</a>
+      </div>
+      <div class="tuition-card">
+        <div class="section-tag" style="margin-bottom:6px;">Pay monthly</div>
+        <div class="price-main">$1,000<span style="font-size:20px;font-weight:500;color:var(--meta);">/mo</span></div>
+        <div class="price-alt">5 monthly payments · No interest</div>
+        <ul>
+          <li><span>Same access &amp; certificate</span> <strong>Included</strong></li>
+          <li><span>Tuition assistance</span> <strong>Available</strong></li>
+          <li><span>Early-rate deadline</span> <strong>May 11</strong></li>
+          <li><span>Enrollment deadline</span> <strong>May 25</strong></li>
+        </ul>
+        <a class="btn btn-outline-dark btn-arrow" href="#brochure-form" style="display:block;text-align:center;">Get the Brochure</a>
+      </div>
+    </div>
+
+    <!-- Employer Reimbursement Module -->
+    <div class="reimb-module">
+      <span class="module-tag">Employer Reimbursement</span>
+      <h3>Your employer will likely cover this.</h3>
+      <p class="module-sub">More than 80% of large employers offer tuition reimbursement or education benefits. Most caps exceed the $4,800 tuition for this program. An enrollment advisor confirms your eligibility in 15 minutes — for free, with no commitment.</p>
+      <div class="cost-grid">
+        <div class="cost-col">
+          <div class="clabel">Tuition</div>
+          <div class="cval">$4,800</div>
+          <div class="cnote">Full program cost</div>
+        </div>
+        <div class="cost-col">
+          <div class="clabel">IRS §127 limit</div>
+          <div class="cval">$5,250</div>
+          <div class="cnote">Tax-free per year</div>
+        </div>
+        <div class="cost-col">
+          <div class="clabel">Typical cap</div>
+          <div class="cval">$7,500+</div>
+          <div class="cnote">Most large employers</div>
+        </div>
+        <div class="cost-col">
+          <div class="clabel">Cost to you</div>
+          <div class="cval">$0</div>
+          <div class="cnote">With employer benefit</div>
+        </div>
+      </div>
+      <div class="proof-strip">
+        <span>✓ <strong>1,800+ employees</strong> enrolled with employer support since 2024</span>
+        <span>✓ <strong>120+ employers</strong> have reimbursed this program</span>
+        <span>✓ <strong>96% approval rate</strong> at major employers</span>
+      </div>
+      <div class="module-cta">
+        <a class="btn btn-outline-light btn-arrow" href="#">Book a 15-min eligibility call</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- EMPLOYER LOGOS -->
+<section class="block soft tight">
+  <div class="wrap">
+    <span class="section-tag">Who's here</span>
+    <h2 class="section-title">750+ employers represented in the learner base.</h2>
+    <p class="section-lede">Finance professionals from these organizations — and hundreds of others — have completed this program.</p>
+    <div class="logos-strip">
+      <span class="logo-pill">Goldman Sachs</span>
+      <span class="logo-pill">JPMorgan Chase</span>
+      <span class="logo-pill">Citi</span>
+      <span class="logo-pill">Bank of America</span>
+      <span class="logo-pill">Morgan Stanley</span>
+      <span class="logo-pill">Deloitte</span>
+      <span class="logo-pill">PwC</span>
+      <span class="logo-pill">Amazon</span>
+      <span class="logo-pill">Google</span>
+      <span class="logo-pill">Microsoft</span>
+      <span class="logo-pill">Apple</span>
+      <span class="logo-pill">Johnson &amp; Johnson</span>
+      <span class="logo-pill">Merck</span>
+      <span class="logo-pill">GE</span>
+      <span class="logo-pill">3M</span>
+      <span class="logo-pill">Walmart</span>
+      <span class="logo-pill">Boeing</span>
+      <span class="logo-pill">+ 730 more</span>
+    </div>
+  </div>
+</section>
+
+<!-- GETTING STARTED -->
+<section class="block tight">
+  <div class="wrap">
+    <span class="section-tag">Getting started</span>
+    <h2 class="section-title">Three steps to enrolled.</h2>
+    <p class="section-lede">From brochure to enrolled typically takes one to two weeks — most of that is waiting for employer approval. The advisor handles the steps in between.</p>
+    <div class="process-steps">
+      <div class="pstep">
+        <div class="step-num">1</div>
+        <h4>Get the brochure</h4>
+        <p>Full program details, curriculum, faculty, and cohort schedule. Download above or have it emailed to you in 30 seconds.</p>
+      </div>
+      <div class="pstep">
+        <div class="step-num">2</div>
+        <h4>Book a consultation</h4>
+        <p>15 minutes with an enrollment advisor. They confirm your employer benefit, walk you through the portal, and send you the manager email template.</p>
+      </div>
+      <div class="pstep">
+        <div class="step-num">3</div>
+        <h4>Enroll in the June 8 cohort</h4>
+        <p>Once your employer approval comes through, your advisor sends a direct enrollment link. Course access lands in your inbox within 24 hours.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="block soft tight">
+  <div class="wrap">
+    <span class="section-tag">FAQ</span>
+    <h2 class="section-title">Common questions.</h2>
+    <div class="faq">
+      <div class="faq-item">
+        <div class="faq-q">Who is this program designed for? <span class="faq-plus">+</span></div>
+        <div class="faq-a">FP&amp;A analysts and managers looking to deepen financial modeling, forecasting, and business-partnering skills. Also strong for finance professionals moving into FP&amp;A roles, accountants expanding into commercial finance, and consultants building financial modeling depth. A full applicant profile is available in the brochure.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What is the weekly time commitment? <span class="faq-plus">+</span></div>
+        <div class="faq-a">Approximately 10 hours per week. Live sessions are held one evening per week and are recorded for those who cannot attend live. The remaining time is self-paced: video lectures, case study exercises, and model builds.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Will my employer cover the tuition? <span class="faq-plus">+</span></div>
+        <div class="faq-a">Most likely. More than 80% of employers with 1,000+ employees offer some form of education benefit. The IRS Section 127 limit is $5,250 per year tax-free — which covers the full $4,800 tuition. An enrollment advisor can confirm whether your specific employer qualifies in about 15 minutes. Book a call above or get the brochure first if you'd like the full program details before speaking with an advisor.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What if I miss a live session? <span class="faq-plus">+</span></div>
+        <div class="faq-a">All live sessions are recorded and available within 24 hours of the session. You can complete the program entirely on your own schedule if needed, though participation in live sessions is encouraged.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How soon can I enroll for the June 8 cohort? <span class="faq-plus">+</span></div>
+        <div class="faq-a">Enrollment is open now. Early-enrollment pricing ends May 11. If you are submitting an employer reimbursement request, we recommend initiating it before May 25 to allow time for approval before the cohort starts. If your approval comes after May 11, we will honor the early rate as long as you have a submission confirmation.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BOTTOM CTA -->
+<section class="bottom-cta">
+  <div class="wrap">
+    <h2>Get the brochure. Start the process.</h2>
+    <p>Full curriculum, faculty, outcomes, and employer reimbursement guide — in your inbox in two minutes.</p>
+    <div class="cta-row">
+      <a class="btn btn-navy btn-lg btn-arrow" href="#brochure-form">Get the Brochure</a>
+      <a class="btn btn-outline-light" href="#">Book a Consultation</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="site">
+  <div class="wrap">
+    <div class="row">
+      <div class="disclaim">
+        Not affiliated with any specific employer. Employees are responsible for verifying internal policies and obtaining approval for reimbursement. Employer and brand names are referenced for identification only. Wharton Online and Wall Street Prep are not partners of any specific benefit administrator. Program tuition, content, and dates subject to change.
+      </div>
+      <div class="colophon">
+        © 2026 Wall Street Prep<br/>· Wharton Online
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.faq-item').forEach(item => {
+    item.addEventListener('click', () => item.classList.toggle('open'));
+  });
+</script>
+
+</body>
+</html>
