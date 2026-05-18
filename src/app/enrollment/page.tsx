@@ -1,6 +1,9 @@
 import EnrollmentDashboard from '@/components/enrollment/EnrollmentDashboard';
 import type { CohortSummary, PacingDataPoint, ComparisonPanel } from '@/lib/sheets';
 
+// Always fetch live data from Google Sheets — never use the static build cache
+export const dynamic = 'force-dynamic';
+
 interface PageData {
   summary: CohortSummary[];
   pacing: PacingDataPoint[];
