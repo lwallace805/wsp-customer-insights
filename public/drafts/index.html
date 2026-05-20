@@ -8,107 +8,156 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: 'Inter', -apple-system, system-ui, sans-serif;
-    background: #0a2540;
-    color: #fff;
-    min-height: 100vh;
-    padding: 48px 32px;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 860px; margin: 0 auto; }
-  header { margin-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,.1); padding-bottom: 24px; }
-  header .label {
-    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
-    color: #3fc0fd; font-weight: 600; margin-bottom: 8px;
-  }
-  header h1 { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -.3px; }
-  header p { color: #8294ab; font-size: 14px; margin: 8px 0 0; }
-  .grid { display: grid; gap: 14px; }
-  .card {
-    background: rgba(255,255,255,.05);
-    border: 1px solid rgba(255,255,255,.1);
-    border-radius: 8px;
-    padding: 20px 24px;
-    display: flex; align-items: center; justify-content: space-between;
-    text-decoration: none;
-    transition: all .15s;
-  }
-  .card:hover {
-    background: rgba(255,255,255,.09);
-    border-color: rgba(63,192,253,.4);
-  }
-  .card .info .tag {
-    font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
-    color: #3fc0fd; font-weight: 600; margin-bottom: 6px;
-  }
-  .card .info .title { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 3px; }
-  .card .info .meta { font-size: 12px; color: #8294ab; }
-  .card .arrow { color: #3fc0fd; font-size: 18px; opacity: .7; }
-  .card:hover .arrow { opacity: 1; }
-  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,.08); font-size: 12px; color: #4a5e72; }
+  /* ── WSP Analytics Hub top nav ─────────────────────────────────── */
+  *{box-sizing:border-box;}
+  .wsp-nav{position:sticky;top:0;z-index:9999;background:#fff;border-bottom:1px solid #e5e7eb;box-shadow:0 1px 4px rgba(0,0,0,.07);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;}
+  .wsp-nav-inner{max-width:1536px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px;}
+  .wsp-nav-brand{font-weight:700;font-size:15px;color:#111;text-decoration:none;}
+  .wsp-nav-brand:hover{color:#059669;}
+  .wsp-nav-links{display:flex;align-items:center;gap:2px;}
+  .wsp-nav-link{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;font-size:13.5px;color:#4b5563;text-decoration:none;background:none;border:none;cursor:pointer;white-space:nowrap;font-family:inherit;transition:background .12s,color .12s;}
+  .wsp-nav-link:hover{background:#f3f4f6;color:#111;}
+  .wsp-nav-link.active{background:#f3f4f6;color:#111;font-weight:600;}
+  .wsp-nav-dd{position:relative;}
+  .wsp-nav-dd:hover .wsp-nav-menu{display:block;}
+  .wsp-nav-menu{display:none;position:absolute;left:0;top:100%;padding-top:4px;z-index:9999;}
+  .wsp-nav-menu-inner{background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.1);padding:4px 0;min-width:210px;}
+  .wsp-nav-item{display:block;padding:9px 16px;font-size:13px;color:#4b5563;text-decoration:none;white-space:nowrap;font-family:'Inter',-apple-system,sans-serif;transition:background .1s,color .1s;}
+  .wsp-nav-item:hover{background:#f9fafb;color:#111;}
+  .wsp-nav-chevron{font-size:9px;margin-left:1px;opacity:.5;}
+
+  /* ── Page chrome ────────────────────────────────────────────────── */
+  html,body{margin:0;padding:0;}
+  body{font-family:'Inter',-apple-system,system-ui,sans-serif;background:#0a2540;color:#fff;min-height:100vh;padding:48px 32px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:900px;margin:0 auto;}
+  header{margin-bottom:48px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:24px;}
+  header .label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#3fc0fd;font-weight:600;margin-bottom:8px;}
+  header h1{font-size:28px;font-weight:700;margin:0;letter-spacing:-.3px;}
+  header p{color:#8294ab;font-size:14px;margin:8px 0 0;}
+
+  /* ── Project sections ───────────────────────────────────────────── */
+  .project{margin-bottom:52px;}
+  .project-header{display:flex;align-items:baseline;gap:14px;margin-bottom:18px;}
+  .project-title{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;}
+  .project-desc{font-size:13px;color:#5a7291;}
+  .project-divider{flex:1;height:1px;background:rgba(255,255,255,.08);margin-left:4px;}
+
+  /* ── Cards ──────────────────────────────────────────────────────── */
+  .grid{display:grid;gap:10px;}
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;text-decoration:none;transition:all .15s;}
+  .card:hover{background:rgba(255,255,255,.09);border-color:rgba(63,192,253,.4);}
+  .card .info .tag{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#3fc0fd;font-weight:600;margin-bottom:5px;}
+  .card .info .title{font-size:14.5px;font-weight:600;color:#fff;margin-bottom:3px;}
+  .card .info .meta{font-size:12px;color:#6b84a0;}
+  .card .arrow{color:#3fc0fd;font-size:16px;opacity:.6;flex-shrink:0;}
+  .card:hover .arrow{opacity:1;}
+
+  footer{margin-top:48px;padding-top:20px;border-top:1px solid rgba(255,255,255,.07);font-size:12px;color:#3a5066;}
 </style>
 </head>
 <body>
+
+<!-- WSP Analytics Hub Nav -->
+<nav class="wsp-nav">
+  <div class="wsp-nav-inner">
+    <a class="wsp-nav-brand" href="/">WSP Analytics Hub</a>
+    <div class="wsp-nav-links">
+      <a class="wsp-nav-link" href="/">Overview</a>
+      <div class="wsp-nav-dd">
+        <button class="wsp-nav-link">Customer Insights <span class="wsp-nav-chevron">▾</span></button>
+        <div class="wsp-nav-menu"><div class="wsp-nav-menu-inner">
+          <a class="wsp-nav-item" href="/certificates">Certificate NPS</a>
+          <a class="wsp-nav-item" href="/nps">All NPS</a>
+          <a class="wsp-nav-item" href="/surveys">Surveys</a>
+          <a class="wsp-nav-item" href="/insights">Insights</a>
+        </div></div>
+      </div>
+      <div class="wsp-nav-dd">
+        <button class="wsp-nav-link">Marketing Dashboards <span class="wsp-nav-chevron">▾</span></button>
+        <div class="wsp-nav-menu"><div class="wsp-nav-menu-inner">
+          <a class="wsp-nav-item" href="/enrollment">Enrollment Pacing</a>
+        </div></div>
+      </div>
+      <div class="wsp-nav-dd">
+        <button class="wsp-nav-link">Cohort Performance <span class="wsp-nav-chevron">▾</span></button>
+        <div class="wsp-nav-menu"><div class="wsp-nav-menu-inner">
+          <a class="wsp-nav-item" href="/cohort-performance/wharton">Wharton Online</a>
+          <a class="wsp-nav-item" href="/cohort-performance/columbia">Columbia / CBSEE</a>
+          <a class="wsp-nav-item" href="/dashboards/spring-2026.html">Spring 2026 Performance</a>
+        </div></div>
+      </div>
+      <a class="wsp-nav-link active" href="/drafts/">Drafts</a>
+    </div>
+  </div>
+</nav>
+
 <div class="wrap">
   <header>
     <div class="label">Wall Street Prep · Internal</div>
     <h1>Marketing Drafts</h1>
-    <p>In-progress pages for live preview. Add a new file to <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:3px;font-size:12px;">/public/drafts/</code> and link it below.</p>
+    <p>In-progress pages for live preview. Pages are grouped by project.</p>
   </header>
 
-  <div class="grid">
+  <!-- ── Project: Employer Sponsored LP ─────────────────────────── -->
+  <div class="project">
+    <div class="project-header">
+      <span class="project-title">Employer Sponsored LP</span>
+      <span class="project-desc">LinkedIn off-platform funnel — FP&amp;A Certificate</span>
+      <span class="project-divider"></span>
+    </div>
+    <div class="grid">
 
-    <a class="card" href="/drafts/Employer_Reimbursement_LP_mockup.html" target="_blank">
-      <div class="info">
-        <div class="tag">Employer Reimbursement LP · v1 Mockup</div>
-        <div class="title">FP&amp;A Certificate — Generic Thank-You Page</div>
-        <div class="meta">Navy / Playfair design — post-brochure-download lifecycle anchor</div>
-      </div>
-      <div class="arrow">→</div>
-    </a>
+      <a class="card" href="/drafts/Employer_Reimbursement_ProgramLP.html" target="_blank">
+        <div class="info">
+          <div class="tag">Page 1 · Program LP</div>
+          <div class="title">FP&amp;A Certificate — Employer Reimbursement Program Page</div>
+          <div class="meta">Wharton design system · employer framing overlay · brochure lead-capture CTA</div>
+        </div>
+        <div class="arrow">→</div>
+      </a>
 
-    <a class="card" href="/drafts/Employer_Reimbursement_LP_wsp_design.html" target="_blank">
-      <div class="info">
-        <div class="tag">Employer Reimbursement LP · WSP Design</div>
-        <div class="title">FP&amp;A Certificate — WSP Services Page Variant</div>
-        <div class="meta">Inter / lime / blue WSP design system — rebuilt on services-page template</div>
-      </div>
-      <div class="arrow">→</div>
-    </a>
+      <a class="card" href="/drafts/Employer_Reimbursement_ThankYou.html" target="_blank">
+        <div class="info">
+          <div class="tag">Page 2 · Thank-You / Lifecycle</div>
+          <div class="title">FP&amp;A Certificate — Brochure Thank-You + Lifecycle Page</div>
+          <div class="meta">Navy / Playfair · dual-mode hero · advisor booking CTA · invoice request</div>
+        </div>
+        <div class="arrow">→</div>
+      </a>
 
-    <a class="card" href="/drafts/Employer_Reimbursement_LP_simple.html" target="_blank">
-      <div class="info">
-        <div class="tag">Employer Reimbursement LP · Simple / Advisor-First</div>
-        <div class="title">FP&amp;A Certificate — Simplified Advisor-First Variant</div>
-        <div class="meta">Navy / Playfair — lighter feature set, A/B against the full v2 page</div>
-      </div>
-      <div class="arrow">→</div>
-    </a>
+      <a class="card" href="/drafts/Employer_Reimbursement_LP_simple.html" target="_blank">
+        <div class="info">
+          <div class="tag">Earlier Draft · Advisor-First</div>
+          <div class="title">FP&amp;A Certificate — Simplified Advisor-First Variant</div>
+          <div class="meta">Navy / Playfair · lighter feature set · base for Page 2</div>
+        </div>
+        <div class="arrow">→</div>
+      </a>
 
-    <a class="card" href="/drafts/Employer_Reimbursement_ProgramLP.html" target="_blank">
-      <div class="info">
-        <div class="tag">Employer Reimbursement · Program LP · Page 1</div>
-        <div class="title">FP&amp;A Certificate — Employer Reimbursement Program Page</div>
-        <div class="meta">Wharton design system — employer framing overlay, brochure lead-capture CTA</div>
-      </div>
-      <div class="arrow">→</div>
-    </a>
+      <a class="card" href="/drafts/Employer_Reimbursement_LP_mockup.html" target="_blank">
+        <div class="info">
+          <div class="tag">Earlier Draft · v1 Mockup</div>
+          <div class="title">FP&amp;A Certificate — Generic Thank-You Page</div>
+          <div class="meta">Navy / Playfair design · post-brochure-download lifecycle anchor</div>
+        </div>
+        <div class="arrow">→</div>
+      </a>
 
-    <a class="card" href="/drafts/Employer_Reimbursement_ThankYou.html" target="_blank">
-      <div class="info">
-        <div class="tag">Employer Reimbursement · Thank-You / Lifecycle · Page 2</div>
-        <div class="title">FP&amp;A Certificate — Brochure Thank-You + Lifecycle Page</div>
-        <div class="meta">Navy / Playfair — dual-mode hero, advisor booking CTA, invoice request resource</div>
-      </div>
-      <div class="arrow">→</div>
-    </a>
+      <a class="card" href="/drafts/Employer_Reimbursement_LP_wsp_design.html" target="_blank">
+        <div class="info">
+          <div class="tag">Earlier Draft · WSP Design</div>
+          <div class="title">FP&amp;A Certificate — WSP Services Page Variant</div>
+          <div class="meta">Inter / lime / blue WSP design system · services-page template</div>
+        </div>
+        <div class="arrow">→</div>
+      </a>
 
+    </div>
   </div>
 
-  <footer>Wall Street Prep · Internal drafts — not for external distribution</footer>
 </div>
+
+<footer style="max-width:900px;margin:48px auto 0;padding:20px 0;border-top:1px solid rgba(255,255,255,.07);font-size:12px;color:#3a5066;">Wall Street Prep · Internal drafts — not for external distribution</footer>
+
 </body>
 </html>

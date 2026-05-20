@@ -448,8 +448,61 @@
     .bottom-cta .gradient-text { font-size: 2.5em; }
   }
 </style>
+<style>
+  /* ── WSP Analytics Hub nav ─────────────────────────────────────── */
+  .wsp-nav{position:sticky;top:0;z-index:9999;background:#fff;border-bottom:1px solid #e5e7eb;box-shadow:0 1px 4px rgba(0,0,0,.07);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;}
+  .wsp-nav-inner{max-width:1536px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px;}
+  .wsp-nav-brand{font-weight:700;font-size:15px;color:#111827;text-decoration:none;}
+  .wsp-nav-brand:hover{color:#059669;}
+  .wsp-nav-links{display:flex;align-items:center;gap:2px;}
+  .wsp-nav-link{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;font-size:13.5px;color:#4b5563;text-decoration:none;background:none;border:none;cursor:pointer;white-space:nowrap;font-family:inherit;transition:background .12s,color .12s;}
+  .wsp-nav-link:hover{background:#f3f4f6;color:#111;}
+  .wsp-nav-link.active{background:#f3f4f6;color:#111;font-weight:600;}
+  .wsp-nav-dd{position:relative;}
+  .wsp-nav-dd:hover .wsp-nav-menu{display:block;}
+  .wsp-nav-menu{display:none;position:absolute;left:0;top:100%;padding-top:4px;z-index:9999;}
+  .wsp-nav-menu-inner{background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.1);padding:4px 0;min-width:210px;}
+  .wsp-nav-item{display:block;padding:9px 16px;font-size:13px;color:#4b5563;text-decoration:none;white-space:nowrap;font-family:'Inter',-apple-system,sans-serif;transition:background .1s,color .1s;}
+  .wsp-nav-item:hover{background:#f9fafb;color:#111;}
+  .wsp-nav-chevron{font-size:9px;margin-left:1px;opacity:.5;}
+  /* ────────────────────────────────────────────────────────────────── */
+</style>
 </head>
 <body>
+<!-- WSP Analytics Hub Nav -->
+<nav class="wsp-nav">
+  <div class="wsp-nav-inner">
+    <a class="wsp-nav-brand" href="/">WSP Analytics Hub</a>
+    <div class="wsp-nav-links">
+      <a class="wsp-nav-link" href="/">Overview</a>
+      <div class="wsp-nav-dd">
+        <button class="wsp-nav-link">Customer Insights <span class="wsp-nav-chevron">&#9660;</span></button>
+        <div class="wsp-nav-menu"><div class="wsp-nav-menu-inner">
+          <a class="wsp-nav-item" href="/certificates">Certificate NPS</a>
+          <a class="wsp-nav-item" href="/nps">All NPS</a>
+          <a class="wsp-nav-item" href="/surveys">Surveys</a>
+          <a class="wsp-nav-item" href="/insights">Insights</a>
+        </div></div>
+      </div>
+      <div class="wsp-nav-dd">
+        <button class="wsp-nav-link">Marketing Dashboards <span class="wsp-nav-chevron">&#9660;</span></button>
+        <div class="wsp-nav-menu"><div class="wsp-nav-menu-inner">
+          <a class="wsp-nav-item" href="/enrollment">Enrollment Pacing</a>
+        </div></div>
+      </div>
+      <div class="wsp-nav-dd">
+        <button class="wsp-nav-link">Cohort Performance <span class="wsp-nav-chevron">&#9660;</span></button>
+        <div class="wsp-nav-menu"><div class="wsp-nav-menu-inner">
+          <a class="wsp-nav-item" href="/cohort-performance/wharton">Wharton Online</a>
+          <a class="wsp-nav-item" href="/cohort-performance/columbia">Columbia / CBSEE</a>
+          <a class="wsp-nav-item" href="/dashboards/spring-2026.html">Spring 2026 Performance</a>
+        </div></div>
+      </div>
+      <a class="wsp-nav-link active" href="/drafts/">Drafts</a>
+    </div>
+  </div>
+</nav>
+
 
 <!-- Top context banner -->
 <div class="topbar">

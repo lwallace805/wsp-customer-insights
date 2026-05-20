@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, BarChart2, MessageSquare, Lightbulb,
-  GraduationCap, TrendingUp, ChevronDown, Users,
+  GraduationCap, TrendingUp, ChevronDown, Users, Layers,
 } from 'lucide-react';
 
 const CUSTOMER_INSIGHTS = [
@@ -23,6 +23,8 @@ const COHORT_PERFORMANCE = [
   { href: '/cohort-performance/columbia',     label: 'Columbia / CBSEE',        icon: Users },
   { href: '/dashboards/spring-2026.html',     label: 'Spring 2026 Performance', icon: TrendingUp, static: true },
 ];
+
+const DRAFTS_HREF = '/drafts/';
 
 type NavItem = { href: string; label: string; icon: React.ElementType; static?: boolean };
 
@@ -129,6 +131,19 @@ export default function NavBar() {
             items={COHORT_PERFORMANCE}
             activePath={pathname}
           />
+
+          {/* Drafts — static link */}
+          <a
+            href={DRAFTS_HREF}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              pathname.startsWith('/drafts')
+                ? 'text-gray-900 bg-gray-100 font-medium'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <Layers size={14} />
+            Drafts
+          </a>
         </div>
       </div>
     </nav>
