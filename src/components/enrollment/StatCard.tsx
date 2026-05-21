@@ -19,6 +19,13 @@ export default function StatCard({ cohort }: Props) {
   const histColor = histPositive ? 'text-emerald-400' : 'text-red-400';
   const histSign = histPositive ? '+' : '';
 
+  // At-pace projection: if today's % ahead/behind holds through end of cohort
+  const paceRatio = cohort.forecast > 0 ? cohort.enrolled / cohort.forecast : 1;
+  const projected = Math.round(paceRatio * cohort.goal);
+  const projVsGoal = projected - cohort.goal;
+  const projPositive = projVsGoal >= 0;
+  const projSign = projPositive ? '+' : '';
+
   return (
     <div className="bg-[#161b22] border border-white/10 rounded-xl p-5 flex-1 min-w-0">
       <div className="flex items-center justify-between mb-4">
@@ -61,6 +68,20 @@ export default function StatCard({ cohort }: Props) {
             {histSign}{histDiff} vs. avg {cohort.histAvg.toLocaleString()}
           </span>
         </div>
+      </div>
+
+      {/* At-pace projection */}
+      <div className="mt-4 rounded-lg bg-white/5 border border-white/10 px-4 py-3">
+        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1.5">At-pace projection</p>
+        <div className="flex items-baseline justify-between">
+          <span className="text-2xl font-bold text-white">{projected.toLocaleString()}</span>
+          <span className={`text-sm font-semibold ${projPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+            {projSign}{projVsGoal.toLocaleString()} vs goal
+          </span>
+        </div>
+        <p className="text-xs text-gray-500 mt-1">
+          {Math.abs(Number(variancePct))}% {forecastPositive ? 'ahead of' : 'behind'} pace · {paceRatio.toFixed(3)}× ratio applied to {cohort.goal.toLocaleString()} goal
+        </p>
       </div>
     </div>
   );
