@@ -81,6 +81,9 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
 
   const todayVisible = daysRemaining !== undefined && daysRemaining <= zoom;
 
+  // Round up to the nearest 50 above the band ceiling so the axis stays clean
+  const yMax = Math.ceil((goal * 1.08) / 50) * 50;
+
   return (
     <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
       {/* Zoom controls */}
@@ -113,7 +116,7 @@ export default function ForecastChart({ data, program, goal, daysRemaining }: Pr
             {...axisProps}
           />
           <YAxis
-            domain={[0, goal]}
+            domain={[0, yMax]}
             label={{ value: 'Enrollments', angle: -90, position: 'insideRight', offset: 20, fill: '#6b7280', fontSize: 11 }}
             tickFormatter={v => v.toLocaleString()}
             {...axisProps}
