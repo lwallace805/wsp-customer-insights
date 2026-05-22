@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JPMorgan · FP&A Certificate — Employer Reimbursement TOF (Mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0B2545;
+    --navy-2: #0E2F58;
+    --navy-deep: #08203F;
+    --ink: #112436;
+    --slate: #475569;
+    --line: #E2E8F0;
+    --paper: #FFFFFF;
+    --paper-soft: #FAFAF7;
+    --sky: #9CC8E2;
+    --sky-bright: #BFE0F2;
+    --gold: #C9A961;
+    --gold-deep: #A8893E;
+    --crimson: #C8102E;
+    --crimson-hover: #A40D24;
+    --green: #1F7A4F;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+    color: var(--ink); background: var(--paper);
+    -webkit-font-smoothing: antialiased; line-height: 1.55;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 28px; }
+
+  /* Top context banner */
+  .topbar {
+    background: #2F1F0F; color: #E9DDC6;
+    font-size: 13px; text-align: center; padding: 10px 16px; letter-spacing: .04em;
+  }
+  .topbar strong { color: #F0E5CF; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .topbar .sep { opacity: .5; margin: 0 14px; }
+
+  /* Mockup note */
+  .mockup-note {
+    background: #FFF8E5; border-left: 3px solid var(--gold); color: #5A4A1F;
+    font-size: 12.5px; padding: 10px 14px; max-width: 1140px; margin: 10px auto 0; border-radius: 0 4px 4px 0;
+  }
+  .mockup-note strong { color: #3A2F12; }
+
+  /* Brand bar */
+  .brandbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .brandbar .brands { display: flex; gap: 24px; align-items: center; }
+  .brand-lockup {
+    border: 1px dashed #B8C1CC; color: #6B7785;
+    padding: 8px 14px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; border-radius: 2px;
+  }
+  .brand-lockup.alt { border-style: solid; border-color: #D9DEE6; color: #354150; background: #fff; }
+
+  /* Buttons */
+  .btn { display: inline-block; padding: 12px 18px; border-radius: 4px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; border: 0; text-align: center; line-height: 1.2; }
+  .btn-primary { background: var(--crimson); color: #fff; }
+  .btn-primary:hover { background: var(--crimson-hover); }
+  .btn-outline { background: transparent; color: var(--ink); border: 1px solid #D2D8E0; }
+  .btn-outline:hover { border-color: var(--ink); }
+  .btn-ghost-light { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); }
+  .btn-ghost-light:hover { border-color: #fff; }
+  .btn-arrow::after { content: " →"; }
+  .btn-lg { padding: 14px 22px; font-size: 15px; }
+  .btn-block { display: block; width: 100%; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color: #fff; padding: 56px 0 64px; position: relative;
+  }
+  .hero .grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 56px; align-items: start; }
+  .eyebrow-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+  .eyebrow-pill {
+    display: inline-block; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--sky-bright); padding: 6px 10px; border: 1px solid rgba(156,200,226,.35); border-radius: 999px; font-weight: 600;
+  }
+  .eyebrow-pill.gold {
+    background: var(--gold); color: #1B1306; border-color: var(--gold);
+  }
+  .hero h1 {
+    font-family: 'Playfair Display', Georgia, serif; font-weight: 500; font-size: 52px;
+    line-height: 1.05; margin: 0 0 16px; letter-spacing: -.01em;
+  }
+  .hero h1 .accent { color: var(--sky-bright); font-style: italic; }
+  .hero .sub { font-size: 16.5px; color: #DDE6EF; max-width: 560px; margin-bottom: 22px; }
+  .hero .stats {
+    display: flex; gap: 22px; flex-wrap: wrap; color: #B7C5D5; font-size: 13.5px;
+    padding-top: 18px; border-top: 1px solid rgba(255,255,255,.12);
+  }
+  .hero .stats strong { color: #fff; font-weight: 600; }
+
+  /* Lead form (in hero) */
+  .leadform {
+    background: #fff; color: var(--ink); border-radius: 8px; padding: 26px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  .leadform .small {
+    font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-deep); font-weight: 700; margin-bottom: 6px;
+  }
+  .leadform h3 {
+    font-family: 'Playfair Display', serif; font-weight: 500; font-size: 22px; margin: 0 0 6px; line-height: 1.2;
+  }
+  .leadform p.intro { color: var(--slate); font-size: 13.5px; margin: 0 0 18px; }
+  .field { margin-bottom: 12px; }
+  .field label {
+    font-size: 11px; font-weight: 600; color: var(--slate); display: block; margin-bottom: 4px;
+  }
+  .field input, .field select {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px;
+    font-family: inherit; font-size: 14px; color: var(--ink); background: #fff;
+  }
+  .field input:focus, .field select:focus { outline: 0; border-color: var(--navy); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .leadform .submit { margin-top: 6px; }
+  .leadform .footnote {
+    font-size: 11px; color: var(--slate); margin-top: 12px; line-height: 1.5;
+  }
+  .leadform .secondary {
+    text-align: center; font-size: 12px; color: var(--slate); margin-top: 14px;
+    padding-top: 14px; border-top: 1px solid var(--line);
+  }
+  .leadform .secondary a { color: var(--crimson); text-decoration: none; font-weight: 600; }
+  .leadform .secondary a:hover { text-decoration: underline; }
+
+  /* Cost comparison */
+  section.block { padding: 64px 0; }
+  section.block.tight { padding: 48px 0; }
+  section.cream { background: var(--paper-soft); }
+  section.dark { background: var(--navy); color: #fff; }
+  .section-eyebrow {
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--slate); margin-bottom: 12px;
+  }
+  section.dark .section-eyebrow { color: var(--sky-bright); }
+  .section-title {
+    font-family: 'Playfair Display', serif; font-weight: 500; font-size: 34px; line-height: 1.16; margin: 0 0 12px; letter-spacing: -.005em;
+  }
+  .section-title .italic { font-style: italic; color: var(--slate); font-weight: 400; }
+  section.dark .section-title .italic { color: var(--sky); }
+  .section-lede {
+    color: var(--slate); max-width: 720px; font-size: 15.5px; margin-bottom: 30px;
+  }
+  section.dark .section-lede { color: #C5D2DE; }
+
+  .cost-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .cost-card {
+    border-radius: 8px; padding: 26px; border: 1px solid var(--line); background: #fff;
+  }
+  .cost-card.win {
+    background: #ECFBEF; border-color: #C2EACD;
+  }
+  .cost-card .small {
+    font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700;
+    margin-bottom: 6px; color: var(--slate);
+  }
+  .cost-card.win .small { color: var(--green); }
+  .cost-card .figure {
+    font-family: 'Playfair Display', serif; font-size: 44px; line-height: 1; margin: 4px 0 4px;
+  }
+  .cost-card.win .figure { color: var(--green); }
+  .cost-card .sub { color: var(--slate); font-size: 13.5px; margin: 0 0 16px; }
+  .cost-card ul {
+    list-style: none; padding: 0; margin: 0;
+  }
+  .cost-card ul li {
+    padding-left: 22px; position: relative; font-size: 14px; margin-bottom: 6px; color: var(--ink);
+  }
+  .cost-card ul li::before {
+    content: "✓"; color: var(--green); position: absolute; left: 0; top: 0; font-weight: 700;
+  }
+  .cost-card.standard ul li::before { content: "—"; color: var(--slate); }
+  .cost-card.standard ul li { color: var(--slate); }
+  .cost-card .nudge {
+    margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); font-size: 13px; color: var(--slate); line-height: 1.5;
+  }
+
+  /* Curriculum module list */
+  .curriculum-list { display: flex; flex-direction: column; gap: 12px; }
+  .curric-item {
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    padding: 22px 26px; display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: start;
+    transition: all .15s;
+  }
+  .curric-item:hover { border-color: var(--navy); }
+  .curric-num {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--navy); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+  }
+  .curric-content { width: 100%; }
+  .curric-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 10px; gap: 16px;
+  }
+  .curric-header h4 {
+    font-family: 'Playfair Display', serif; font-weight: 500; font-size: 19px;
+    margin: 0; line-height: 1.3; color: var(--ink);
+  }
+  .curric-week {
+    font-size: 11.5px; color: var(--slate); font-weight: 600; white-space: nowrap;
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+  .curric-bullets { list-style: none; padding: 0; margin: 0; }
+  .curric-bullets li {
+    padding-left: 22px; position: relative; font-size: 14px;
+    color: var(--slate); margin-bottom: 5px; line-height: 1.5;
+  }
+  .curric-bullets li::before {
+    content: "→"; color: var(--gold); position: absolute; left: 0; top: 0; font-weight: 700;
+  }
+  @media (max-width: 700px) {
+    .curric-item { padding: 18px 20px; gap: 16px; }
+    .curric-header { flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 8px; }
+  }
+
+  /* What you get */
+  .what-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .what-card {
+    background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 24px;
+  }
+  .what-card .icon {
+    width: 40px; height: 40px; border-radius: 8px; background: var(--navy);
+    color: var(--sky-bright); display: flex; align-items: center; justify-content: center;
+    font-family: 'Playfair Display', serif; font-style: italic; font-size: 18px; font-weight: 700; margin-bottom: 14px;
+  }
+  .what-card h4 {
+    font-family: 'Playfair Display', serif; font-weight: 500; font-size: 18px; margin: 0 0 6px;
+  }
+  .what-card p { margin: 0; color: var(--slate); font-size: 14px; }
+
+  /* Trust band */
+  .trust-band { text-align: center; }
+  .trust-band p { color: var(--slate); font-size: 14px; margin-bottom: 22px; letter-spacing: .02em; }
+  .logo-row {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 24px;
+    padding: 14px 0; opacity: .8;
+  }
+  .logo-row .logo-mark {
+    background: #fff; border: 1px dashed #C6CED7;
+    padding: 9px 16px; font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: #5F6A7A; font-weight: 600; border-radius: 3px;
+  }
+
+  /* 3-step what happens */
+  .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; counter-reset: stepc; }
+  .step-card {
+    background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 26px; position: relative;
+  }
+  .step-card::before {
+    counter-increment: stepc; content: counter(stepc, decimal-leading-zero);
+    font-family: 'Playfair Display', serif; font-style: italic; font-size: 38px; color: var(--gold);
+    line-height: 1; display: block; margin-bottom: 10px;
+  }
+  .step-card h4 {
+    font-family: 'Playfair Display', serif; font-weight: 500; font-size: 19px; margin: 0 0 6px;
+  }
+  .step-card p { margin: 0; color: var(--slate); font-size: 14px; }
+
+  /* Closing CTA */
+  .close-cta {
+    background: linear-gradient(180deg, var(--navy-2) 0%, var(--navy) 100%); color: #fff; padding: 64px 0;
+  }
+  .close-cta .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; align-items: center; }
+  .close-cta h2 {
+    font-family: 'Playfair Display', serif; font-weight: 500; font-size: 38px; line-height: 1.12; margin: 0 0 12px;
+  }
+  .close-cta h2 .italic { font-style: italic; color: var(--sky-bright); }
+  .close-cta p { color: #C5D2DE; max-width: 480px; font-size: 15px; margin-bottom: 18px; }
+  .close-cta .bullets { list-style: none; padding: 0; margin: 0; }
+  .close-cta .bullets li {
+    padding-left: 22px; position: relative; color: #DDE6EF; font-size: 14px; margin-bottom: 8px;
+  }
+  .close-cta .bullets li::before {
+    content: "✓"; color: var(--sky-bright); position: absolute; left: 0; top: 0; font-weight: 700;
+  }
+
+  /* Footer */
+  footer.site {
+    background: #061830; color: #8294AB; padding: 32px 0 24px; font-size: 12.5px;
+  }
+  footer.site .row { display: flex; gap: 36px; justify-content: space-between; align-items: flex-start; }
+  footer.site .disclaim { max-width: 760px; font-style: italic; line-height: 1.6; }
+  footer.site .colophon { text-align: right; }
+
+  @media (max-width: 880px) {
+    .hero .grid, .cost-compare, .what-grid, .steps-grid, .close-cta .grid { grid-template-columns: 1fr; }
+    .field-row { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 36px; }
+    .close-cta h2 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top context banner -->
+<div class="topbar">
+  <strong>JPMorgan Chase Employees</strong>
+  <span class="sep">•</span>
+  This program is covered under your L&amp;D benefit. No out-of-pocket cost.
+</div>
+
+<div class="wrap">
+  <div class="brandbar">
+    <div class="brands">
+      <span class="brand-lockup">Wharton Online · Logo</span>
+      <span class="brand-lockup alt">Wall Street Prep · Logo</span>
+    </div>
+    <a class="btn btn-primary btn-arrow" href="#leadform">Check My Eligibility</a>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="grid">
+      <div>
+        <div class="eyebrow-row">
+          <span class="eyebrow-pill">JPMorgan L&amp;D Eligible</span>
+          <span class="eyebrow-pill gold">$0 To You</span>
+        </div>
+        <h1>FP&amp;A Certificate. <span class="accent">Covered by your JPMorgan benefit.</span></h1>
+        <p class="sub">An enrollment advisor confirms your eligibility in 15 minutes, walks you through your JPMorgan L&amp;D portal, and helps you enroll for the June 8 cohort.</p>
+        <div class="stats">
+          <span>📅 <strong>Starts June 8, 2026</strong></span>
+          <span>⏱ <strong>8 weeks online</strong></span>
+          <span>💰 <strong>$0 to you</strong></span>
+        </div>
+      </div>
+
+      <!-- LEAD FORM -->
+      <div class="leadform" id="leadform">
+        <div class="small">Free · 15-min eligibility check</div>
+        <h3>Confirm your benefit. Get the brochure.</h3>
+        <p class="intro">We'll email the program brochure right away, then a JPM-specialized advisor will reach out within 24 hours to confirm your L&amp;D benefit and walk you through the enrollment process.</p>
+
+        <form onsubmit="event.preventDefault(); alert('Mockup: form would submit and redirect to the Thank-You / Lifecycle page.');">
+          <div class="field-row">
+            <div class="field">
+              <label for="fn">First name</label>
+              <input id="fn" type="text" placeholder="Sarah" required />
+            </div>
+            <div class="field">
+              <label for="ln">Last name</label>
+              <input id="ln" type="text" placeholder="Mehta" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="em">JPMorgan work email</label>
+            <input id="em" type="email" placeholder="sarah.mehta@jpmchase.com" required />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="jt">Job title</label>
+              <input id="jt" type="text" placeholder="Senior FP&amp;A Associate" required />
+            </div>
+            <div class="field">
+              <label for="ph">Phone (optional)</label>
+              <input id="ph" type="tel" placeholder="(555) 555-5555" />
+            </div>
+          </div>
+          <div class="submit">
+            <button class="btn btn-primary btn-lg btn-block btn-arrow" type="submit">Check Eligibility &amp; Send Brochure</button>
+          </div>
+          <div class="footnote">
+            Brochure arrives in 2 minutes. Advisor reaches out within 24 hours. No commitment; the eligibility check is free.
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COST COMPARISON -->
+<section class="block cream">
+  <div class="wrap">
+    <div class="section-eyebrow">What JPMorgan employees actually pay</div>
+    <h2 class="section-title">Same program. <span class="italic">A different price tag.</span></h2>
+    <p class="section-lede">JPMorgan's L&amp;D benefit covers the full $5,000 tuition for this program. Your firm's investment is already allocated; using it for this cohort costs nothing.</p>
+
+    <div class="cost-compare">
+      <div class="cost-card win">
+        <div class="small">JPMorgan Employee</div>
+        <div class="figure">$0</div>
+        <div class="sub">Out of pocket</div>
+        <ul>
+          <li>Full $5,000 tuition covered by JPMorgan L&amp;D</li>
+          <li>Wharton Online + Wall Street Prep certificate</li>
+          <li>65 CPE credits included</li>
+          <li>8 hands-on modules with applied case studies</li>
+          <li>Live sessions with Wharton faculty + WSP practitioners</li>
+          <li>Lifetime Wharton Online alumni network access</li>
+        </ul>
+      </div>
+      <div class="cost-card standard">
+        <div class="small">Standard Enrollment</div>
+        <div class="figure" style="color: var(--slate);">$5,000</div>
+        <div class="sub">Or $1,000/month for 5 months</div>
+        <ul>
+          <li>This is what self-paying learners cover</li>
+          <li>Same access, same certificate, same outcomes</li>
+        </ul>
+        <div class="nudge">
+          As a JPMorgan employee, your firm's L&amp;D investment means this cost is already handled. Don't leave it on the table.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CURRICULUM -->
+<section class="block">
+  <div class="wrap">
+    <div class="section-eyebrow">Curriculum</div>
+    <h2 class="section-title">8 modules. <span class="italic">Practical skills from week one.</span></h2>
+    <p class="section-lede">Built by Wharton faculty and Wall Street Prep, every module is anchored in real-world FP&amp;A case studies. You'll finish each week with techniques you can apply immediately.</p>
+
+    <div class="curriculum-list">
+      <div class="curric-item">
+        <div class="curric-num">1</div>
+        <div class="curric-content">
+          <div class="curric-header">
+            <h4>FP&amp;A Introduction</h4>
+            <span class="curric-week">Week 1</span>
+          </div>
+          <ul class="curric-bullets">
+            <li>The role of FP&amp;A in modern finance organizations</li>
+            <li>Key responsibilities and how leading teams are structured</li>
+            <li>Where FP&amp;A sits relative to accounting, controllership, and strategy</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="curric-item">
+        <div class="curric-num">2</div>
+        <div class="curric-content">
+          <div class="curric-header">
+            <h4>Planning Cycle &amp; Budgeting</h4>
+            <span class="curric-week">Week 2</span>
+          </div>
+          <ul class="curric-bullets">
+            <li>Annual planning frameworks and operating plan construction</li>
+            <li>Zero-based, driver-based, and incremental budgeting</li>
+            <li>Aligning budgets to business strategy and capacity</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="curric-item">
+        <div class="curric-num">3</div>
+        <div class="curric-content">
+          <div class="curric-header">
+            <h4>Forecasting</h4>
+            <span class="curric-week">Week 3</span>
+          </div>
+          <ul class="curric-bullets">
+            <li>Rolling forecast design and driver tree construction</li>
+            <li>Revenue and expense modeling at scale</li>
+            <li>Forecast accuracy measurement and improvement loops</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="curric-item">
+        <div class="curric-num">4</div>
+        <div class="curric-content">
+          <div class="curric-header">
+            <h4>Financial Analysis</h4>
+            <span class="curric-week">Week 4</span>
+          </div>
+          <ul class="curric-bullets">
+            <li>Variance analysis and KPI framework design</li>
+            <li>Management reporting structures and review cadence</li>
+            <li>Performance commentary and executive readouts</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="curric-item">
+        <div class="curric-num">5</div>
+        <div class="curric-content">
+          <div class="curric-header">
+            <h4>Financial Modeling</h4>
+            <span class="curric-week">Week 5</span>
+          </div>
+          <ul class="curric-bullets">
+            <li>Three-statement model builds and integrity checks</li>
+            <li>Scenario modeling and sensitivity analysis</li>
+            <li>Working capital and capital expenditure modeling</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="curric-item">
+        <div class="curric-num">6</div>
+        <div class="curric-content">
+          <div class="curric-header">
+            <h4>Business Partnering</h4>
+            <span class="curric-week">Week 6</span>
+          </div>
+          <ul class="curric-bullets">
+            <li>Influencing without authority across functions</li>
+            <li>Translating financial insight for non-finance stakeholders</li>
+            <li>Executive communication and recommendation framing</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="curric-item">
+        <div class="curric-num">7</div>
+        <div class="curric-content">
+          <div class="curric-header">
+            <h4>Reporting &amp; Storytelling</h4>
+            <span class="curric-week">Week 7</span>
+          </div>
+          <ul class="curric-bullets">
+            <li>Board and management deck construction</li>
+            <li>Data visualization principles for finance</li>
+            <li>Narrative framing of variance and performance</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="curric-item">
+        <div class="curric-num">8</div>
+        <div class="curric-content">
+          <div class="curric-header">
+            <h4>AI &amp; the Future of FP&amp;A</h4>
+            <span class="curric-week">Week 8</span>
+          </div>
+          <ul class="curric-bullets">
+            <li>AI tools in the FP&amp;A workflow (ChatGPT, Copilot, custom GPTs)</li>
+            <li>Automation of routine analysis and reporting</li>
+            <li>Skills that remain human-led as automation matures</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <p style="text-align: center; color: var(--slate); margin: 30px 0 0; font-size: 14px;">
+      Full faculty roster, outcomes data, and weekly schedule in the brochure. <a href="#leadform" style="color: var(--crimson); font-weight: 600; text-decoration: none;">Have it emailed in 2 minutes →</a>
+    </p>
+  </div>
+</section>
+
+<!-- TRUST BAND -->
+<section class="block tight cream trust-band">
+  <div class="wrap">
+    <div class="section-eyebrow">Who's already here</div>
+    <h2 class="section-title">Used by finance teams at <span class="italic">750+ employers.</span></h2>
+    <p>Professionals from these organizations &mdash; and hundreds of others &mdash; have completed our certificate programs.</p>
+    <div class="logo-row">
+      <span class="logo-mark">JPMorgan Chase</span>
+      <span class="logo-mark">Goldman Sachs</span>
+      <span class="logo-mark">Citi</span>
+      <span class="logo-mark">Bank of America</span>
+      <span class="logo-mark">Morgan Stanley</span>
+      <span class="logo-mark">Deloitte</span>
+      <span class="logo-mark">PwC</span>
+      <span class="logo-mark">BlackRock</span>
+      <span class="logo-mark">Blackstone</span>
+      <span class="logo-mark">KKR</span>
+      <span class="logo-mark">Amazon</span>
+      <span class="logo-mark">+ 740 more</span>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT HAPPENS AFTER YOU SUBMIT -->
+<section class="block">
+  <div class="wrap">
+    <div class="section-eyebrow">What happens next</div>
+    <h2 class="section-title">Three steps. <span class="italic">Most of it your advisor handles.</span></h2>
+    <p class="section-lede">From submitted form to enrolled-and-confirmed typically takes about a week. The advisor walks you through your JPMorgan L&amp;D portal so you don't have to figure it out alone.</p>
+
+    <div class="steps-grid">
+      <div class="step-card">
+        <h4>15-min advisor call</h4>
+        <p>A JPM-specialized advisor confirms your L&amp;D eligibility, answers questions about the program, and walks you through what the portal needs from you.</p>
+      </div>
+      <div class="step-card">
+        <h4>Submit through JPM L&amp;D</h4>
+        <p>Your advisor sends a pre-written manager email template and the exact request format your portal needs. Average approval time at JPMC: about a week.</p>
+      </div>
+      <div class="step-card">
+        <h4>Enroll in the June 8 cohort</h4>
+        <p>Once approved, you receive a direct enrollment link. Course access lands in your inbox within 24 hours. $0 charged to you, ever.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSING CTA -->
+<section class="close-cta">
+  <div class="wrap">
+    <div class="grid">
+      <div>
+        <h2>JPMorgan is already paying. <span class="italic">You just need to start.</span></h2>
+        <p>Your firm's L&amp;D investment is already allocated for the year. Using it for this cohort takes 15 minutes of your time and zero dollars from your pocket.</p>
+        <ul class="bullets">
+          <li><strong>No commitment.</strong> The eligibility check is free.</li>
+          <li><strong>Brochure arrives in 2 minutes.</strong> Advisor reaches out within 24 hours.</li>
+          <li><strong>$0 charged to you.</strong> Your JPM L&amp;D benefit handles the tuition.</li>
+        </ul>
+      </div>
+      <div>
+        <a class="btn btn-primary btn-lg btn-block btn-arrow" href="#leadform">Check My Eligibility &amp; Get the Brochure</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="site">
+  <div class="wrap">
+    <div class="row">
+      <div class="disclaim">
+        Not affiliated with JPMorgan Chase. Employees are responsible for verifying internal policies and obtaining approval for reimbursement. Wharton Online and Wall Street Prep are not partners of JPMorgan Chase. Program tuition, content, and dates subject to change.
+      </div>
+      <div class="colophon">
+        © 2026 Wall Street Prep<br/>· Wharton Online
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
