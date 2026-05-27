@@ -47,6 +47,21 @@
   .topbar strong { color: #F0E5CF; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
   .topbar .sep { opacity: .5; margin: 0 14px; }
 
+  /* Brochure confirmation eyebrow (hidden by default; shown only when ?from=brochure) */
+  .brochure-confirm {
+    display: none;
+    background: #E8F5EC; border-bottom: 1px solid #C2EACD;
+    padding: 14px 0; text-align: center; color: #0E5C36;
+    font-size: 14px; font-weight: 500;
+  }
+  .brochure-confirm.visible { display: block; }
+  .brochure-confirm .check {
+    display: inline-block; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--green); color: #fff; line-height: 18px; font-size: 12px;
+    margin-right: 8px; vertical-align: middle; font-weight: 700;
+  }
+  .brochure-confirm strong { color: #0A4527; font-weight: 700; }
+
   /* Brand bar */
   .brandbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; border-bottom: 1px solid var(--line); }
   .brandbar .brands { display: flex; gap: 24px; align-items: center; }
@@ -379,6 +394,12 @@
   Most employers cover programs like this. We'll help you claim yours.
 </div>
 
+<!-- Brochure confirmation eyebrow (renders when ?from=brochure is in URL) -->
+<div class="brochure-confirm" id="brochureConfirm">
+  <span class="check">✓</span>
+  <strong>Your brochure is on its way.</strong> Check your inbox (and spam folder) in the next few minutes. Then pick your next step below.
+</div>
+
 <div class="wrap">
   <div class="brandbar">
     <div class="brands">
@@ -410,11 +431,12 @@
         <h3>Wharton Online FP&amp;A Certificate</h3>
         <div class="your-cost">
           <div>
-            <div class="lbl">Cost to you</div>
+            <div class="lbl">With employer benefit</div>
             <div class="figure">$0</div>
+            <div style="font-size:11px; color:#B7C5D5; margin-top:4px;">Out of pocket</div>
           </div>
-          <div style="text-align:right; font-size:11px; color:#B7C5D5; max-width:130px;">
-            Fully reimbursable under most employer benefits.
+          <div style="text-align:right; font-size:11px; color:#B7C5D5; max-width:140px;">
+            Reimbursable under most employer education benefits.
           </div>
         </div>
         <div class="breakdown">
@@ -468,30 +490,6 @@
       </div>
       <a class="btn btn-outline-dark btn-arrow"
          href="https://wallstreetprep.wharton.upenn.edu/financial-planning-and-analysis-certificate/employer-payment-link/">Get the payment link</a>
-    </div>
-  </div>
-</section>
-
-<!-- HOW IT WORKS -->
-<section class="block tight cream">
-  <div class="wrap">
-    <div class="section-eyebrow">How it works</div>
-    <h2 class="section-title">Three moves. <span class="italic">Two weeks. One advisor.</span></h2>
-    <p class="section-lede">The exact mechanics vary by employer; the path does not. Your advisor handles the procedural details specific to your firm.</p>
-
-    <div class="steps-grid">
-      <div class="step-card">
-        <h4>Confirm your benefit</h4>
-        <p>15-minute call with your advisor. They know which portal your employer uses and whether you qualify. You walk away with the manager email template and the program info sheet.</p>
-      </div>
-      <div class="step-card">
-        <h4>Submit + manager approval</h4>
-        <p>Your advisor walks you through the exact submission your portal needs. Average approval time across employers: 1 to 2 weeks.</p>
-      </div>
-      <div class="step-card">
-        <h4>Enroll and start</h4>
-        <p>Once approved, your portal handles tuition directly (most providers) or you pay and get reimbursed. Course access in your inbox within 24 hours.</p>
-      </div>
     </div>
   </div>
 </section>
@@ -589,14 +587,6 @@
       <div class="faq-item">
         <div class="faq-q">What if my manager says no? <span class="plus">+</span></div>
         <div class="faq-a">Manager pushback is almost always about timing, perceived business value, or budget assumptions. The manager email template above pre-empts all three. If it still gets a no, your advisor can help reframe with a follow-up email or time the request for a better window.</div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q">Will this be taxable income on my W-2? <span class="plus">+</span></div>
-        <div class="faq-a">Up to $5,250 in employer-paid education assistance is tax-free under IRS Section 127. Amounts above that may show up as additional wages. Your employer's payroll team handles the reporting; your advisor can flag what to ask.</div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q">Can I split between employer reimbursement and personal funds? <span class="plus">+</span></div>
-        <div class="faq-a">Often yes. If your benefit cap covers part of tuition, you can pay the rest out of pocket or through our 5-monthly-installment plan ($1,000/month). Your advisor maps the options based on your benefit limit.</div>
       </div>
     </div>
   </div>
@@ -726,6 +716,15 @@ Best,
 </div>
 
 <script>
+  // Show brochure confirmation eyebrow when ?from=brochure is in URL
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('from') === 'brochure') {
+      const el = document.getElementById('brochureConfirm');
+      if (el) el.classList.add('visible');
+    }
+  })();
+
   // FAQ toggles
   document.querySelectorAll('.faq-item').forEach(item => {
     item.addEventListener('click', () => item.classList.toggle('open'));
