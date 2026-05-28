@@ -304,7 +304,7 @@
 <div class="topbar">
   <strong>JPMorgan Chase Employees</strong>
   <span class="sep">•</span>
-  This program is covered under your L&amp;D benefit. No out-of-pocket cost.
+  Your education benefit reimbursement for this program.
 </div>
 
 <div class="wrap">
@@ -338,7 +338,7 @@
       <div class="leadform" id="leadform">
         <div class="small">Free · 15-min eligibility check</div>
         <h3>Confirm your benefit. Get the brochure.</h3>
-        <p class="intro">We'll email the program brochure right away, then an enrollment advisor experienced with JPMorgan reimbursement requests will reach out within 24 hours to support you through the process.</p>
+        <p class="intro">We'll email the program brochure right away. Then book a 15-min call with an enrollment advisor experienced with JPMorgan reimbursement requests to confirm your L&amp;D benefit and walk through enrollment.</p>
 
         <form onsubmit="event.preventDefault(); alert('Mockup: form would submit and redirect to the Thank-You / Lifecycle page.');">
           <div class="field-row">
@@ -361,15 +361,25 @@
               <input id="jt" type="text" placeholder="Senior FP&amp;A Associate" required />
             </div>
             <div class="field">
-              <label for="ph">Phone (optional)</label>
-              <input id="ph" type="tel" placeholder="(555) 555-5555" />
+              <label for="ph">Phone</label>
+              <input id="ph" type="tel" placeholder="(555) 555-5555" required />
             </div>
+          </div>
+          <div class="field">
+            <label for="co">Country</label>
+            <select id="co" required>
+              <option value="">Select country</option>
+              <option value="US" selected>United States</option>
+              <option value="CA">Canada</option>
+              <option value="UK">United Kingdom</option>
+              <option value="OTHER">Other</option>
+            </select>
           </div>
           <div class="submit">
             <button class="btn btn-primary btn-lg btn-block btn-arrow" type="submit">Check Eligibility &amp; Send Brochure</button>
           </div>
           <div class="footnote">
-            Brochure arrives in 2 minutes. Advisor reaches out within 24 hours. No commitment; the eligibility check is free.
+            Brochure arrives in 2 minutes. Pick a time with an advisor on the next page.
           </div>
         </form>
 
@@ -407,8 +417,8 @@
           <li>This is what self-paying learners cover</li>
           <li>Same access, same certificate, same outcomes</li>
         </ul>
-        <div class="nudge">
-          As a JPMorgan employee, your firm's L&amp;D investment means this cost is already handled. Don't leave it on the table.
+        <div class="nudge" style="background: var(--gold-soft, #FBF6EA); border-left: 3px solid var(--gold); padding: 10px 12px; margin-top: 14px; color: #5A4A1F; border-top: 0;">
+          <strong>Enroll by May 11</strong> to skip the $200 application fee that kicks in after the early-enrollment window.
         </div>
       </div>
     </div>
@@ -606,7 +616,7 @@
         <p>If your JPMorgan L&amp;D benefit covers this program, applying it takes 15 minutes of your time on the front end. Our advisor handles the rest of the support.</p>
         <ul class="bullets">
           <li><strong>No commitment.</strong> The first call is free.</li>
-          <li><strong>Brochure arrives in 2 minutes.</strong> Advisor reaches out within 24 hours.</li>
+          <li><strong>You pick the time.</strong> Same-day advisor slots available.</li>
           <li><strong>Built for JPMorgan employees.</strong> Our advisors have supported dozens through the process.</li>
         </ul>
       </div>
