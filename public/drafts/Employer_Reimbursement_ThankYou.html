@@ -47,10 +47,6 @@
   .topbar strong { color: #F0E5CF; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
   .topbar .sep { opacity: .5; margin: 0 14px; }
 
-  .brochure-confirm { display: none; background: #E8F5EC; border-bottom: 1px solid #C2EACD; padding: 14px 0; text-align: center; color: #0E5C36; font-size: 14px; font-weight: 500; }
-  .brochure-confirm.visible { display: block; }
-  .brochure-confirm .check { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: var(--green); color: #fff; line-height: 18px; font-size: 12px; margin-right: 8px; vertical-align: middle; font-weight: 700; }
-  .brochure-confirm strong { color: #0A4527; font-weight: 700; }
 
   .brandbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; border-bottom: 1px solid var(--line); }
   .brandbar .brands { display: flex; gap: 24px; align-items: center; }
@@ -210,12 +206,6 @@
   <span data-text-default="Most employers cover programs like this. We'll help you claim yours." data-text-jpm="Reimbursable through your education benefit.">Most employers cover programs like this. We'll help you claim yours.</span>
 </div>
 
-<!-- Brochure confirmation eyebrow (renders when ?from=brochure is in URL) -->
-<div class="brochure-confirm" id="brochureConfirm">
-  <span class="check">✓</span>
-  <strong>Your brochure is on its way.</strong> Check your inbox (and spam folder) in the next few minutes. Then book a time with an advisor below.
-</div>
-
 <div class="wrap">
   <div class="brandbar">
     <div class="brands">
@@ -236,7 +226,7 @@
         <p class="sub" data-text-default="An enrollment advisor will help confirm your employer benefit and walk you through how to apply it. Most calls take 15 minutes." data-text-jpm="An enrollment advisor experienced with JPMorgan reimbursement requests will help you confirm your L&amp;D benefit and walk through how to apply it. Most calls take 15 minutes.">An enrollment advisor will help confirm your employer benefit and walk you through how to apply it. Most calls take 15 minutes.</p>
         <div class="next-up">
           <span class="num">1</span>
-          <strong>Your next step:</strong> book a time with an advisor to check your availability, register, and confirm your <span data-text-default="reimbursement path" data-text-jpm="L&amp;D reimbursement path">reimbursement path</span>.
+          <span id="brochureInline" style="display:none;"><strong>Your brochure is on its way.</strong> Check your inbox (and spam folder), then </span><span id="defaultNextStep"><strong>Your next step:</strong> </span>book a time with an advisor to check your availability, register, and confirm your <span data-text-default="reimbursement path" data-text-jpm="L&amp;D reimbursement path">reimbursement path</span>.
         </div>
       </div>
 
@@ -277,7 +267,6 @@
 <!-- SECONDARY PATHS -->
 <section class="block">
   <div class="wrap">
-    <div class="section-eyebrow">If you're past the advisor stage</div>
     <h2 class="section-title">Two ways to move directly.</h2>
     <p class="section-lede" data-text-default="If you know what your HR or finance team needs, skip the advisor and go straight to the document or payment." data-text-jpm="If you know what your manager or HR contact needs, skip the advisor and go straight to the document or payment.">If you know what your HR or finance team needs, skip the advisor and go straight to the document or payment.</p>
 
@@ -402,7 +391,6 @@
     <h2>The next cohort starts <span class="italic-accent">June 8, 2026.</span></h2>
     <p data-text-default="Three cohorts run each year (February, June, October). Submitting your reimbursement request early gives your manager or HR team room to approve before the cohort starts." data-text-jpm="Three cohorts run each year (February, June, October). Submitting your JPMorgan L&amp;D reimbursement request early gives your manager and Guild room to approve before the cohort starts.">Three cohorts run each year (February, June, October). Submitting your reimbursement request early gives your manager or HR team room to approve before the cohort starts.</p>
     <div class="key-dates">
-      <span><strong>May 11</strong> · Avoid $200 application fee</span>
       <span><strong>May 25</strong> · Recommended submission deadline</span>
       <span><strong>June 8</strong> · Cohort starts</span>
     </div>
@@ -576,15 +564,17 @@ Best,
       });
     }
 
-    // Brochure confirmation eyebrow + H1 swap
+    // Brochure state: swap H1 prefix + inline confirmation in the hero next-up line
     if (params.get('from') === 'brochure') {
-      const eyebrow = document.getElementById('brochureConfirm');
-      if (eyebrow) eyebrow.classList.add('visible');
-
       const prefix = document.getElementById('h1Prefix');
       const accent = document.getElementById('h1Accent');
       if (prefix) prefix.textContent = 'Thanks.';
       if (accent) accent.textContent = "Let's get you enrolled.";
+
+      const brochureInline = document.getElementById('brochureInline');
+      const defaultNextStep = document.getElementById('defaultNextStep');
+      if (brochureInline) brochureInline.style.display = 'inline';
+      if (defaultNextStep) defaultNextStep.style.display = 'none';
     }
   })();
 
