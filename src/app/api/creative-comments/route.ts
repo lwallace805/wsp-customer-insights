@@ -25,26 +25,40 @@ export async function GET(req: NextRequest) {
   const adId = req.nextUrl.searchParams.get('adId');
   try {
     const formula = adId ? `{Ad ID} = "${adId}"` : '';
-    const records = await new Promise<Comment[]>((resolve, reject) => {
-      const results: Comment[] = [];
+    const results: Comment[] = [];
+    await new Promise<void>((resolve, reject) => {
       base(TABLE)
-        .select({ ...(formula ? { filterByFormula: formula } : {}), sort: [{ field: 'Created At', direction: 'asc' }] })
+        .select({
+          ...(formula ? { filterByFormula: formula } : {}),
+          sort: [{ field: 'Created At', direction: 'asc' }],
+        })
         .eachPage(
-          (page, next) => { page.forEach(r => results.push(toComment({ id: r.id, fields: r.fields as Record<string, unknown> }))); next(); },
-          err => { if (err) reject(err); else resolve(results); }
+          (page, next) => {
+            page.forEach(r =>
+              results.push(toComment({ id: r.id, fields: r.fields as Record<string, unknown> }))
+            );
+            next();
+          },
+          err => { if (err) reject(err); else resolve(); }
         );
     });
-    return NextResponse.json(records);
+    return NextResponse.json(results);
   } catch {
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json([]);
   }
 }
 
 export async function POST(req: NextRequest) {
-  const { adId, author, text } = await req.json() as { adId: string; author: string; text: string };
+  const { adId, author, text } = (await req.json()) as {
+    adId: string;
+    author: string;
+    text: string;
+  };
+
   if (!adId || !text?.trim()) {
     return NextResponse.json({ error: 'adId and text required' }, { status: 400 });
   }
+
   try {
     const created = await base(TABLE).create({
       'Ad ID': adId,
@@ -52,9 +66,12 @@ export async function POST(req: NextRequest) {
       'Comment': text.trim(),
       'Created At': new Date().toISOString(),
     });
-    return NextResponse.json(toComment({ id: created.id, fields: created.fields as Record<string, unknown> }), { status: 201 });
+    return NextResponse.json(
+      toComment({ id: created.id, fields: created.fields as Record<string, unknown> }),
+      { status: 201 }
+    );
   } catch (err) {
-    console.error('Airtable comment create error:', err);
+    console.error('Airtable comment error:', err);
     return NextResponse.json({ error: 'Failed to save comment' }, { status: 500 });
   }
 }
