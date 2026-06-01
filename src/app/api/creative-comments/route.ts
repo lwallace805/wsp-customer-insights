@@ -1,63 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs';
+import { base } from '@/lib/airtable';
 
-const COMMENTS_FILE = path.join(process.cwd(), 'src/data/creativeComments.json');
+const TABLE = process.env.CREATIVE_COMMENTS_TABLE_NAME || 'Creative Review Comments';
 
 type Comment = {
   id: string;
-  adId: string; // "{programId}/{batchId}/{adNumber}"
+  adId: string;
   author: string;
   text: string;
   createdAt: string;
 };
 
-function readComments(): Comment[] {
-  try {
-    return JSON.parse(fs.readFileSync(COMMENTS_FILE, 'utf8'));
-  } catch {
-    return [];
-  }
-}
-
-function writeComments(comments: Comment[]) {
-  fs.writeFileSync(COMMENTS_FILE, JSON.stringify(comments, null, 2));
+function toComment(record: { id: string; fields: Record<string, unknown> }): Comment {
+  return {
+    id: record.id,
+    adId: String(record.fields['Ad ID'] ?? ''),
+    author: String(record.fields['Author'] ?? 'Anonymous'),
+    text: String(record.fields['Comment'] ?? ''),
+    createdAt: String(record.fields['Created At'] ?? new Date().toISOString()),
+  };
 }
 
 export async function GET(req: NextRequest) {
   const adId = req.nextUrl.searchParams.get('adId');
-  const comments = readComments();
-  const filtered = adId ? comments.filter(c => c.adId === adId) : comments;
-  return NextResponse.json(filtered);
+  try {
+    const formula = adId ? `{Ad ID} = "${adId}"` : '';
+    const records = await new Promise<Comment[]>((resolve, reject) => {
+      const results: Comment[] = [];
+      base(TABLE)
+        .select({ ...(formula ? { filterByFormula: formula } : {}), sort: [{ field: 'Created At', direction: 'asc' }] })
+        .eachPage(
+          (page, next) => { page.forEach(r => results.push(toComment({ id: r.id, fields: r.fields as Record<string, unknown> }))); next(); },
+          err => { if (err) reject(err); else resolve(results); }
+        );
+    });
+    return NextResponse.json(records);
+  } catch {
+    return NextResponse.json([], { status: 200 });
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { adId, author, text } = body as { adId: string; author: string; text: string };
-
+  const { adId, author, text } = await req.json() as { adId: string; author: string; text: string };
   if (!adId || !text?.trim()) {
     return NextResponse.json({ error: 'adId and text required' }, { status: 400 });
   }
-
-  const comments = readComments();
-  const comment: Comment = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    adId,
-    author: author?.trim() || 'Anonymous',
-    text: text.trim(),
-    createdAt: new Date().toISOString(),
-  };
-  comments.push(comment);
-  writeComments(comments);
-
-  return NextResponse.json(comment, { status: 201 });
+  try {
+    const created = await base(TABLE).create({
+      'Ad ID': adId,
+      'Author': author?.trim() || 'Anonymous',
+      'Comment': text.trim(),
+      'Created At': new Date().toISOString(),
+    });
+    return NextResponse.json(toComment({ id: created.id, fields: created.fields as Record<string, unknown> }), { status: 201 });
+  } catch (err) {
+    console.error('Airtable comment create error:', err);
+    return NextResponse.json({ error: 'Failed to save comment' }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
-
-  const comments = readComments().filter(c => c.id !== id);
-  writeComments(comments);
-  return NextResponse.json({ ok: true });
+  try {
+    await base(TABLE).destroy(id);
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
+  }
 }
