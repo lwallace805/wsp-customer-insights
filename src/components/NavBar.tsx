@@ -24,7 +24,6 @@ const COHORT_PERFORMANCE = [
   { href: '/dashboards/spring-2026.html',     label: 'Spring 2026 Performance', icon: TrendingUp, static: true },
 ];
 
-const DRAFTS_HREF = '/drafts/';
 
 type NavItem = { href: string; label: string; icon: React.ElementType; static?: boolean };
 
@@ -132,9 +131,22 @@ export default function NavBar() {
             activePath={pathname}
           />
 
+          {/* Creative Review */}
+          <Link
+            href="/creative"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+              pathname.startsWith('/creative')
+                ? 'text-gray-900 bg-gray-100 font-medium'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <Layers size={14} />
+            Creative Review
+          </Link>
+
           {/* Drafts — static link */}
           <a
-            href={DRAFTS_HREF}
+            href="/drafts/"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
               pathname.startsWith('/drafts')
                 ? 'text-gray-900 bg-gray-100 font-medium'
