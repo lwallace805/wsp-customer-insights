@@ -35,8 +35,18 @@
   header h1{font-size:28px;font-weight:700;margin:0;letter-spacing:-.3px;}
   header p{color:#8294ab;font-size:14px;margin:8px 0 0;}
 
+  /* ── Project picker toolbar ─────────────────────────────────────── */
+  .toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:40px;}
+  .toolbar label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#5a7291;font-weight:600;}
+  .project-select{appearance:none;-webkit-appearance:none;background-color:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.16);border-radius:8px;padding:11px 40px 11px 14px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;min-width:360px;max-width:100%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233fc0fd' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;transition:border-color .12s;}
+  .project-select:hover{border-color:rgba(63,192,253,.5);}
+  .project-select:focus{outline:none;border-color:#3fc0fd;box-shadow:0 0 0 3px rgba(63,192,253,.15);}
+  .project-select option{background:#0a2540;color:#fff;}
+  .project-count{font-size:12px;color:#5a7291;white-space:nowrap;}
+
   /* ── Project sections ───────────────────────────────────────────── */
-  .project{margin-bottom:52px;}
+  .project{margin-bottom:24px;}
+  .project.is-hidden{display:none;}
   .project-header{display:flex;align-items:baseline;gap:14px;margin-bottom:18px;}
   .project-title{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;}
   .project-desc{font-size:13px;color:#5a7291;}
@@ -95,8 +105,14 @@
   <header>
     <div class="label">Wall Street Prep · Internal</div>
     <h1>Marketing Drafts</h1>
-    <p>In-progress pages for live preview. Pages are grouped by project.</p>
+    <p>In-progress pages for live preview. Choose a project to view its drafts.</p>
   </header>
+
+  <div class="toolbar">
+    <label for="projectSelect">Project</label>
+    <select id="projectSelect" class="project-select" aria-label="Select a project"></select>
+    <span class="project-count" id="projectCount"></span>
+  </div>
 
   <!-- ── Project: Employer Reimbursement AI Initial Drafts ────────── -->
   <div class="project">
@@ -138,7 +154,7 @@
   </div>
 
   <!-- ── Project: Final Employer Reimbursement LP Drafts ──────────── -->
-  <div class="project">
+  <div class="project is-hidden">
     <div class="project-header">
       <span class="project-title">Final Employer Reimbursement LP Drafts</span>
       <span class="project-desc">JPMorgan-targeted top-of-funnel and post-submit lifecycle pages</span>
@@ -177,7 +193,7 @@
   </div>
 
   <!-- ── Project: Final Employer Reimbursement Draft ────────────── -->
-  <div class="project">
+  <div class="project is-hidden">
     <div class="project-header">
       <span class="project-title">Final Employer Reimbursement Draft</span>
       <span class="project-desc">Finalized top-of-funnel and lifecycle pages for the employer reimbursement campaign</span>
@@ -225,7 +241,7 @@
   </div>
 
   <!-- ── Project: Employer Sponsored LP ─────────────────────────── -->
-  <div class="project">
+  <div class="project is-hidden">
     <div class="project-header">
       <span class="project-title">Employer Sponsored LP</span>
       <span class="project-desc">LinkedIn off-platform funnel — FP&amp;A Certificate</span>
@@ -284,6 +300,40 @@
 </div>
 
 <footer style="max-width:900px;margin:48px auto 0;padding:20px 0;border-top:1px solid rgba(255,255,255,.07);font-size:12px;color:#3a5066;">Wall Street Prep · Internal drafts — not for external distribution</footer>
+
+<script>
+  (function () {
+    var projects = Array.prototype.slice.call(document.querySelectorAll('.project'));
+    var select = document.getElementById('projectSelect');
+    var count = document.getElementById('projectCount');
+    if (!projects.length || !select) return;
+
+    // Build one option per project, in DOM order (most recent first).
+    projects.forEach(function (p, i) {
+      var titleEl = p.querySelector('.project-title');
+      var opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = (i === 0 ? 'Latest · ' : '') + (titleEl ? titleEl.textContent.trim() : 'Project ' + (i + 1));
+      select.appendChild(opt);
+    });
+
+    function show(idx) {
+      projects.forEach(function (p, i) { p.classList.toggle('is-hidden', i !== idx); });
+      if (count) {
+        var n = projects[idx] ? projects[idx].querySelectorAll('.card').length : 0;
+        count.textContent = n + (n === 1 ? ' draft' : ' drafts');
+      }
+    }
+
+    select.addEventListener('change', function () {
+      show(parseInt(select.value, 10) || 0);
+    });
+
+    // Default to the most recent project.
+    select.value = '0';
+    show(0);
+  })();
+</script>
 
 </body>
 </html>

@@ -222,7 +222,6 @@
     <div class="grid">
       <div>
         <div class="breadcrumb" data-text-default="Employer Reimbursement · AI for Business &amp; Finance Certificate (Columbia + WSP)" data-text-jpm="JPMorgan L&amp;D · AI for Business &amp; Finance Certificate (Columbia + WSP)">Employer Reimbursement · AI for Business &amp; Finance Certificate (Columbia + WSP)</div>
-        <div class="just-did" id="justDidCue" style="display:none; font-size: 14px; color: var(--slate); margin-bottom: 8px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;">You just requested the brochure</div>
         <h1><span id="h1Prefix">From here,</span> <span class="accent" id="h1Accent">let's get you enrolled.</span></h1>
         <p class="sub" data-text-default="An enrollment advisor will help confirm your employer benefit and walk you through how to apply it. Most calls take 15 minutes." data-text-jpm="An enrollment advisor experienced with JPMorgan reimbursement requests will help you confirm your L&amp;D benefit and walk through how to apply it. Most calls take 15 minutes.">An enrollment advisor will help confirm your employer benefit and walk you through how to apply it. Most calls take 15 minutes.</p>
         <div class="next-up">
@@ -571,9 +570,6 @@ Best,
       const accent = document.getElementById('h1Accent');
       if (prefix) prefix.textContent = 'Brochure sent.';
       if (accent) accent.textContent = "Now let's get you enrolled.";
-
-      const justDidCue = document.getElementById('justDidCue');
-      if (justDidCue) justDidCue.style.display = 'block';
 
       const brochureInline = document.getElementById('brochureInline');
       const defaultNextStep = document.getElementById('defaultNextStep');
