@@ -392,6 +392,9 @@ function QuickReference() {
           {SOURCES.map((s) => (
             <div key={s.employer}>
               <h4 className="text-sm font-semibold text-gray-900 mb-1.5">{s.employer}</h4>
+              {s.note && (
+                <p className="text-xs text-gray-500 italic leading-relaxed mb-2">{s.note}</p>
+              )}
               <ul className="space-y-1">
                 {s.links.map((l) => (
                   <li key={l.url}>

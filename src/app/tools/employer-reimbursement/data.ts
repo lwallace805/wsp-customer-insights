@@ -94,11 +94,11 @@ export const CROSS_EMPLOYER_SUMMARY: SummaryRow[] = [
   },
   {
     employer: 'Citi',
-    verdict: 'difficult',
-    verdictWord: 'Difficult',
-    cap: 'Tuition program likely excludes',
-    platform: 'EdAssist (tuition); BU L&D (alt)',
-    recommendedPath: 'Department training budget; bypass tuition program',
+    verdict: 'likely',
+    verdictWord: 'Likely',
+    cap: 'BU training budget (tuition program excludes)',
+    platform: 'EdAssist (tuition); BU training budget (proven)',
+    recommendedPath: 'Business-unit training budget — proven path (5 CBS AI enrollments)',
   },
   {
     employer: 'Bank of America',
@@ -109,17 +109,25 @@ export const CROSS_EMPLOYER_SUMMARY: SummaryRow[] = [
     recommendedPath: 'Tuition program; request pre-pay voucher',
   },
   {
-    employer: 'Microsoft',
-    verdict: 'difficult',
-    verdictWord: 'Difficult',
-    cap: 'Tuition program excludes; team budget varies',
-    platform: 'EdAssist (formal); team budget (alt)',
-    recommendedPath: 'Team training budget with manager approval',
+    employer: 'Visa',
+    verdict: 'clear',
+    verdictWord: 'Clear',
+    cap: '$5,250/yr (IRS §127)',
+    platform: 'Internal Visa education benefit',
+    recommendedPath: 'Standard $5,250 education benefit; manager pre-approval, work-related (3 CBS AI enrollments)',
+  },
+  {
+    employer: 'Mastercard',
+    verdict: 'likely',
+    verdictWord: 'Likely',
+    cap: 'Up to $5,250/yr (IRS §127)',
+    platform: 'Internal Mastercard education benefit',
+    recommendedPath: 'Standard $5,250 education benefit; confirm with HR (no historical signal yet)',
   },
 ];
 
 export const CROSS_EMPLOYER_NOTE =
-  "Two of the five employers in this campaign (Citi and Microsoft) have tuition programs that likely won't cover a non-credit Executive Education certificate. For those prospects, the advisor's job is to redirect to the right internal channel (department training budget at Citi; team training budget with manager approval at Microsoft). For the other three (BofA, JPMC, GS), there is a clear or likely tuition-program path.";
+  "Most employers in this campaign have a clear or likely path. The three banks (BofA, JPMC, GS) run tuition-program paths; the payments employers (Visa, Mastercard) cover it through the standard $5,250 IRS §127 education benefit. Citi is the one nuance: its standard tuition program (EdAssist) likely excludes a non-credit Executive Education cert, but the business-unit training budget channel is proven in practice — Citi is the #1 employer for CBS AI with 5 employer-pay enrollments. For Citi prospects, the advisor's job is to route to the team/department training budget, not the tuition program. Visa is historically validated (3 CBS AI enrollments); Mastercard is a clean policy fit but has no historical signal yet, so confirm coverage with HR.";
 
 export interface TalkingGroup {
   heading: string;
@@ -140,7 +148,7 @@ export const UNIVERSAL_TALKING_POINTS: TalkingGroup[] = [
     heading: 'On the IRS Section 127 tax line',
     points: [
       'Up to $5,250/calendar year of employer educational assistance is tax-free to the employee under IRS Section 127. Above that ceiling, the amount is taxable W-2 wages unless the program is job-related under IRC Section 132 (working condition fringe).',
-      'For employers with caps above $5,250 (BofA $7,500; JPMC $7,500 out-of-catalog; MSFT $10K formal; GS ~$10K [likely]), the difference is reported on W-2.',
+      'For employers with caps above $5,250 (BofA $7,500; JPMC $7,500 out-of-catalog; GS ~$10K [likely]), the difference is reported on W-2. Visa and Mastercard cap at $5,250, which is fully tax-free — the cert price maps almost exactly to the benefit.',
       'Most prospects do not need this level of tax detail; only bring it up if asked or if the prospect is calculating the net cost.',
     ],
   },
@@ -183,8 +191,9 @@ export const TOP_QUESTIONS: QA[] = [
       'Per-employer caps are in the at-a-glance cards. Quick read:',
       'BofA: $7,500/year plus $1,000 books stipend',
       'JPMC: $7,500/year out-of-catalog for grad-level certs',
-      "Citi: $7,500/year graduate (but cert likely doesn't qualify)",
-      "Microsoft: $10K/year formal program (but cert doesn't qualify); team budget caps vary",
+      "Citi: $7,500/year graduate tuition program (cert routes through the business-unit training budget instead — proven path, 5 CBS AI enrollments)",
+      'Visa: $5,250/year education benefit (IRS §127); 3 historical CBS AI enrollments',
+      'Mastercard: up to $5,250/year (IRS §127); no historical signal yet — confirm with HR',
       'Goldman: ~$10,000/year [likely, data older]',
     ],
   },
@@ -214,7 +223,7 @@ export const OBJECTIONS: Objection[] = [
     objection: '"My employer doesn\'t pay for non-degree programs."',
     counters: [
       'Counter: This is cobranded with Columbia Business School Executive Education; Columbia is the accredited institutional partner. The accredited-institution requirement is the main gate for non-degree certs.',
-      'If the employer still excludes professional certs from the tuition program (Citi, Microsoft case), redirect to team or department training budget. "That\'s a tuition-program rule. The team training budget channel is different and is the right channel for this kind of program."',
+      'If the employer still excludes professional certs from the tuition program (the Citi case), redirect to the team or department training budget. "That\'s a tuition-program rule. The team training budget channel is different and is the right channel for this kind of program." At Citi this path is proven — 5 employees enrolled in the CBS AI cohorts this way.',
     ],
   },
   {
@@ -244,7 +253,7 @@ export const OBJECTIONS: Objection[] = [
     objection: '"How long does this take to get approved?"',
     counters: [
       'Counter: "Plan on 2 to 4 weeks for pre-approval at most large employers. The fastest path is to have your manager and HR aligned in parallel before the formal application."',
-      'Counter (Citi or MSFT team budget path): "Team budget approval is faster: usually 1 to 3 weeks because it doesn\'t go through a benefits platform."',
+      'Counter (Citi or any team-budget path): "Team budget approval is faster: usually 1 to 3 weeks because it doesn\'t go through a benefits platform."',
     ],
   },
 ];
@@ -252,6 +261,8 @@ export const OBJECTIONS: Objection[] = [
 export interface SourceGroup {
   employer: string;
   links: { label: string; url: string }[];
+  /** optional provenance note shown above the links */
+  note?: string;
 }
 
 export const SOURCES: SourceGroup[] = [
@@ -296,13 +307,19 @@ export const SOURCES: SourceGroup[] = [
     ],
   },
   {
-    employer: 'Microsoft',
+    employer: 'Visa',
+    note: 'Coverage validated by internal data: WSP Employer Reimbursement Analysis (Apr 2026) shows 3 Visa employer-pay CBS AI enrollments across the Summer + Fall 2025 cohorts. Reimbursement structure follows the standard IRS §127 ($5,250, job-related, manager-approved) model. Confirm the internal submission process with the employee\'s HR.',
     links: [
-      { label: 'Microsoft US Benefits: Tuition Assistance', url: 'https://usbenefits.microsoft.com/us/en/tuition-assistance.html' },
-      { label: 'Microsoft US Benefits: Get help with college', url: 'https://usbenefits.microsoft.com/us/en/get-help-with-college.html' },
-      { label: 'Microsoft Careers: Benefits', url: 'https://careers.microsoft.com/v2/global/en/benefits' },
-      { label: 'Learn.org: Microsoft Tuition Reimbursement', url: 'https://learn.org/financial-aid/microsoft-tuition-reimbursement' },
-      { label: 'EdAssist by Bright Horizons (Microsoft portal)', url: 'https://microsoft.edassist.com/start/welcome' },
+      { label: 'IRS: Educational Assistance Programs FAQ (Section 127)', url: 'https://www.irs.gov/newsroom/frequently-asked-questions-about-educational-assistance-programs' },
+      { label: 'Columbia Provost: Executive (Non-Credit) Education definition', url: 'https://provost.columbia.edu/content/executive-non-credit-education' },
+    ],
+  },
+  {
+    employer: 'Mastercard',
+    note: 'No historical WSP enrollment signal — coverage is policy-inferred, not yet confirmed in practice. Mastercard is the structural twin to Visa (payments-tech profile, similar finance-role density, similar $5,250 IRS §127 reimbursement). Confirm coverage with the employee\'s HR before promising it.',
+    links: [
+      { label: 'IRS: Educational Assistance Programs FAQ (Section 127)', url: 'https://www.irs.gov/newsroom/frequently-asked-questions-about-educational-assistance-programs' },
+      { label: 'Columbia Provost: Executive (Non-Credit) Education definition', url: 'https://provost.columbia.edu/content/executive-non-credit-education' },
     ],
   },
   {
@@ -409,44 +426,45 @@ export const EMPLOYERS: Employer[] = [
   {
     id: 'citi',
     name: 'Citi',
-    verdict: 'difficult',
-    verdictWord: 'Difficult',
-    verdictHeadline: 'Difficult path',
+    verdict: 'likely',
+    verdictWord: 'Likely',
+    verdictHeadline: 'Workable via the business-unit training budget — proven in practice',
     verdictSummary:
-      "Citi's standard tuition program likely does NOT cover this. Route through department/business-unit training budget instead.",
+      "Citi's standard tuition program (EdAssist) likely excludes a non-credit cert — but the business-unit training budget channel works. Citi is the #1 employer for CBS AI with 5 employer-pay enrollments. Route to the team budget, not the tuition program.",
     recommendedPath:
-      'Business-unit / department training budget. Coach the prospect to position the cert as manager-approved L&D / training, not tuition reimbursement — the same channel Citi uses for CFA/CPA candidates.',
+      'Business-unit / department training budget — a proven path at Citi. Coach the prospect to position the cert as manager-approved L&D / training, not tuition reimbursement — the same channel Citi uses for CFA/CPA candidates and the one 5 CBS AI enrollees almost certainly used.',
     atAGlance: [
-      { label: 'Annual cap', value: '$5,250 undergrad / $7,500 grad through standard Citi Tuition Program. But the cert likely does not qualify (see below).' },
-      { label: 'Tenure requirement', value: '90 days at Citi' },
-      { label: 'Platform / admin', value: 'Bright Horizons EdAssist at citi.edassist.com' },
-      { label: 'Pre-approval', value: 'Required for tuition program; application submitted before course start date' },
-      { label: 'Coverage gap', value: 'Citi explicitly excludes CFA, CFP, CPA, PHR, Six Sigma, and similar standalone professional certs from the tuition program. Non-credit Executive Education certificates fall in the same gray-to-excluded zone.' },
+      { label: 'Historical CBS AI enrollments', value: '5 employer-pay enrollments (Summer + Fall 2025) — Citi is the #1 employer for CBS AI. Almost certainly via business-unit training budget, not the tuition program.' },
+      { label: 'Annual cap', value: '$5,250 undergrad / $7,500 grad through the standard Citi Tuition Program — but the cert likely does not qualify there. The team training budget is the working channel (no fixed published cap; manager discretion).' },
+      { label: 'Tenure requirement', value: '90 days at Citi (tuition program)' },
+      { label: 'Platform / admin', value: 'Bright Horizons EdAssist at citi.edassist.com (tuition); business-unit training budget via manager + HR business partner (recommended)' },
+      { label: 'Pre-approval', value: 'Manager approval; for the team-budget path, line manager + business-unit L&D lead' },
+      { label: 'Tuition-program coverage gap', value: 'Citi explicitly excludes CFA, CFP, CPA, PHR, Six Sigma, and similar standalone professional certs from the tuition program. The team training budget is the documented workaround — and the data shows it works.' },
     ],
     approvalSteps: [
-      'Coach the prospect to position the cert as manager-approved L&D / training, not tuition reimbursement.',
+      'Route to the business-unit training budget, not EdAssist. Position the cert as manager-approved L&D / training, not tuition reimbursement.',
       'Target: line manager + L&D lead for their business unit (ICG / Markets / Banking / Consumer).',
       'Frame: "This is a focused training investment, not a degree program. I\'d like to fund it from my team\'s training budget, similar to how CFA prep gets funded."',
-      'Confirm: ask the prospect to check with their manager and HR business partner; the same path that Citi uses for CFA/CPA candidates is the right channel here.',
+      'Confirm: ask the prospect to check with their manager and HR business partner; the same path that Citi uses for CFA/CPA candidates — and that 5 CBS AI enrollees used — is the right channel here.',
     ],
     willCover: [
-      'Through standard Tuition Program / EdAssist: unlikely. (Verdict: medium confidence based on published exclusion list and program scope.) Citi\'s published Tuition Program Guidelines (last updated Jan 2024) limit eligibility to courses at accredited U.S. colleges and universities, and explicitly exclude standalone professional certifications.',
-      'Through department training budget / manager-approved L&D: yes, with the right pitch. This is the standard channel for non-degree professional certs at Citi.',
-      'If the prospect insists on EdAssist path: have them call EdAssist coaching first to get a yes/no read before enrolling. Free 1:1 coaching is included.',
+      'Yes, via the business-unit training budget — and this is proven, not theoretical. Citi is the #1 employer for CBS AI in the WSP enrollment data, with 5 employer-pay enrollments across the Summer + Fall 2025 cohorts, almost certainly routed through the business-unit training budget channel.',
+      'Through the standard Tuition Program / EdAssist: still unlikely. Citi\'s published Tuition Program Guidelines (updated Jan 2024) limit eligibility to courses at accredited U.S. colleges and explicitly exclude standalone professional certifications. Do not send prospects down the EdAssist path for this cert.',
+      'If the prospect insists on the EdAssist path anyway: have them call EdAssist coaching first to get a yes/no read before enrolling. Free 1:1 coaching is included.',
     ],
     timeline: [
-      'Department training budget approval timeline is highly variable: 1 to 4 weeks depending on manager and budget cycle.',
+      'Business-unit training budget approval timeline is variable: 1 to 4 weeks depending on manager and budget cycle — typically faster than the tuition platform because it skips EdAssist.',
       'Documentation usually simpler than EdAssist: invoice from WSP, manager email approval, finance/PO process per business unit.',
     ],
     managerPitch: [
-      'I\'d like to fund this through team training budget, similar to how we fund CFA prep or other professional development. The Citi tuition program excludes standalone certs, so this is the right channel.',
-      "It's a focused 8-week AI + finance certificate, cobranded with Columbia Business School Executive Education, taught by practitioners.",
-      'It applies directly to my work in [role/team] because [specific application].',
+      'Five Citi colleagues have already enrolled in this Columbia AI program with company support — it\'s the #1 employer in the program. I\'d like to fund it the same way, through our team training budget.',
+      'The Citi tuition program excludes standalone certs, so the team training budget is the right channel — the same way we fund CFA prep or other professional development.',
+      "It's a focused 8-week AI + finance certificate, cobranded with Columbia Business School Executive Education, and it applies directly to my work in [role/team] because [specific application].",
     ],
     gaps: [
+      'The 5 historical enrollments are strong evidence the path works, but the exact internal mechanism (which budget line, approval chain) is inferred — confirm the BU training budget pitch path with someone in CIB / ICG before relying on it in scripts.',
       'No public list of approved non-credit Exec Ed programs through Citi EdAssist.',
-      'Department training budget specifics vary by business unit; no public guidance.',
-      'Processing timeline for EdAssist reimbursement not publicly documented (industry standard 4 to 6 weeks).',
+      'Department training budget specifics and any cap vary by business unit; no public guidance.',
     ],
   },
   {
@@ -454,7 +472,7 @@ export const EMPLOYERS: Employer[] = [
     name: 'Bank of America',
     verdict: 'clear',
     verdictWord: 'Clear',
-    verdictHeadline: 'Strongest path of the five employers',
+    verdictHeadline: 'Strongest tuition-program path of the active employers',
     verdictSummary:
       'Covers professional certifications; pre-pay voucher option eliminates upfront cost.',
     recommendedPath:
@@ -497,45 +515,90 @@ export const EMPLOYERS: Employer[] = [
     ],
   },
   {
-    id: 'microsoft',
-    name: 'Microsoft',
-    verdict: 'difficult',
-    verdictWord: 'Difficult',
-    verdictHeadline: 'Standard tuition program does NOT cover this',
+    id: 'visa',
+    name: 'Visa',
+    verdict: 'clear',
+    verdictWord: 'Clear',
+    verdictHeadline: 'Clear path — validated by historical enrollments',
     verdictSummary:
-      'Realistic path is manager-approved team training budget.',
+      'Three Visa employees already enrolled in the CBS AI cohorts with employer pay. The $5,250 IRS §127 education benefit maps almost exactly to the cert price; manager-approved and work-related.',
     recommendedPath:
-      "Manager-approved team / group training budget. Microsoft's benefits page explicitly says certificates/CEUs can be reimbursed through your group's training budget if your manager approves — this is the only realistic path for the AI Cert.",
+      "Standard $5,250/year education benefit (IRS §127). Coach the prospect to get manager pre-approval, frame the cert as work-related to their current role, and submit through Visa's internal education-assistance / tuition benefit process.",
     atAGlance: [
-      { label: 'Annual cap (formal program)', value: '$10,000/year corporate (grad or combined); $5,250/year for undergrad-only; $5,250/year for retail' },
-      { label: 'Tenure requirement', value: 'Benefits-eligible (no published waiting period beyond benefits eligibility)' },
-      { label: 'Platform / admin', value: 'EdAssist by Bright Horizons at microsoft.edassist.com' },
-      { label: 'Pre-approval', value: 'Required; manager written approval (email) required before each application' },
-      { label: 'Coverage gap', value: 'Microsoft\'s official policy EXPLICITLY excludes "continuing education courses (CEU), professional certificates, seminars, conferences, or courses that do not assign college-level credits." The WSP cert is non-credit Executive Education, so it falls into the excluded category.' },
+      { label: 'Historical CBS AI enrollments', value: '3 employer-sponsored seats (Summer + Fall 2025 cohorts) — the path is validated in practice.' },
+      { label: 'Annual cap', value: '$5,250/year (IRS §127 tax-free max); manager-approved, work-related. Maps almost exactly to the cert price.' },
+      { label: 'Platform / admin', value: 'Internal Visa benefits / education-assistance process (manager approval + HR/benefits submission)' },
+      { label: 'Pre-approval', value: 'Required; manager approval with work-related framing' },
+      { label: 'Tax treatment', value: 'Fully tax-free — the $5,250 benefit sits at the IRS §127 ceiling' },
+      { label: 'Internal AI context', value: 'Visa Decision Manager (98.8% of transactions auto-resolved by AI); GitHub Copilot + secure GPT-4 deployed internally. Visa has publicly flagged a financial-services AI talent gap.' },
     ],
     approvalSteps: [
-      'Microsoft\'s benefits page explicitly states: "you may be able to get reimbursement for these [certificates/CEUs/conferences] through your group\'s training budget, if your manager approves." This is the only realistic path for the AI Cert at Microsoft.',
-      'Team training budgets are decentralized and vary by org/manager. No published per-employee allotment.',
-      'Approval probability is materially higher for Microsoft Finance, Corporate Development, Treasury, FP&A, Investor Relations, and Strategy employees than for Engineering or Product, because the finance angle maps directly to job function.',
+      'Get manager pre-approval. Frame the cert as work-related to the current role (payments analytics, risk, treasury, corporate finance, strategy).',
+      "Submit through Visa's internal education-assistance / tuition benefit for the $5,250/year benefit.",
+      'Enroll per Visa\'s process; payment/reimbursement follows the benefit\'s structure (confirm direct-pay vs. reimburse with HR).',
     ],
     willCover: [
-      'Through formal Tuition Assistance Program (EdAssist): no. Explicitly excluded. Microsoft\'s published program covers accredited institutions recognized for college-level credit; the WSP cert is non-credit, which is excluded by name in policy.',
-      'Through manager-approved group training budget: yes, with the right pitch: most likely for Finance / Corp Dev / Treasury / Strategy roles.',
-      'For Engineering / Product / non-finance roles: the manager-pitch case is weaker because the finance focus doesn\'t map as cleanly to job function. Still possible if the prospect can frame AI-finance integration as relevant to their org (FinTech, Cloud Finance, AI Productivity, etc.).',
+      'Green. The WSP enrollment data confirms 3 Visa employees already enrolled in the CBS AI cohorts (Summer + Fall 2025) with employer pay — the path is validated, not theoretical.',
+      'The $5,250 IRS §127 education benefit maps almost exactly to the cert price, so a manager-approved, work-related request fits cleanly within policy with little or no co-pay.',
+      'Visa has publicly stated a financial-services AI talent gap, which gives the manager pitch built-in justification.',
     ],
     timeline: [
-      'Team training budget approval timeline is variable: 1 to 4 weeks depending on manager and quarterly budget cycle.',
-      'Documentation: invoice from WSP, manager email approval, internal finance/PO process per org.',
+      'Manager pre-approval + benefits processing: plan 2 to 4 weeks [industry standard; Visa-specific SLA not documented].',
+      'Documentation: invoice from WSP, course syllabus (work-relatedness), manager approval, proof of payment.',
     ],
     managerPitch: [
-      'This is a finance-focused AI certificate, cobranded with Columbia Business School Executive Education. It\'s not eligible for the formal tuition program because it\'s non-credit Executive Education, but Microsoft\'s benefits page specifically says team training budgets can cover this category if the manager approves.',
-      'The program is built for finance professionals; it covers Python for finance, predictive analytics, GenAI/LLMs, and AI automation. It applies directly to my work in [role] because [specific application].',
-      '8 weeks, no coding required, $5,000-range investment, taught by practitioners.',
+      'Visa leads payments AI but has publicly flagged a finance-AI talent gap. Three Visa colleagues already enrolled in this program in 2025.',
+      'The Columbia + Wall Street Prep certificate closes that gap with finance-specific AI training, delivered in 8 weeks. No coding required.',
+      'It maps directly to my role in [payments analytics / risk / strategy / treasury] and fits inside the $5,250 education benefit.',
     ],
     gaps: [
-      'No published dollar figure for typical team training budgets at Microsoft.',
-      'Recent (2025-2026) employee approval rates for external certs through team budgets are not documented publicly.',
-      'Friction will vary significantly by manager and org; coach prospects to test the waters with their manager before assuming approval.',
+      "Exact internal submission system / benefit name not documented publicly; confirm with the employee's HR.",
+      'Whether the $5,250 is direct-pay or reimbursement-after-completion at Visa.',
+      'Any tenure / eligibility waiting period.',
+    ],
+  },
+  {
+    id: 'mastercard',
+    name: 'Mastercard',
+    verdict: 'likely',
+    verdictWord: 'Likely',
+    verdictHeadline: 'Likely covered — clean policy fit, no historical signal yet',
+    verdictSummary:
+      "Theoretical near-twin to Visa: an up-to-$5,250 work-related benefit with manager pre-approval. No historical WSP enrollments yet, so confirm coverage with the employee's HR before promising it.",
+    recommendedPath:
+      'Standard up-to-$5,250/year education benefit (IRS §127), job-related, manager pre-approval — the same structure as Visa. Confirm the benefit with HR before assuming coverage, since there is no historical example yet.',
+    atAGlance: [
+      { label: 'Historical CBS AI enrollments', value: '0 — no Mastercard appearances in the WSP historical data. Coverage is policy-inferred, not yet confirmed in practice.' },
+      { label: 'Annual cap', value: 'Up to $5,250/year (IRS §127); job-related, manager pre-approval' },
+      { label: 'Platform / admin', value: 'Internal Mastercard benefits / education-assistance process (manager approval)' },
+      { label: 'Pre-approval', value: 'Required; job-related framing with manager approval' },
+      { label: 'Tax treatment', value: 'Tax-free up to the IRS $5,250/year ceiling' },
+      { label: 'Internal AI context', value: 'Decision Intelligence + gen-AI fraud platform (2024); strong internal AI build. Structural twin to Visa on payments-tech profile and finance-role density.' },
+    ],
+    approvalSteps: [
+      'Get manager pre-approval. Frame as job-related to the current role (payments analytics, risk, treasury, finance, strategy).',
+      "Submit through Mastercard's internal education-assistance / tuition benefit for the up-to-$5,250 benefit.",
+      'Confirm the benefit structure (direct-pay vs. reimbursement) with HR — there is no historical example to confirm the path yet.',
+    ],
+    willCover: [
+      'Green on policy, untested on behavior. Mastercard\'s reimbursement structure (up to $5,250, job-related, manager pre-approval) looks like a clean fit, but there are no historical WSP enrollments to confirm the path in practice.',
+      'Mastercard is the natural twin to Visa — same payments-tech profile, similar finance-role density, similar reimbursement structure. If Visa\'s path works, Mastercard\'s almost certainly generalizes.',
+      'Coach prospects to confirm coverage with HR before assuming, and lead with the $5,250 work-related framing.',
+    ],
+    timeline: [
+      'Manager pre-approval + benefits processing: plan 2 to 4 weeks [industry standard].',
+      'Documentation: invoice from WSP, course syllabus (work-relatedness), manager approval, proof of payment.',
+      'Note: recent layoffs may tighten manager discretionary spend.',
+    ],
+    managerPitch: [
+      'Mastercard is shipping gen-AI fraud products. Finance teams who understand AI fluently will lead the next wave.',
+      'The Columbia + Wall Street Prep certificate fits inside the $5,250 benefit and delivers finance-specific AI training in 8 weeks. No coding required.',
+      'It applies directly to my work in [payments analytics / risk / strategy / treasury / finance].',
+    ],
+    gaps: [
+      'No historical WSP enrollment signal; coverage is policy-inferred, not confirmed in practice — confirm with HR before promising it.',
+      'Internal submission system / benefit name not documented; confirm with HR.',
+      'Recent layoffs may tighten discretionary / manager-approved spend.',
     ],
   },
 ];
