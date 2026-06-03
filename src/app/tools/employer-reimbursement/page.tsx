@@ -1,0 +1,503 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Phone, CheckCircle2, AlertTriangle, XCircle, Copy, Check,
+  ChevronDown, ExternalLink, ClipboardList, MessageSquareQuote,
+  ListChecks, Clock, HelpCircle, ShieldQuestion, BookOpen, Info,
+} from 'lucide-react';
+import {
+  EMPLOYERS, PROGRAM_META, VERDICT_LEGEND, CROSS_EMPLOYER_SUMMARY,
+  CROSS_EMPLOYER_NOTE, UNIVERSAL_TALKING_POINTS, TOP_QUESTIONS,
+  OBJECTIONS, SOURCES, type Verdict, type Employer,
+} from './data';
+
+/* ── Verdict color system ──────────────────────────────────────── */
+const VERDICT_STYLES: Record<
+  Verdict,
+  {
+    dot: string;
+    pillActive: string;
+    banner: string;
+    bannerText: string;
+    icon: typeof CheckCircle2;
+    iconColor: string;
+    badge: string;
+  }
+> = {
+  clear: {
+    dot: 'bg-emerald-500',
+    pillActive: 'bg-emerald-600 text-white border-emerald-600',
+    banner: 'bg-emerald-50 border-emerald-200',
+    bannerText: 'text-emerald-900',
+    icon: CheckCircle2,
+    iconColor: 'text-emerald-600',
+    badge: 'bg-emerald-100 text-emerald-700',
+  },
+  likely: {
+    dot: 'bg-amber-500',
+    pillActive: 'bg-amber-500 text-white border-amber-500',
+    banner: 'bg-amber-50 border-amber-200',
+    bannerText: 'text-amber-900',
+    icon: AlertTriangle,
+    iconColor: 'text-amber-600',
+    badge: 'bg-amber-100 text-amber-800',
+  },
+  difficult: {
+    dot: 'bg-red-500',
+    pillActive: 'bg-red-600 text-white border-red-600',
+    banner: 'bg-red-50 border-red-200',
+    bannerText: 'text-red-900',
+    icon: XCircle,
+    iconColor: 'text-red-600',
+    badge: 'bg-red-100 text-red-700',
+  },
+};
+
+/* ── Copy-to-clipboard button ──────────────────────────────────── */
+function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        });
+      }}
+      className={`inline-flex items-center gap-1.5 shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+        copied
+          ? 'bg-emerald-100 text-emerald-700'
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+      }`}
+    >
+      {copied ? <Check size={13} /> : <Copy size={13} />}
+      {copied ? 'Copied' : label}
+    </button>
+  );
+}
+
+/* ── Section heading ───────────────────────────────────────────── */
+function SectionHeading({
+  icon: Icon,
+  children,
+}: {
+  icon: typeof CheckCircle2;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <Icon size={16} className="text-gray-400" />
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {children}
+      </h3>
+    </div>
+  );
+}
+
+/* ── Employer detail view ──────────────────────────────────────── */
+function EmployerDetail({ e }: { e: Employer }) {
+  const v = VERDICT_STYLES[e.verdict];
+  const VIcon = v.icon;
+  const allPitch = e.managerPitch.map((p) => `• ${p}`).join('\n\n');
+
+  return (
+    <div className="space-y-6">
+      {/* Verdict banner */}
+      <div className={`rounded-2xl border ${v.banner} p-5`}>
+        <div className="flex items-start gap-3">
+          <VIcon size={24} className={`${v.iconColor} shrink-0 mt-0.5`} />
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-lg font-bold text-gray-900">{e.name}</span>
+              <span className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${v.badge}`}>
+                {e.verdictWord}
+              </span>
+            </div>
+            <p className={`mt-1 font-semibold ${v.bannerText}`}>{e.verdictHeadline}.</p>
+            <p className="mt-0.5 text-sm text-gray-700">{e.verdictSummary}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Recommended path */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
+        <SectionHeading icon={ListChecks}>Recommended path</SectionHeading>
+        <p className="text-[15px] leading-relaxed text-gray-800 font-medium">
+          {e.recommendedPath}
+        </p>
+      </div>
+
+      {/* At a glance */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
+        <SectionHeading icon={Info}>At a glance</SectionHeading>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+          {e.atAGlance.map((row) => (
+            <div key={row.label} className="border-b border-gray-100 pb-3 last:border-0">
+              <dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                {row.label}
+              </dt>
+              <dd className="mt-0.5 text-sm text-gray-800 leading-snug">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
+      {/* Manager pitch — copyable */}
+      <div className="rounded-2xl border border-violet-200 bg-violet-50/40 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3 gap-3">
+          <div className="flex items-center gap-2">
+            <MessageSquareQuote size={16} className="text-violet-500" />
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+              What to say — manager pitch
+            </h3>
+          </div>
+          <CopyButton text={allPitch} label="Copy all" />
+        </div>
+        <ul className="space-y-2.5">
+          {e.managerPitch.map((p, i) => (
+            <li
+              key={i}
+              className="flex items-start gap-3 rounded-xl bg-white border border-violet-100 p-3"
+            >
+              <p className="text-[15px] leading-relaxed text-gray-800 flex-1">
+                &ldquo;{p}&rdquo;
+              </p>
+              <CopyButton text={p} />
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Two-column: approval steps + timeline */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
+          <SectionHeading icon={ClipboardList}>How to get approval</SectionHeading>
+          <ol className="space-y-2.5">
+            {e.approvalSteps.map((s, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-gray-900 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">
+                  {i + 1}
+                </span>
+                <p className="text-sm text-gray-700 leading-relaxed">{s}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
+          <SectionHeading icon={Clock}>Timeline &amp; paperwork</SectionHeading>
+          <ul className="space-y-2.5">
+            {e.timeline.map((t, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300 mt-2" />
+                <p className="text-sm text-gray-700 leading-relaxed">{t}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Will X cover this */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
+        <SectionHeading icon={HelpCircle}>
+          Will {e.name} cover the AI for Business &amp; Finance Certificate?
+        </SectionHeading>
+        <ul className="space-y-2.5">
+          {e.willCover.map((c, i) => (
+            <li key={i} className="flex items-start gap-2.5">
+              <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300 mt-2" />
+              <p className="text-sm text-gray-700 leading-relaxed">{c}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Gaps */}
+      <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5">
+        <SectionHeading icon={ShieldQuestion}>
+          Gaps — verify or have the employee confirm with HR
+        </SectionHeading>
+        <ul className="space-y-1.5">
+          {e.gaps.map((g, i) => (
+            <li key={i} className="flex items-start gap-2.5">
+              <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400 mt-2" />
+              <p className="text-sm text-gray-600 leading-relaxed">{g}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/* ── Collapsible block (for Quick Reference) ───────────────────── */
+function Collapsible({
+  title,
+  icon: Icon,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  icon: typeof CheckCircle2;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
+      >
+        <span className="flex items-center gap-2.5">
+          <Icon size={17} className="text-gray-400" />
+          <span className="font-semibold text-gray-900 text-[15px]">{title}</span>
+        </span>
+        <ChevronDown
+          size={18}
+          className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      {open && <div className="px-5 pb-5 pt-1">{children}</div>}
+    </div>
+  );
+}
+
+/* ── Quick Reference view ──────────────────────────────────────── */
+function QuickReference() {
+  return (
+    <div className="space-y-4">
+      {/* Cross-employer summary */}
+      <Collapsible title="Cross-employer summary" icon={ListChecks} defaultOpen>
+        <div className="overflow-x-auto -mx-1">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400">
+                <th className="py-2 pr-4 font-semibold">Employer</th>
+                <th className="py-2 pr-4 font-semibold">Verdict</th>
+                <th className="py-2 pr-4 font-semibold">Cap</th>
+                <th className="py-2 pr-4 font-semibold">Platform</th>
+                <th className="py-2 font-semibold">Recommended path</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CROSS_EMPLOYER_SUMMARY.map((r) => {
+                const v = VERDICT_STYLES[r.verdict];
+                return (
+                  <tr key={r.employer} className="border-t border-gray-100 align-top">
+                    <td className="py-3 pr-4 font-semibold text-gray-900 whitespace-nowrap">
+                      {r.employer}
+                    </td>
+                    <td className="py-3 pr-4 whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${v.dot}`} />
+                        <span className="text-gray-700">{r.verdictWord}</span>
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 text-gray-700">{r.cap}</td>
+                    <td className="py-3 pr-4 text-gray-700">{r.platform}</td>
+                    <td className="py-3 text-gray-700">{r.recommendedPath}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-4 text-sm text-gray-600 leading-relaxed bg-gray-50 rounded-xl p-3 border border-gray-100">
+          {CROSS_EMPLOYER_NOTE}
+        </p>
+      </Collapsible>
+
+      {/* Universal talking points */}
+      <Collapsible title="Universal talking points (all employers)" icon={MessageSquareQuote}>
+        <div className="space-y-5">
+          {UNIVERSAL_TALKING_POINTS.map((g) => (
+            <div key={g.heading}>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">{g.heading}</h4>
+              <ul className="space-y-2">
+                {g.points.map((p, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300 mt-2" />
+                    <p className="text-sm text-gray-700 leading-relaxed">{p}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Collapsible>
+
+      {/* Top inbound questions */}
+      <Collapsible title="Top 4 inbound questions" icon={HelpCircle}>
+        <div className="space-y-5">
+          {TOP_QUESTIONS.map((qa) => (
+            <div key={qa.q}>
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">{qa.q}</h4>
+              <ul className="space-y-2">
+                {qa.a.map((line, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300 mt-2" />
+                    <p className="text-sm text-gray-700 leading-relaxed">{line}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Collapsible>
+
+      {/* Objection handling */}
+      <Collapsible title="Objection handling" icon={ShieldQuestion}>
+        <div className="space-y-4">
+          {OBJECTIONS.map((o) => (
+            <div key={o.objection} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <p className="text-sm font-semibold text-gray-900 mb-2">{o.objection}</p>
+              <ul className="space-y-2">
+                {o.counters.map((c, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400 mt-2" />
+                    <p className="text-sm text-gray-700 leading-relaxed">{c}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Collapsible>
+
+      {/* Verdict legend */}
+      <Collapsible title="Verdict color legend" icon={Info}>
+        <ul className="space-y-3">
+          {VERDICT_LEGEND.map((l) => {
+            const v = VERDICT_STYLES[l.verdict];
+            return (
+              <li key={l.verdict} className="flex items-start gap-3">
+                <span className={`shrink-0 w-3 h-3 rounded-full ${v.dot} mt-1`} />
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{l.label}</p>
+                  <p className="text-sm text-gray-600 leading-relaxed">{l.description}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </Collapsible>
+
+      {/* Sources */}
+      <Collapsible title="Sources & references" icon={BookOpen}>
+        <div className="space-y-4">
+          {SOURCES.map((s) => (
+            <div key={s.employer}>
+              <h4 className="text-sm font-semibold text-gray-900 mb-1.5">{s.employer}</h4>
+              <ul className="space-y-1">
+                {s.links.map((l) => (
+                  <li key={l.url}>
+                    <a
+                      href={l.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      {l.label}
+                      <ExternalLink size={12} className="opacity-60" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Collapsible>
+    </div>
+  );
+}
+
+/* ── Page ──────────────────────────────────────────────────────── */
+export default function EmployerReimbursementPage() {
+  // null = Quick Reference; otherwise the selected employer id
+  const [selected, setSelected] = useState<string | null>(EMPLOYERS[0].id);
+  const employer = EMPLOYERS.find((e) => e.id === selected) ?? null;
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      {/* Header */}
+      <header className="mb-5">
+        <div className="flex items-center gap-2 text-emerald-700 mb-1">
+          <Phone size={16} />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">
+            Enrollment Advisor Tool
+          </span>
+        </div>
+        <h1 className="text-2xl font-bold text-gray-900">Employer Reimbursement Reference</h1>
+        <p className="mt-1.5 text-sm text-gray-600 leading-relaxed max-w-3xl">
+          {PROGRAM_META.program}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+          <span>Last updated {PROGRAM_META.lastUpdated}</span>
+          <span className="text-gray-300">·</span>
+          <span>Cohort closes {PROGRAM_META.cohortClose}</span>
+          <span className="text-gray-300">·</span>
+          <span className="inline-flex items-center gap-1 text-amber-600">
+            <Info size={12} /> Living document — verify flagged gaps with HR
+          </span>
+        </div>
+      </header>
+
+      {/* Sticky employer selector */}
+      <div className="sticky top-14 z-30 -mx-6 px-6 py-3 bg-gray-50/95 backdrop-blur border-b border-gray-200 mb-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mr-1">
+            Employer
+          </span>
+          {EMPLOYERS.map((e) => {
+            const v = VERDICT_STYLES[e.verdict];
+            const active = selected === e.id;
+            return (
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => setSelected(e.id)}
+                className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  active
+                    ? v.pillActive
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${active ? 'bg-white/90' : v.dot}`}
+                />
+                {e.name}
+              </button>
+            );
+          })}
+          <span className="w-px h-5 bg-gray-200 mx-1" />
+          <button
+            type="button"
+            onClick={() => setSelected(null)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              selected === null
+                ? 'bg-gray-900 text-white border-gray-900'
+                : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            <BookOpen size={14} />
+            Quick Reference
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      {employer ? <EmployerDetail e={employer} /> : <QuickReference />}
+
+      {/* Footer note */}
+      <p className="mt-10 pt-5 border-t border-gray-200 text-xs text-gray-400 leading-relaxed">
+        {PROGRAM_META.status} For: {PROGRAM_META.audience}. Internal advisor reference — not for
+        external distribution. Coverage verdicts are research-based estimates; always confirm with
+        the employee&rsquo;s HR or benefits administrator before promising coverage.
+      </p>
+    </div>
+  );
+}

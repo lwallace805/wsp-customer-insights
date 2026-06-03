@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home, BarChart2, MessageSquare, Lightbulb,
   GraduationCap, TrendingUp, ChevronDown, Users, Layers,
+  Phone,
 } from 'lucide-react';
 
 const CUSTOMER_INSIGHTS = [
@@ -22,6 +23,10 @@ const COHORT_PERFORMANCE = [
   { href: '/cohort-performance/wharton',      label: 'Wharton Online',          icon: Users },
   { href: '/cohort-performance/columbia',     label: 'Columbia / CBSEE',        icon: Users },
   { href: '/dashboards/spring-2026.html',     label: 'Spring 2026 Performance', icon: TrendingUp, static: true },
+];
+
+const TOOLS = [
+  { href: '/tools/employer-reimbursement', label: 'Employer Reimbursement Guide', icon: Phone },
 ];
 
 
@@ -128,6 +133,13 @@ export default function NavBar() {
           <DropdownMenu
             label="Cohort Performance"
             items={COHORT_PERFORMANCE}
+            activePath={pathname}
+          />
+
+          {/* Tools dropdown */}
+          <DropdownMenu
+            label="Tools"
+            items={TOOLS}
             activePath={pathname}
           />
 
