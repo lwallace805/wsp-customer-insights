@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI for Business &amp; Finance Certificate · Employer Reimbursement — Your Next Step</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #1D4F91;            /* Columbia primary navy */
+    --navy-2: #163E73;
+    --navy-deep: #0A2240;        /* Deep CBS navy */
+    --ink: #112436;
+    --slate: #475569;
+    --line: #E2E8F0;
+    --paper: #FFFFFF;
+    --paper-soft: #F5F7FA;
+    --sky: #B9D9EB;              /* Columbia Blue accent */
+    --sky-bright: #D0E5F1;
+    --gold: #C9A961;
+    --gold-deep: #A8893E;
+    --gold-soft: #FBF6EA;
+    --crimson: #1D4F91;          /* CTAs use Columbia navy */
+    --crimson-hover: #163E73;
+    --green: #1F7A4F;
+    --green-soft: #ECFBEF;
+    --green-border: #C2EACD;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, Segoe UI, Roboto, sans-serif;
+    color: var(--ink); background: var(--paper);
+    -webkit-font-smoothing: antialiased; line-height: 1.55;
+  }
+  body.modal-open { overflow: hidden; }
+  a { color: inherit; }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 28px; }
+
+  /* Employer-state visibility helpers */
+  body[data-employer="default"] .show-jpm { display: none; }
+  body[data-employer="jpm"] .show-default { display: none; }
+
+  .topbar { background: #2F1F0F; color: #E9DDC6; font-size: 13px; text-align: center; padding: 10px 16px; letter-spacing: .04em; }
+  .topbar strong { color: #F0E5CF; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .topbar .sep { opacity: .5; margin: 0 14px; }
+
+
+  .brandbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .brandbar .brands { display: flex; gap: 24px; align-items: center; }
+  .brand-lockup { border: 1px dashed #B8C1CC; color: #6B7785; padding: 8px 14px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; border-radius: 2px; }
+  .brand-lockup.alt { border-style: solid; border-color: #D9DEE6; color: #354150; background: #fff; }
+
+  .btn { display: inline-block; padding: 12px 18px; border-radius: 4px; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; border: 0; text-align: center; line-height: 1.2; font-family: inherit; }
+  .btn-primary { background: var(--crimson); color: #fff; }
+  .btn-primary:hover { background: var(--crimson-hover); }
+  .btn-outline { background: transparent; color: var(--ink); border: 1px solid #D2D8E0; }
+  .btn-outline:hover { border-color: var(--ink); }
+  .btn-outline-dark { background: transparent; color: var(--navy); border: 1px solid var(--navy); }
+  .btn-outline-dark:hover { background: var(--navy); color: #fff; }
+  .btn-ghost-light { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); }
+  .btn-ghost-light:hover { border-color: #fff; }
+  .btn-arrow::after { content: " →"; }
+  .btn-lg { padding: 14px 22px; font-size: 15px; }
+  .btn-block { display: block; width: 100%; }
+
+  .hero { background: linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%); color: #fff; padding: 60px 0 64px; }
+  .hero .grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; }
+  .hero .breadcrumb { color: var(--sky-bright); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 18px; font-weight: 600; }
+  .hero h1 { font-family: 'Playfair Display', Georgia, serif; font-weight: 500; font-size: 46px; line-height: 1.08; margin: 0 0 14px; letter-spacing: -.01em; }
+  .hero h1 .accent { color: var(--sky-bright); font-style: italic; }
+  .hero .sub { font-size: 16.5px; color: #DDE6EF; max-width: 520px; margin-bottom: 18px; }
+  .hero .next-up { margin-top: 16px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.12); color: #C5D2DE; font-size: 14px; }
+  .hero .next-up strong { color: #fff; }
+  .hero .next-up .num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: #1B1306; font-size: 11px; font-weight: 700; margin-right: 6px; }
+
+  .advisor-card { background: #fff; color: var(--ink); border-radius: 10px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,.30); }
+  .advisor-card .badge { display: inline-block; background: var(--gold-soft); color: var(--gold-deep); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; font-weight: 700; margin-bottom: 14px; }
+  .advisor-card h3 { font-family: 'Playfair Display', serif; font-weight: 500; font-size: 24px; margin: 0 0 8px; line-height: 1.2; }
+  .advisor-card p.lede { color: var(--slate); font-size: 14px; margin: 0 0 18px; }
+  .advisor-card .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+  .advisor-card .stat .label { font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--slate); font-weight: 600; margin-bottom: 2px; }
+  .advisor-card .stat .val { font-size: 13.5px; color: var(--ink); font-weight: 700; }
+  .advisor-card .cta-row { display: flex; flex-direction: column; gap: 10px; }
+  .advisor-card .reassurance { font-size: 12px; color: var(--slate); margin-top: 12px; text-align: center; }
+  .advisor-card .avatars { display: flex; margin-bottom: 14px; }
+  .advisor-card .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #B0CFE3, #6F95B1); border: 3px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,.08); }
+  .advisor-card .avatar + .avatar { margin-left: -14px; }
+  .advisor-card .avatar:nth-child(2) { background: linear-gradient(135deg, #C9A961, #8B6F39); }
+  .advisor-card .avatar:nth-child(3) { background: linear-gradient(135deg, #95A4B5, #5F6C7A); }
+  .advisor-card .av-line { font-size: 12px; color: var(--slate); margin-left: 12px; align-self: center; }
+
+  .escape-band { background: var(--gold-soft); border-bottom: 1px solid #EBDFC0; padding: 14px 0; text-align: center; }
+  .escape-band p { margin: 0; color: #5A4A1F; font-size: 14px; }
+  .escape-band p strong { color: #3A2F12; font-weight: 700; }
+  .escape-band a { color: var(--crimson); font-weight: 600; text-decoration: none; }
+  .escape-band a:hover { text-decoration: underline; }
+
+  section.block { padding: 64px 0; }
+  section.block.tight { padding: 44px 0; }
+  section.cream { background: var(--paper-soft); }
+  section.dark { background: var(--navy); color: #fff; }
+  .section-eyebrow { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--slate); margin-bottom: 12px; }
+  section.dark .section-eyebrow { color: var(--sky-bright); }
+  .section-title { font-family: 'Playfair Display', serif; font-weight: 500; font-size: 30px; line-height: 1.2; margin: 0 0 10px; letter-spacing: -.005em; }
+  .section-title .italic { font-style: italic; color: var(--slate); font-weight: 400; }
+  section.dark .section-title .italic { color: var(--sky); }
+  .section-lede { color: var(--slate); max-width: 720px; font-size: 15.5px; margin-bottom: 28px; }
+  section.dark .section-lede { color: #C5D2DE; }
+
+  .secondary-paths { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .path-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 26px; transition: all .15s; }
+  .path-card:hover { border-color: var(--navy); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(11, 37, 69, .06); }
+  .path-card .icon { width: 38px; height: 38px; border-radius: 8px; background: var(--paper-soft); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
+  .path-card h4 { font-family: 'Playfair Display', serif; font-weight: 500; font-size: 20px; margin: 0 0 6px; }
+  .path-card .meta { font-size: 12px; color: var(--slate); font-weight: 500; margin-bottom: 10px; }
+  .path-card p { margin: 0 0 14px; color: var(--slate); font-size: 13.5px; line-height: 1.5; }
+
+  .resources-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .resource { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 22px; transition: all .15s; display: flex; flex-direction: column; text-decoration: none; color: inherit; position: relative; cursor: pointer; font-family: inherit; text-align: left; width: 100%; }
+  .resource:hover { border-color: var(--crimson); transform: translateY(-2px); }
+  .resource .small { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--slate); margin-bottom: 10px; font-weight: 600; }
+  .resource h4 { font-family: 'Playfair Display', serif; font-size: 17px; margin: 0 0 6px; font-weight: 500; line-height: 1.25; }
+  .resource p { margin: 0 0 12px; color: var(--slate); font-size: 13.5px; line-height: 1.5; flex-grow: 1; }
+  .resource .link { color: var(--crimson); font-weight: 600; font-size: 13px; }
+  .resource .star-tag { position: absolute; top: 10px; right: 10px; background: var(--gold); color: #1B1306; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; padding: 3px 7px; border-radius: 2px; }
+
+  .faq { border-top: 1px solid var(--line); max-width: 820px; }
+  .faq-item { border-bottom: 1px solid var(--line); padding: 18px 0; cursor: pointer; }
+  .faq-q { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; }
+  .faq-q .plus { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--slate); }
+  .faq-a { display: none; padding-top: 12px; color: var(--slate); font-size: 14px; line-height: 1.7; }
+  .faq-item.open .faq-a { display: block; }
+  .faq-item.open .plus { transform: rotate(45deg); }
+
+  .urgency { background: var(--navy-2); color: #fff; padding: 48px 0; text-align: center; }
+  .urgency h2 { font-family: 'Playfair Display', serif; font-size: 30px; font-weight: 500; margin: 0 0 8px; }
+  .urgency .italic-accent { color: var(--sky-bright); font-style: italic; }
+  .urgency p { color: #C5D2DE; max-width: 620px; margin: 0 auto 22px; font-size: 15px; }
+  .urgency .key-dates { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; margin: 22px 0 26px; color: #DDE6EF; font-size: 13.5px; }
+  .urgency .key-dates strong { color: var(--sky-bright); font-family: 'Playfair Display', serif; font-style: italic; font-size: 16px; }
+  .urgency .repeat-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+  .urgency .small-note { font-size: 12.5px; color: #B7C5D5; margin-top: 18px; }
+  .urgency .small-note a { color: var(--sky-bright); text-decoration: none; font-weight: 600; }
+
+  footer.site { background: #061830; color: #8294AB; padding: 32px 0 24px; font-size: 12.5px; }
+  footer.site .row { display: flex; gap: 36px; justify-content: space-between; align-items: flex-start; }
+  footer.site .disclaim { max-width: 760px; font-style: italic; line-height: 1.6; }
+  footer.site .colophon { text-align: right; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(8, 24, 48, .68); display: none; align-items: center; justify-content: center; padding: 28px; z-index: 1000; backdrop-filter: blur(4px); }
+  .modal-overlay.open { display: flex; }
+  .modal { background: #fff; border-radius: 10px; max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 30px 80px rgba(0,0,0,.4); }
+  .modal.modal-tall { max-width: 760px; }
+  .modal .modal-close { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--paper-soft); color: var(--ink); cursor: pointer; font-size: 18px; line-height: 1; padding: 0; display: flex; align-items: center; justify-content: center; }
+  .modal .modal-close:hover { background: var(--line); }
+  .modal-header { padding: 28px 32px 18px; border-bottom: 1px solid var(--line); }
+  .modal-header .small { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-deep); font-weight: 700; margin-bottom: 6px; }
+  .modal-header h3 { font-family: 'Playfair Display', serif; font-weight: 500; font-size: 24px; margin: 0 0 6px; line-height: 1.2; }
+  .modal-header p { margin: 0; color: var(--slate); font-size: 14px; }
+  .modal-body { padding: 24px 32px 28px; }
+
+  .calendly-placeholder { background: var(--paper-soft); border: 2px dashed var(--line); border-radius: 6px; padding: 60px 28px; text-align: center; color: var(--slate); }
+  .calendly-placeholder .ph-eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-deep); font-weight: 700; margin-bottom: 14px; }
+  .calendly-placeholder .ph-msg { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 500; margin-bottom: 8px; color: var(--ink); }
+  .calendly-placeholder .ph-sub { font-size: 13.5px; color: var(--slate); max-width: 440px; margin: 0 auto; line-height: 1.55; }
+  .calendly-placeholder .ph-icon { width: 56px; height: 56px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; margin: 0 auto 18px; font-size: 26px; color: var(--gold); border: 1px solid var(--line); }
+
+  .email-template { background: var(--paper-soft); border: 1px solid var(--line); border-radius: 6px; padding: 22px; font-family: inherit; font-size: 13.5px; line-height: 1.65; color: var(--ink); white-space: pre-wrap; margin-bottom: 14px; }
+  .email-template .subj { font-weight: 700; margin-bottom: 10px; color: var(--navy); }
+  .copy-btn-wrap { display: flex; gap: 10px; align-items: center; }
+  .copy-btn { background: var(--navy); color: #fff; border: 0; padding: 10px 18px; border-radius: 4px; font-weight: 600; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .copy-btn:hover { background: var(--navy-2); }
+  .copy-btn.copied { background: var(--green); }
+  .modal-tip { background: var(--gold-soft); border-left: 3px solid var(--gold); color: #5A4A1F; font-size: 13px; padding: 12px 14px; margin-top: 14px; border-radius: 0 4px 4px 0; }
+
+  .portal-routes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .portal-route { background: var(--paper-soft); border: 1px solid var(--line); border-radius: 6px; padding: 16px; }
+  .portal-route .pname { font-weight: 700; font-size: 14px; color: var(--ink); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .portal-route .pname .pnum { width: 22px; height: 22px; border-radius: 50%; background: var(--navy); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+  .portal-route .pemployers { font-size: 12px; color: var(--slate); margin-bottom: 8px; line-height: 1.45; }
+  .portal-route .pnote { font-size: 12px; color: var(--slate); font-style: italic; }
+  .portal-search { display: flex; gap: 10px; margin-top: 4px; }
+  .portal-search input { flex: 1; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 14px; }
+  .portal-search input:focus { outline: 0; border-color: var(--navy); }
+  .portal-escape { text-align: center; padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--slate); }
+  .portal-escape a { color: var(--crimson); font-weight: 600; text-decoration: none; }
+
+  @media (max-width: 880px) {
+    .hero .grid, .secondary-paths, .resources-grid, .portal-routes {
+      grid-template-columns: 1fr;
+    }
+    .hero h1 { font-size: 34px; }
+    .modal-header, .modal-body { padding-left: 22px; padding-right: 22px; }
+  }
+</style>
+</head>
+<body data-employer="default">
+
+<!-- Top context banner -->
+<div class="topbar">
+  <strong data-text-default="Employer Reimbursement" data-text-jpm="JPMorgan Chase Employees">Employer Reimbursement</strong>
+  <span class="sep">•</span>
+  <span data-text-default="Most employers cover programs like this. We'll help you claim yours." data-text-jpm="Reimbursable through your education benefit.">Most employers cover programs like this. We'll help you claim yours.</span>
+</div>
+
+<div class="wrap">
+  <div class="brandbar">
+    <div class="brands">
+      <span class="brand-lockup">Columbia Business School Executive Education · Logo</span>
+      <span class="brand-lockup alt">Wall Street Prep · Logo</span>
+    </div>
+    <a class="btn btn-primary btn-arrow" onclick="openModal('calendlyModal'); return false;" href="#">Book a 15-min call</a>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="grid">
+      <div>
+        <div class="breadcrumb" data-text-default="Employer Reimbursement · AI for Business &amp; Finance Certificate (Columbia + WSP)" data-text-jpm="JPMorgan L&amp;D · AI for Business &amp; Finance Certificate (Columbia + WSP)">Employer Reimbursement · AI for Business &amp; Finance Certificate (Columbia + WSP)</div>
+        <div class="just-did" id="justDidCue" style="display:none; font-size: 14px; color: var(--slate); margin-bottom: 8px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase;">You just requested the brochure</div>
+        <h1><span id="h1Prefix">From here,</span> <span class="accent" id="h1Accent">let's get you enrolled.</span></h1>
+        <p class="sub" data-text-default="An enrollment advisor will help confirm your employer benefit and walk you through how to apply it. Most calls take 15 minutes." data-text-jpm="An enrollment advisor experienced with JPMorgan reimbursement requests will help you confirm your L&amp;D benefit and walk through how to apply it. Most calls take 15 minutes.">An enrollment advisor will help confirm your employer benefit and walk you through how to apply it. Most calls take 15 minutes.</p>
+        <div class="next-up">
+          <span class="num">1</span>
+          <span id="brochureInline" style="display:none;"><strong>Your brochure is on its way.</strong> Check your inbox (and spam folder), then </span><span id="defaultNextStep"><strong>Your next step:</strong> </span>book a time with an advisor to check your availability, register, and confirm your <span data-text-default="reimbursement path" data-text-jpm="L&amp;D reimbursement path">reimbursement path</span>.
+        </div>
+      </div>
+
+      <!-- Primary advisor card -->
+      <div class="advisor-card">
+        <div class="badge">Your next step</div>
+        <div class="avatars">
+          <div class="avatar"></div>
+          <div class="avatar"></div>
+          <div class="avatar"></div>
+          <div class="av-line" data-text-default="Our enrollment team supports learners at 100+ employers" data-text-jpm="Our team supports JPMorgan employees through L&amp;D reimbursement">Our enrollment team supports learners at 100+ employers</div>
+        </div>
+        <h3>Book a 15-min call with an enrollment advisor</h3>
+        <p class="lede" data-text-default="Pick a time below to confirm your availability, walk through your employer benefit, and register for the next cohort." data-text-jpm="Pick a time below to confirm your availability, walk through your JPMorgan L&amp;D benefit, and register for the next cohort.">Pick a time below to confirm your availability, walk through your employer benefit, and register for the next cohort.</p>
+        <div class="stats-row">
+          <div class="stat"><div class="label">Duration</div><div class="val">15 minutes</div></div>
+          <div class="stat"><div class="label">Cost</div><div class="val">Free</div></div>
+          <div class="stat"><div class="label">Commitment</div><div class="val">None</div></div>
+        </div>
+        <div class="cta-row">
+          <button class="btn btn-primary btn-lg btn-block btn-arrow" type="button" onclick="openModal('calendlyModal')">Pick a time</button>
+          <button class="btn btn-outline btn-block" type="button" onclick="openModal('calendlyModal')">See available slots</button>
+        </div>
+        <div class="reassurance">Booking opens the scheduler in a new window.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ALREADY APPROVED ESCAPE BAND -->
+<div class="escape-band">
+  <p>
+    <strong data-text-default="Already approved by your employer?" data-text-jpm="Already approved by JPMorgan?">Already approved by your employer?</strong>
+    <a href="#" class="btn-arrow">Enroll now</a>
+  </p>
+</div>
+
+<!-- SECONDARY PATHS -->
+<section class="block">
+  <div class="wrap">
+    <h2 class="section-title">Two ways to move directly.</h2>
+    <p class="section-lede" data-text-default="If you know what your HR or finance team needs, skip the advisor and go straight to the document or payment." data-text-jpm="If you know what your manager or HR contact needs, skip the advisor and go straight to the document or payment.">If you know what your HR or finance team needs, skip the advisor and go straight to the document or payment.</p>
+
+    <div class="secondary-paths">
+      <div class="path-card">
+        <div class="icon">📄</div>
+        <h4>Request a tuition invoice</h4>
+        <div class="meta">Sent within 24 hours · Net 30 terms</div>
+        <p data-text-default="Some HR or finance teams need a formal invoice before approving the spend. Request one and you'll be pre-enrolled immediately, with access to prerequisite coursework while approval moves through your portal." data-text-jpm="Some HR or finance teams need a formal invoice before approving the L&amp;D submission. Request one and you'll be pre-enrolled immediately, with access to prerequisite coursework while approval moves through your portal.">Some HR or finance teams need a formal invoice before approving the spend. Request one and you'll be pre-enrolled immediately, with access to prerequisite coursework while approval moves through your portal.</p>
+        <a class="btn btn-outline-dark btn-arrow"
+           href="https://wallstreetprep.business.columbia.edu/ai-certification/employer-invoice/">Request an invoice</a>
+      </div>
+      <div class="path-card">
+        <div class="icon">💳</div>
+        <h4 data-text-default="Send your employer the payment link" data-text-jpm="Send your manager the payment link">Send your employer the payment link</h4>
+        <div class="meta">For approved employees</div>
+        <p>Have approval already? Send a one-click charge link to your manager or HR team. Skip the invoice; they just pay directly.</p>
+        <a class="btn btn-outline-dark btn-arrow"
+           href="https://wallstreetprep.business.columbia.edu/ai-certification/employer-payment-link/">Get the payment link</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESOURCES -->
+<section class="block cream">
+  <div class="wrap">
+    <div class="section-eyebrow">Resources</div>
+    <h2 class="section-title">Resources to bring to your manager or HR.</h2>
+    <p class="section-lede" data-text-default="The four tools our advisors send most often. Use them to walk into the approval conversation already prepared." data-text-jpm="The tools our advisors send most often. Use them to walk into the approval conversation already prepared.">The four tools our advisors send most often. Use them to walk into the approval conversation already prepared.</p>
+
+    <div class="resources-grid">
+      <button class="resource" type="button" onclick="openModal('emailModal')">
+        <span class="star-tag">Most used</span>
+        <div class="small">Template · Copy &amp; send</div>
+        <h4>The manager approval email</h4>
+        <p>The exact email template that gets education benefits approved at most employers. Pre-populated with this program's details.</p>
+        <span class="link">Open template →</span>
+      </button>
+      <a class="resource" href="#" target="_blank" rel="noopener" style="text-decoration: none;">
+        <span class="star-tag">For your manager</span>
+        <div class="small">Info sheet · 2-page PDF</div>
+        <h4>Program info sheet for HR &amp; managers</h4>
+        <p>Official Columbia Business School Executive Education + Wall Street Prep overview: curriculum, cohort schedule, tuition, and invoice payment process. Built to attach to your approval request.</p>
+        <span class="link">Download PDF →</span>
+      </a>
+      <a class="resource" href="https://www.wallstreetprep.com/knowledge/how-does-tuition-reimbursement-work-and-how-to-ask-for-it/" target="_blank" rel="noopener" style="text-decoration: none;">
+        <div class="small">Guide · 13-min read</div>
+        <h4>How tuition reimbursement actually works</h4>
+        <p data-text-default="What's covered, what's not, the IRS $5,250 tax-free cap, and which major employers offer education benefits." data-text-jpm="What's covered, what's not, the IRS $5,250 tax-free cap, and how JPMorgan and peer firms structure their benefits.">What's covered, what's not, the IRS $5,250 tax-free cap, and which major employers offer education benefits.</p>
+        <span class="link">Read the guide →</span>
+      </a>
+
+      <!-- Generic: Find your portal modal -->
+      <button class="resource show-default" type="button" onclick="openModal('portalModal')">
+        <div class="small">Reference · 1-min scan</div>
+        <h4>Find your employer's portal</h4>
+        <p>The four most common benefit administrators (Guild, EdAssist, InStride, Direct HR) and which employers use each.</p>
+        <span class="link">See the list →</span>
+      </button>
+
+      <!-- JPM: direct Guild link -->
+      <a class="resource show-jpm" href="https://jpmc.guildeducation.com/" target="_blank" rel="noopener" style="text-decoration: none;">
+        <div class="small">External · JPM L&amp;D</div>
+        <h4>Your JPMorgan L&amp;D portal</h4>
+        <p>JPMorgan administers L&amp;D reimbursement through Guild Education. This is where you submit your reimbursement request.</p>
+        <span class="link">Go to Guild →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="block tight">
+  <div class="wrap">
+    <div class="section-eyebrow">Common questions</div>
+    <h2 class="section-title">Quick answers. <span class="italic">For everything else, ask an advisor.</span></h2>
+
+    <div class="faq" id="faq">
+      <!-- FAQ 1: Default + JPM variants -->
+      <div class="faq-item show-default">
+        <div class="faq-q">My employer needs an invoice before approving. How do I get one? <span class="plus">+</span></div>
+        <div class="faq-a">Use the "Request a tuition invoice" CTA above. We send a formal invoice within 24 hours with Net 30 terms. You'll also be pre-enrolled immediately so you can access prerequisite coursework while the invoice moves through your finance team. Accepted by Guild Education, EdAssist (Bright Horizons), InStride, and direct HR programs.</div>
+      </div>
+      <div class="faq-item show-jpm">
+        <div class="faq-q">My manager needs an invoice before approving. How do I get one? <span class="plus">+</span></div>
+        <div class="faq-a">Use the "Request a tuition invoice" CTA above. We send a formal invoice within 24 hours with Net 30 terms. You'll also be pre-enrolled immediately so you can access prerequisite coursework while the invoice moves through your finance team. Accepted by Guild Education and JPMorgan L&amp;D.</div>
+      </div>
+
+      <!-- FAQ 2: Same in both -->
+      <div class="faq-item show-default">
+        <div class="faq-q">My employer is ready to pay. Can you send them a payment link? <span class="plus">+</span></div>
+        <div class="faq-a">Yes. Use the "Have approval already?" link above. You'll get a direct payment link your manager or HR can click to charge their card or process payment without going through the invoice flow.</div>
+      </div>
+      <div class="faq-item show-jpm">
+        <div class="faq-q">My manager is ready to pay. Can you send them a payment link? <span class="plus">+</span></div>
+        <div class="faq-a">Yes. Use the "Already approved?" link above. You'll get a direct payment link your manager or HR can click to charge their card or process payment without going through the invoice flow.</div>
+      </div>
+
+      <!-- FAQ 3: Different question between variants -->
+      <div class="faq-item show-default">
+        <div class="faq-q">What if my employer doesn't offer tuition reimbursement? <span class="plus">+</span></div>
+        <div class="faq-a">Many employers tuck education reimbursement inside "L&amp;D" or "professional development" budgets without calling it that. If nothing is there, we offer 5 monthly installments and approximately $550 in tuition assistance available via application. The advisor call confirms options in two minutes.</div>
+      </div>
+      <div class="faq-item show-jpm">
+        <div class="faq-q">What if my JPMorgan L&amp;D benefit doesn't cover the full tuition? <span class="plus">+</span></div>
+        <div class="faq-a">If your JPM L&amp;D allowance is partial, we offer 5 monthly installments and approximately $550 in tuition assistance available via application. The advisor call confirms your options in two minutes.</div>
+      </div>
+
+      <!-- FAQ 4: Same in both -->
+      <div class="faq-item">
+        <div class="faq-q">What if my manager says no? <span class="plus">+</span></div>
+        <div class="faq-a">Manager pushback is almost always about timing, perceived business value, or budget assumptions. The manager email template above pre-empts all three. If it still gets a no, your advisor can help reframe with a follow-up email or time the request for a better window.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- URGENCY / CLOSE -->
+<section class="urgency">
+  <div class="wrap">
+    <h2>The next cohort starts <span class="italic-accent">July 13, 2026.</span></h2>
+    <p data-text-default="Three cohorts run each year (February, June, October). Submitting your reimbursement request early gives your manager or HR team room to approve before the cohort starts." data-text-jpm="Three cohorts run each year (February, June, October). Submitting your JPMorgan L&amp;D reimbursement request early gives your manager and Guild room to approve before the cohort starts.">Three cohorts run each year (February, June, October). Submitting your reimbursement request early gives your manager or HR team room to approve before the cohort starts.</p>
+    <div class="key-dates">
+      <span><strong>June 29</strong> · Recommended submission deadline</span>
+      <span><strong>July 13</strong> · Cohort starts</span>
+    </div>
+    <div class="repeat-cta">
+      <button class="btn btn-primary btn-lg btn-arrow" type="button" onclick="openModal('calendlyModal')">Book your advisor call</button>
+      <a class="btn btn-ghost-light btn-lg btn-arrow"
+         href="https://wallstreetprep.business.columbia.edu/ai-certification/employer-invoice/">Request an invoice</a>
+    </div>
+    <p class="small-note">
+      Already approved? <a href="#">Enroll now →</a>
+      &nbsp;&nbsp;·&nbsp;&nbsp;
+      Send the <a href="https://wallstreetprep.business.columbia.edu/ai-certification/employer-payment-link/">payment link</a> instead.
+    </p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="site">
+  <div class="wrap">
+    <div class="row">
+      <div class="disclaim" data-text-default="Not affiliated with any employer. Employees are responsible for verifying internal policies and obtaining approval for reimbursement. Columbia Business School Executive Education and Wall Street Prep are not partners of any specific employer or benefit administrator. Program tuition, content, and dates subject to change." data-text-jpm="Not affiliated with JPMorgan Chase. Employees are responsible for verifying internal policies and obtaining approval for reimbursement. Columbia Business School Executive Education and Wall Street Prep are not partners of JPMorgan Chase. Program tuition, content, and dates subject to change.">Not affiliated with any employer. Employees are responsible for verifying internal policies and obtaining approval for reimbursement. Columbia Business School Executive Education and Wall Street Prep are not partners of any specific employer or benefit administrator. Program tuition, content, and dates subject to change.</div>
+      <div class="colophon">
+        © 2026 Columbia Business School Executive Education<br/>· Wall Street Prep
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- CALENDLY MODAL -->
+<div class="modal-overlay" id="calendlyModal" onclick="closeModalOnOverlay(event, 'calendlyModal')">
+  <div class="modal modal-tall" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('calendlyModal')" aria-label="Close">✕</button>
+    <div class="modal-header">
+      <div class="small">Schedule with an enrollment advisor</div>
+      <h3>Pick a time that works for you.</h3>
+      <p data-text-default="15-minute call. Free. No commitment. We'll confirm your employer benefit and walk you through enrollment." data-text-jpm="15-minute call. Free. No commitment. We'll confirm your JPMorgan L&amp;D benefit and walk you through enrollment.">15-minute call. Free. No commitment. We'll confirm your employer benefit and walk you through enrollment.</p>
+    </div>
+    <div class="modal-body">
+      <div class="calendly-placeholder">
+        <div class="ph-icon">📅</div>
+        <div class="ph-eyebrow">Calendly embed loads here</div>
+        <div class="ph-msg">Production version embeds the live Calendly scheduler.</div>
+        <div class="ph-sub">In the live page, this modal loads the WSP enrollment-advisor Calendly inline so the user can pick a time without leaving the page. Same widget used on the main program landing page.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EMAIL TEMPLATE MODAL -->
+<div class="modal-overlay" id="emailModal" onclick="closeModalOnOverlay(event, 'emailModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('emailModal')" aria-label="Close">✕</button>
+    <div class="modal-header">
+      <div class="small">Manager approval email · Template</div>
+      <h3>Copy and send. Pre-populated with this program's details.</h3>
+      <p>Adapt to your voice and situation. Confident but not presumptuous; you're making a case, not submitting an expense report.</p>
+    </div>
+    <div class="modal-body">
+      <!-- Generic template -->
+      <div class="email-template show-default" id="emailTemplateBodyDefault"><span class="subj">Subject: Professional Development Opportunity — Quick Question</span>
+
+Hi [Manager's Name],
+
+Following our conversations about how I can continue growing in my role, I've been looking into professional development programs and wanted to run one by you.
+
+I recently came across the AI for Business &amp; Finance Certificate offered by Columbia Business School Executive Education and Wall Street Prep, and it stood out to me because [briefly explain why; relevance to your role, a skill it develops, your career trajectory]. I believe it would directly benefit our team by [one specific, concrete example; e.g., "applying generative AI to streamline analysis workflows" or "building predictive models for risk and forecasting"].
+
+I reviewed our tuition reimbursement policy and believe this program qualifies under [e.g., "the professional development benefit" / "the annual education assistance allowance"]. I've put together the program details below to help make the approval process as straightforward as possible:
+
+• Program: AI for Business &amp; Finance Certificate
+• Institution: Columbia Business School Executive Education + Wall Street Prep
+• Cost: $4,800
+• Duration: 8 weeks (July 13 to September 6, 2026)
+• Start date: July 13, 2026
+• More info: <a href="https://wallstreetprep.business.columbia.edu/ai-certification/" target="_blank">View program page</a>
+
+Would you have 15 minutes to discuss this week? If there's a specific form or approval process I should follow, I'm happy to take care of that on my end. Thanks so much.
+
+Best,
+[Your Name]</div>
+
+      <!-- JPM template -->
+      <div class="email-template show-jpm" id="emailTemplateBodyJPM"><span class="subj">Subject: Professional Development Opportunity — Quick Question</span>
+
+Hi [Manager's Name],
+
+Following our conversations about how I can continue growing in my role, I've been looking into professional development programs and wanted to run one by you.
+
+I recently came across the AI for Business &amp; Finance Certificate offered by Columbia Business School Executive Education and Wall Street Prep, and it stood out to me because [briefly explain why; relevance to your role, a skill it develops, your career trajectory]. I believe it would directly benefit our team by [one specific, concrete example; e.g., "applying generative AI to streamline analysis workflows" or "building predictive models for risk and forecasting"].
+
+I reviewed our JPMorgan L&amp;D benefit and believe this program qualifies. I've put together the program details below to help make the approval process as straightforward as possible:
+
+• Program: AI for Business &amp; Finance Certificate
+• Institution: Columbia Business School Executive Education + Wall Street Prep
+• Cost: $4,800
+• Duration: 8 weeks (July 13 to September 6, 2026)
+• Start date: July 13, 2026
+• More info: <a href="https://wallstreetprep.business.columbia.edu/ai-certification/" target="_blank">View program page</a>
+
+Would you have 15 minutes to discuss this week? If there's a specific form or approval process I should follow, I'm happy to take care of that on my end. Thanks so much.
+
+Best,
+[Your Name]</div>
+
+      <div class="copy-btn-wrap">
+        <button class="copy-btn" id="copyEmailBtn" onclick="copyEmail()">Copy email to clipboard</button>
+        <span style="font-size: 12.5px; color: var(--slate);">Paste into your email client and edit the bracketed sections.</span>
+      </div>
+      <div class="modal-tip">
+        <strong>A tone note:</strong> If your manager says no, follow up with HR directly. Education benefits aren't always communicated consistently at the manager level.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PORTAL FINDER MODAL (Generic state only; JPM doesn't open this from the resources strip) -->
+<div class="modal-overlay" id="portalModal" onclick="closeModalOnOverlay(event, 'portalModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('portalModal')" aria-label="Close">✕</button>
+    <div class="modal-header">
+      <div class="small">Find your employer's portal</div>
+      <h3>Most large US employers use one of four channels.</h3>
+      <p>If you know which one yours uses, you're 10 minutes from a submitted reimbursement request.</p>
+    </div>
+    <div class="modal-body">
+      <div class="portal-routes">
+        <div class="portal-route">
+          <div class="pname"><span class="pnum">1</span>Guild Education</div>
+          <div class="pemployers">JPMorgan Chase, Walmart, Disney, Chipotle, Starbucks, Discover, Lowe's</div>
+          <div class="pnote">Login at jpmc.guildeducation.com (or your employer's subdomain).</div>
+        </div>
+        <div class="portal-route">
+          <div class="pname"><span class="pnum">2</span>EdAssist (Bright Horizons)</div>
+          <div class="pemployers">Bank of America, Citi, PwC, IBM, Verizon</div>
+          <div class="pnote">Look for "EdAssist" inside your benefits portal.</div>
+        </div>
+        <div class="portal-route">
+          <div class="pname"><span class="pnum">3</span>InStride</div>
+          <div class="pemployers">Adobe, Uber, Anheuser-Busch, Caesars</div>
+          <div class="pnote">Search "InStride" inside your HR portal.</div>
+        </div>
+        <div class="portal-route">
+          <div class="pname"><span class="pnum">4</span>Direct HR</div>
+          <div class="pemployers">Most midsize firms; many financial services and professional services employers</div>
+          <div class="pnote">Submit through your benefits portal or by emailing HR / finance directly. Reimbursement happens after course completion.</div>
+        </div>
+      </div>
+      <div class="portal-search">
+        <input id="portalSearch" type="text" placeholder="Search your employer (e.g., Goldman Sachs)" />
+        <button class="copy-btn" onclick="alert('Mockup: would search our 750+ employer database and route you to the right portal.')">Search</button>
+      </div>
+      <div class="portal-escape">
+        Still not sure which portal your employer uses?
+        <a href="#" onclick="closeModal('portalModal'); openModal('calendlyModal'); return false;">Talk to an advisor — we'll find it in two minutes →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Read URL params and set page state for employer + brochure-arrival
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+
+    // Employer variant: ?employer=jpm switches to JPM copy across the page
+    const employer = (params.get('employer') || '').toLowerCase();
+    if (employer === 'jpm') {
+      document.body.setAttribute('data-employer', 'jpm');
+      document.querySelectorAll('[data-text-jpm]').forEach(el => {
+        el.textContent = el.getAttribute('data-text-jpm');
+      });
+    }
+
+    // Brochure state: swap H1 prefix + show "just did" cue + inline confirmation in the hero next-up line
+    if (params.get('from') === 'brochure') {
+      const prefix = document.getElementById('h1Prefix');
+      const accent = document.getElementById('h1Accent');
+      if (prefix) prefix.textContent = 'Brochure sent.';
+      if (accent) accent.textContent = "Now let's get you enrolled.";
+
+      const justDidCue = document.getElementById('justDidCue');
+      if (justDidCue) justDidCue.style.display = 'block';
+
+      const brochureInline = document.getElementById('brochureInline');
+      const defaultNextStep = document.getElementById('defaultNextStep');
+      if (brochureInline) brochureInline.style.display = 'inline';
+      if (defaultNextStep) defaultNextStep.style.display = 'none';
+    }
+  })();
+
+  // FAQ toggles
+  document.querySelectorAll('.faq-item').forEach(item => {
+    item.addEventListener('click', () => item.classList.toggle('open'));
+  });
+
+  // Modal logic
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+    document.body.classList.add('modal-open');
+  }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+    document.body.classList.remove('modal-open');
+  }
+  function closeModalOnOverlay(e, id) {
+    if (e.target === e.currentTarget) closeModal(id);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.open').forEach(m => {
+        m.classList.remove('open');
+      });
+      document.body.classList.remove('modal-open');
+    }
+  });
+
+  // Copy email to clipboard (picks the visible variant)
+  function copyEmail() {
+    const isJpm = document.body.getAttribute('data-employer') === 'jpm';
+    const id = isJpm ? 'emailTemplateBodyJPM' : 'emailTemplateBodyDefault';
+    const body = document.getElementById(id);
+    const text = body.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyEmailBtn');
+      const original = btn.textContent;
+      btn.textContent = '✓ Copied to clipboard';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+</script>
+
+</body>
+</html>
