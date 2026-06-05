@@ -1,10 +1,10 @@
-import { COLUMBIA_COHORTS } from '@/data/cohortPerformance';
+import { getColumbiaCohorts } from '@/lib/demo/cohorts';
 import CohortDashboard from '@/components/cohort-performance/CohortDashboard';
 
 export default function ColumbiaCohortPage() {
   return (
     <CohortDashboard
-      cohorts={COLUMBIA_COHORTS}
+      cohorts={getColumbiaCohorts()}
       title="Columbia / CBSEE"
       subtitle="AI Finance · AI Accounting"
     />

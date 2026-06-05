@@ -97,9 +97,16 @@ export default function NavBar() {
     <nav className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-40">
       <div className="max-w-screen-2xl mx-auto px-6 flex items-center justify-between h-14">
         {/* Brand */}
-        <Link href="/" className="font-bold text-gray-900 text-base hover:text-emerald-700 transition-colors">
-          WSP Analytics Hub
-        </Link>
+        <div className="flex items-center gap-2.5">
+          <Link href="/" className="font-bold text-gray-900 text-base hover:text-emerald-700 transition-colors">
+            WSP Analytics Hub
+          </Link>
+          {process.env.NEXT_PUBLIC_DEMO_MODE === '1' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 border border-amber-200">
+              Demo data
+            </span>
+          )}
+        </div>
 
         {/* Links */}
         <div className="flex items-center gap-0.5">

@@ -1,17 +1,43 @@
 import type { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import { isDemo } from '@/lib/demo/flag';
+
+const providers: NextAuthOptions['providers'] = [
+  GoogleProvider({
+    clientId:     process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  }),
+];
+
+// Demo deployments authenticate with a single shared password (DEMO_PASSWORD)
+// so the demo can be shared externally without @wallstreetprep.com accounts.
+// This provider only exists when NEXT_PUBLIC_DEMO_MODE=1 — production is
+// unchanged (Google-only).
+if (isDemo()) {
+  providers.push(
+    CredentialsProvider({
+      name: 'Demo',
+      credentials: { password: { label: 'Password', type: 'password' } },
+      async authorize(creds) {
+        const expected = process.env.DEMO_PASSWORD;
+        if (expected && creds?.password === expected) {
+          return { id: 'demo', name: 'Demo Viewer', email: 'demo@wallstreetprep.com' };
+        }
+        return null;
+      },
+    }),
+  );
+}
 
 export const authOptions: NextAuthOptions = {
-  providers: [
-    GoogleProvider({
-      clientId:     process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-  ],
+  providers,
 
   callbacks: {
-    // Block sign-in for any email not on @wallstreetprep.com
-    async signIn({ profile }) {
+    // Allow the demo password provider; otherwise block any email not on
+    // @wallstreetprep.com.
+    async signIn({ account, profile }) {
+      if (account?.provider === 'credentials') return true;
       const email = profile?.email ?? '';
       return email.endsWith('@wallstreetprep.com');
     },

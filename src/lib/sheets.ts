@@ -1,4 +1,6 @@
 import { google } from 'googleapis';
+import { isDemo } from '@/lib/demo/flag';
+import { getDemoPacing } from '@/lib/demo/enrollment';
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -100,6 +102,7 @@ export async function getPacingData(): Promise<{
   pacing: PacingDataPoint[];
   comparison: { wharton: ComparisonPanel; cbsee: ComparisonPanel };
 }> {
+  if (isDemo()) return getDemoPacing();
   const auth = getAuth();
   const sheets = google.sheets({ version: 'v4', auth });
   const sheetId = getPacingSheetId();

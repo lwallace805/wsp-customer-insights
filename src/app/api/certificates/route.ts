@@ -6,6 +6,7 @@ import {
   matchProgramByLabel, THEMES, extractThemes,
 } from '@/lib/certPrograms';
 import historicalData from '@/data/historicalNPS.json';
+import { isDemo } from '@/lib/demo/flag';
 
 const NPS_TABLE        = process.env.NPS_TABLE_NAME       || 'Course Survey Results';
 const SCORE_FIELD      = process.env.NPS_SCORE_FIELD      || 'Recommend Likelihood (Number)';
@@ -82,8 +83,10 @@ export async function GET(req: NextRequest) {
       .filter(Boolean) as NormalizedResponse[];
 
     // --- Historical data ---
+    // In demo mode, skip the real historical file (it contains real respondent
+    // names). The synthetic live data already spans all cohorts for the trend.
     type HistRow = { cohort: string; program: string; score: number; date: string | null; comment: string; respondent: string; source: string };
-    const histResponses: NormalizedResponse[] = (historicalData as HistRow[])
+    const histResponses: NormalizedResponse[] = (isDemo() ? [] : (historicalData as HistRow[]))
       .map((r, i) => {
         const prog = matchProgramByLabel(r.program);
         if (!prog || r.score < 0 || r.score > 10) return null;

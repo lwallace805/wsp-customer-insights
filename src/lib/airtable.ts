@@ -1,4 +1,5 @@
 import Airtable from 'airtable';
+import { isDemo } from '@/lib/demo/flag';
 
 const base = new Airtable({
   apiKey: process.env.AIRTABLE_API_KEY,
@@ -8,6 +9,17 @@ export type AirtableRecord = {
   id: string;
   fields: Record<string, unknown>;
 };
+
+// In demo mode, serve synthetic records instead of hitting Airtable.
+// Matches on the table name (env override or the route defaults).
+async function getDemoRecords(tableName: string): Promise<AirtableRecord[]> {
+  const npsTable    = process.env.NPS_TABLE_NAME    || 'Course Survey Results';
+  const surveyTable = process.env.SURVEY_TABLE_NAME || 'SurveyMonkey Surveys';
+  const { generateNpsRecords, generateSurveyRecords } = await import('@/lib/demo/npsData');
+  if (tableName === npsTable) return generateNpsRecords();
+  if (tableName === surveyTable) return generateSurveyRecords();
+  return []; // other tables (e.g. creative comments) — empty in demo
+}
 
 async function fetchAllRecords(tableName: string, options: Airtable.SelectOptions<Record<string, unknown>> = {}): Promise<AirtableRecord[]> {
   return new Promise((resolve, reject) => {
@@ -40,6 +52,7 @@ export async function getSampleRecords(tableName: string, limit = 5): Promise<Ai
 }
 
 export async function getAllRecords(tableName: string, filterFormula?: string): Promise<AirtableRecord[]> {
+  if (isDemo()) return getDemoRecords(tableName);
   return fetchAllRecords(tableName, filterFormula ? { filterByFormula: filterFormula } : {});
 }
 
