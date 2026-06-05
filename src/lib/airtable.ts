@@ -1,9 +1,18 @@
 import Airtable from 'airtable';
 import { isDemo } from '@/lib/demo/flag';
 
-const base = new Airtable({
-  apiKey: process.env.AIRTABLE_API_KEY,
-}).base(process.env.AIRTABLE_BASE_ID!);
+// Lazily construct the Airtable client. Constructing at module load throws
+// ("An API key is required to connect to Airtable") when AIRTABLE_API_KEY is
+// unset — which breaks the build on demo deployments that have no Airtable
+// credentials. Deferring construction means importing this module never throws.
+let _base: Airtable.Base | null = null;
+export function getBase(): Airtable.Base {
+  if (_base) return _base;
+  const apiKey = process.env.AIRTABLE_API_KEY;
+  if (!apiKey) throw new Error('AIRTABLE_API_KEY is not set');
+  _base = new Airtable({ apiKey }).base(process.env.AIRTABLE_BASE_ID!);
+  return _base;
+}
 
 export type AirtableRecord = {
   id: string;
@@ -24,7 +33,7 @@ async function getDemoRecords(tableName: string): Promise<AirtableRecord[]> {
 async function fetchAllRecords(tableName: string, options: Airtable.SelectOptions<Record<string, unknown>> = {}): Promise<AirtableRecord[]> {
   return new Promise((resolve, reject) => {
     const records: AirtableRecord[] = [];
-    base(tableName).select(options).eachPage(
+    getBase()(tableName).select(options).eachPage(
       (page, next) => {
         page.forEach(r => records.push({ id: r.id, fields: r.fields as Record<string, unknown> }));
         next();
@@ -56,4 +65,3 @@ export async function getAllRecords(tableName: string, filterFormula?: string): 
   return fetchAllRecords(tableName, filterFormula ? { filterByFormula: filterFormula } : {});
 }
 
-export { base };

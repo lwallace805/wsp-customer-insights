@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { base } from '@/lib/airtable';
+import { getBase } from '@/lib/airtable';
 
 const TABLE = process.env.CREATIVE_COMMENTS_TABLE_NAME || 'Creative Review Comments';
 
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     const formula = adId ? `{Ad ID} = "${adId}"` : '';
     const results: Comment[] = [];
     await new Promise<void>((resolve, reject) => {
-      base(TABLE)
+      getBase()(TABLE)
         .select({
           ...(formula ? { filterByFormula: formula } : {}),
           sort: [{ field: 'Created At', direction: 'asc' }],
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const created = await base(TABLE).create({
+    const created = await getBase()(TABLE).create({
       'Ad ID': adId,
       'Author': author?.trim() || 'Anonymous',
       'Comment': text.trim(),
@@ -80,7 +80,7 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
   try {
-    await base(TABLE).destroy(id);
+    await getBase()(TABLE).destroy(id);
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
