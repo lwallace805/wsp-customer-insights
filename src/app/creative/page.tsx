@@ -1,13 +1,28 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import {
   Layers, ChevronDown, MessageSquare, Send, Trash2,
-  BarChart2, AlertTriangle, CheckCircle, Clock,
+  BarChart2, AlertTriangle, CheckCircle, Clock, Archive,
+  EyeOff,
 } from 'lucide-react';
 import { CREATIVE_PROGRAMS } from '@/data/creativeReviews';
 import type { AdConcept, TestingPriority } from '@/data/creativeReviews';
+
+// ── Priority overrides (persisted to localStorage) ────────────────────────────
+
+const OVERRIDES_KEY = 'creative-priority-overrides';
+
+function loadOverrides(): Record<string, TestingPriority> {
+  if (typeof window === 'undefined') return {};
+  try { return JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveOverrides(overrides: Record<string, TestingPriority>) {
+  localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,12 +34,19 @@ type Comment = {
   createdAt: string;
 };
 
-// ── Priority badge ────────────────────────────────────────────────────────────
+// ── Priority badge + changer ──────────────────────────────────────────────────
 
-const PRIORITY_CONFIG: Record<TestingPriority, { label: string; className: string; icon: React.ElementType }> = {
-  first:  { label: 'Test First',  className: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle },
-  second: { label: 'Test Second', className: 'bg-blue-50 text-blue-700 border-blue-200',         icon: BarChart2 },
-  third:  { label: 'Test Third',  className: 'bg-gray-50 text-gray-500 border-gray-200',          icon: Clock },
+const PRIORITY_CONFIG: Record<TestingPriority, {
+  label: string;
+  shortLabel: string;
+  className: string;       // badge style
+  btnActive: string;       // button active style
+  icon: React.ElementType;
+}> = {
+  first:    { label: 'Test First',   shortLabel: '1st',      className: 'bg-emerald-50 text-emerald-700 border-emerald-200', btnActive: 'bg-emerald-600 text-white',  icon: CheckCircle },
+  second:   { label: 'Test Second',  shortLabel: '2nd',      className: 'bg-blue-50 text-blue-700 border-blue-200',          btnActive: 'bg-blue-600 text-white',     icon: BarChart2   },
+  third:    { label: 'Test Third',   shortLabel: '3rd',      className: 'bg-gray-50 text-gray-500 border-gray-200',          btnActive: 'bg-gray-600 text-white',     icon: Clock       },
+  archived: { label: "Don't Run",    shortLabel: "Don't Run", className: 'bg-red-50 text-red-400 border-red-200',            btnActive: 'bg-red-600 text-white',      icon: EyeOff      },
 };
 
 function PriorityBadge({ priority }: { priority: TestingPriority }) {
@@ -34,6 +56,46 @@ function PriorityBadge({ priority }: { priority: TestingPriority }) {
       <Icon size={10} />
       {label}
     </span>
+  );
+}
+
+const PRIORITY_ORDER: TestingPriority[] = ['first', 'second', 'third', 'archived'];
+
+function PriorityChanger({
+  priority,
+  onChange,
+}: {
+  priority: TestingPriority;
+  onChange: (p: TestingPriority) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 pt-3 mt-3 border-t border-gray-100">
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 shrink-0 mr-0.5">
+        Status
+      </span>
+      <div className="flex gap-1 flex-wrap">
+        {PRIORITY_ORDER.map(p => {
+          const { shortLabel, btnActive, icon: Icon } = PRIORITY_CONFIG[p];
+          const active = priority === p;
+          return (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onChange(p)}
+              title={PRIORITY_CONFIG[p].label}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition-all ${
+                active
+                  ? `${btnActive} border-transparent shadow-sm`
+                  : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600'
+              }`}
+            >
+              <Icon size={9} />
+              {shortLabel}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -152,12 +214,27 @@ function CommentSection({ adId }: { adId: string }) {
 
 // ── Ad card ───────────────────────────────────────────────────────────────────
 
-function AdCard({ ad, programId, batchId }: { ad: AdConcept; programId: string; batchId: string }) {
+function AdCard({
+  ad,
+  programId,
+  batchId,
+  effectivePriority,
+  onPriorityChange,
+}: {
+  ad: AdConcept;
+  programId: string;
+  batchId: string;
+  effectivePriority: TestingPriority;
+  onPriorityChange: (p: TestingPriority) => void;
+}) {
   const adId = `${programId}/${batchId}/${ad.id}`;
   const [imgExpanded, setImgExpanded] = useState(false);
+  const isArchived = effectivePriority === 'archived';
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+    <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden flex flex-col transition-all ${
+      isArchived ? 'border-red-100 opacity-60' : 'border-gray-100'
+    }`}>
       {/* Image */}
       <div
         className="relative bg-gray-50 cursor-zoom-in"
@@ -168,7 +245,7 @@ function AdCard({ ad, programId, batchId }: { ad: AdConcept; programId: string; 
           src={ad.image}
           alt={ad.name}
           fill
-          className="object-contain p-2"
+          className={`object-contain p-2 transition-all ${isArchived ? 'grayscale' : ''}`}
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
         <div className="absolute top-2 left-2">
@@ -177,13 +254,15 @@ function AdCard({ ad, programId, batchId }: { ad: AdConcept; programId: string; 
           </span>
         </div>
         <div className="absolute top-2 right-2">
-          <PriorityBadge priority={ad.testingPriority} />
+          <PriorityBadge priority={effectivePriority} />
         </div>
       </div>
 
       {/* Content */}
       <div className="p-4 flex flex-col flex-1">
-        <h3 className="font-semibold text-gray-900 text-sm leading-snug mb-1">{ad.name}</h3>
+        <h3 className={`font-semibold text-sm leading-snug mb-1 ${isArchived ? 'text-gray-400' : 'text-gray-900'}`}>
+          {ad.name}
+        </h3>
         <div className="flex flex-wrap gap-1 mb-3">
           <span className="text-xs text-gray-500 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-full">
             {ad.format}
@@ -202,6 +281,9 @@ function AdCard({ ad, programId, batchId }: { ad: AdConcept; programId: string; 
             </li>
           ))}
         </ul>
+
+        {/* Priority changer */}
+        <PriorityChanger priority={effectivePriority} onChange={onPriorityChange} />
 
         <CommentSection adId={adId} />
       </div>
@@ -260,7 +342,7 @@ function BatchSummary({ batch }: { batch: (typeof CREATIVE_PROGRAMS)[0]['batches
 // ── Filter controls ───────────────────────────────────────────────────────────
 
 const PRIORITY_FILTERS: { value: TestingPriority | 'all'; label: string }[] = [
-  { value: 'all',    label: 'All ads' },
+  { value: 'all',    label: 'All active' },
   { value: 'first',  label: 'Test First' },
   { value: 'second', label: 'Test Second' },
   { value: 'third',  label: 'Test Third' },
@@ -272,13 +354,46 @@ export default function CreativePage() {
   const [activeProgramId, setActiveProgramId] = useState(CREATIVE_PROGRAMS[0].id);
   const [activeBatchId, setActiveBatchId]     = useState(CREATIVE_PROGRAMS[0].batches[0].id);
   const [priorityFilter, setPriorityFilter]   = useState<TestingPriority | 'all'>('all');
+  const [showArchived, setShowArchived]        = useState(false);
+  const [overrides, setOverrides]             = useState<Record<string, TestingPriority>>({});
+
+  // Load overrides from localStorage on mount
+  useEffect(() => { setOverrides(loadOverrides()); }, []);
+
+  const getEffectivePriority = useCallback(
+    (programId: string, batchId: string, ad: AdConcept): TestingPriority => {
+      const key = `${programId}/${batchId}/${ad.id}`;
+      return overrides[key] ?? ad.testingPriority;
+    },
+    [overrides]
+  );
+
+  const handlePriorityChange = useCallback(
+    (programId: string, batchId: string, ad: AdConcept, newPriority: TestingPriority) => {
+      const key = `${programId}/${batchId}/${ad.id}`;
+      const next = { ...overrides, [key]: newPriority };
+      setOverrides(next);
+      saveOverrides(next);
+    },
+    [overrides]
+  );
 
   const program = CREATIVE_PROGRAMS.find(p => p.id === activeProgramId) ?? CREATIVE_PROGRAMS[0];
   const batch   = program.batches.find(b => b.id === activeBatchId) ?? program.batches[0];
 
-  const visibleAds = priorityFilter === 'all'
-    ? batch.ads
-    : batch.ads.filter(a => a.testingPriority === priorityFilter);
+  // Build display list: respect priority filter, always hide archived unless showArchived is on
+  const allAdsWithPriority = batch.ads.map(ad => ({
+    ad,
+    effective: getEffectivePriority(activeProgramId, activeBatchId, ad),
+  }));
+
+  const archivedCount = allAdsWithPriority.filter(x => x.effective === 'archived').length;
+
+  const visibleAds = allAdsWithPriority.filter(({ effective }) => {
+    if (effective === 'archived') return showArchived;
+    if (priorityFilter === 'all') return true;
+    return effective === priorityFilter;
+  });
 
   return (
     <div className="space-y-6">
@@ -331,7 +446,7 @@ export default function CreativePage() {
 
         <div className="w-px h-5 bg-gray-200 hidden sm:block" />
 
-        {/* Priority filter */}
+        {/* Priority filter (excludes archived — those are controlled by the toggle below) */}
         <div className="flex gap-1.5">
           {PRIORITY_FILTERS.map(f => (
             <button
@@ -348,8 +463,26 @@ export default function CreativePage() {
           ))}
         </div>
 
+        {/* Archived toggle */}
+        {archivedCount > 0 && (
+          <button
+            onClick={() => setShowArchived(s => !s)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+              showArchived
+                ? 'bg-red-50 border-red-200 text-red-600'
+                : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+            }`}
+          >
+            <Archive size={12} />
+            {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
+          </button>
+        )}
+
         <span className="ml-auto text-xs text-gray-400">
           {visibleAds.length} ad{visibleAds.length !== 1 ? 's' : ''}
+          {archivedCount > 0 && !showArchived && (
+            <span className="ml-1 text-gray-300">· {archivedCount} hidden</span>
+          )}
         </span>
       </div>
 
@@ -361,8 +494,15 @@ export default function CreativePage() {
         <div className="text-center py-16 text-gray-400 text-sm">No ads match this filter.</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {visibleAds.map(ad => (
-            <AdCard key={ad.id} ad={ad} programId={activeProgramId} batchId={activeBatchId} />
+          {visibleAds.map(({ ad, effective }) => (
+            <AdCard
+              key={ad.id}
+              ad={ad}
+              programId={activeProgramId}
+              batchId={activeBatchId}
+              effectivePriority={effective}
+              onPriorityChange={(p) => handlePriorityChange(activeProgramId, activeBatchId, ad, p)}
+            />
           ))}
         </div>
       )}

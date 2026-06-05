@@ -1,4 +1,4 @@
-export type TestingPriority = 'first' | 'second' | 'third';
+export type TestingPriority = 'first' | 'second' | 'third' | 'archived';
 
 export type AdConcept = {
   id: number;
