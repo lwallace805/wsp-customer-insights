@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home, BarChart2, MessageSquare, Lightbulb,
   GraduationCap, TrendingUp, ChevronDown, Users, Layers,
-  Phone,
+  Phone, Mic,
 } from 'lucide-react';
 
 const CUSTOMER_INSIGHTS = [
@@ -27,6 +27,7 @@ const COHORT_PERFORMANCE = [
 
 const TOOLS = [
   { href: '/tools/employer-reimbursement', label: 'Employer Reimbursement Guide', icon: Phone },
+  { href: '/tools/webinar-repurposer',     label: 'Webinar Repurposer',           icon: Mic },
 ];
 
 
