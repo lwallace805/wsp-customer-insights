@@ -485,20 +485,21 @@ export default function CreativePage() {
           ))}
         </div>
 
-        {/* Archived toggle */}
-        {archivedCount > 0 && (
-          <button
-            onClick={() => setShowArchived(s => !s)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
-              showArchived
-                ? 'bg-red-50 border-red-200 text-red-600'
-                : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
-            }`}
-          >
-            <Archive size={12} />
-            {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
-          </button>
-        )}
+        {/* Archived toggle — always visible */}
+        <button
+          onClick={() => setShowArchived(s => !s)}
+          disabled={archivedCount === 0 && !showArchived}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+            showArchived
+              ? 'bg-red-50 border-red-200 text-red-600'
+              : archivedCount > 0
+                ? 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+                : 'bg-white border-gray-100 text-gray-300 cursor-default'
+          }`}
+        >
+          <Archive size={12} />
+          {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
+        </button>
 
         <span className="ml-auto text-xs text-gray-400">
           {visibleAds.length} ad{visibleAds.length !== 1 ? 's' : ''}
