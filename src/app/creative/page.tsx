@@ -10,18 +10,23 @@ import {
 import { CREATIVE_PROGRAMS } from '@/data/creativeReviews';
 import type { AdConcept, TestingPriority } from '@/data/creativeReviews';
 
-// ── Priority overrides (persisted to localStorage) ────────────────────────────
+// ── Priority overrides (shared via Airtable) ─────────────────────────────────
 
-const OVERRIDES_KEY = 'creative-priority-overrides';
-
-function loadOverrides(): Record<string, TestingPriority> {
-  if (typeof window === 'undefined') return {};
-  try { return JSON.parse(localStorage.getItem(OVERRIDES_KEY) || '{}'); }
-  catch { return {}; }
+async function fetchOverrides(): Promise<Record<string, TestingPriority>> {
+  try {
+    const res = await fetch('/api/creative-priority');
+    if (!res.ok) return {};
+    const { overrides } = await res.json();
+    return overrides ?? {};
+  } catch { return {}; }
 }
 
-function saveOverrides(overrides: Record<string, TestingPriority>) {
-  localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+async function persistOverride(adId: string, priority: TestingPriority): Promise<void> {
+  await fetch('/api/creative-priority', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ adId, priority }),
+  });
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -60,6 +65,7 @@ function PriorityBadge({ priority }: { priority: TestingPriority }) {
 }
 
 const PRIORITY_ORDER: TestingPriority[] = ['first', 'second', 'third', 'archived'];
+const PRIORITY_RANK: Record<TestingPriority, number> = { first: 0, second: 1, third: 2, archived: 3 };
 
 function PriorityChanger({
   priority,
@@ -356,9 +362,15 @@ export default function CreativePage() {
   const [priorityFilter, setPriorityFilter]   = useState<TestingPriority | 'all'>('all');
   const [showArchived, setShowArchived]        = useState(false);
   const [overrides, setOverrides]             = useState<Record<string, TestingPriority>>({});
+  const [overridesLoaded, setOverridesLoaded]  = useState(false);
 
-  // Load overrides from localStorage on mount
-  useEffect(() => { setOverrides(loadOverrides()); }, []);
+  // Fetch shared overrides from Airtable on mount
+  useEffect(() => {
+    fetchOverrides().then(data => {
+      setOverrides(data);
+      setOverridesLoaded(true);
+    });
+  }, []);
 
   const getEffectivePriority = useCallback(
     (programId: string, batchId: string, ad: AdConcept): TestingPriority => {
@@ -371,11 +383,19 @@ export default function CreativePage() {
   const handlePriorityChange = useCallback(
     (programId: string, batchId: string, ad: AdConcept, newPriority: TestingPriority) => {
       const key = `${programId}/${batchId}/${ad.id}`;
-      const next = { ...overrides, [key]: newPriority };
-      setOverrides(next);
-      saveOverrides(next);
+      // Optimistic update — UI responds instantly
+      setOverrides(prev => ({ ...prev, [key]: newPriority }));
+      // Persist to Airtable in the background
+      persistOverride(key, newPriority).catch(() => {
+        // Roll back on error
+        setOverrides(prev => {
+          const rolled = { ...prev };
+          delete rolled[key];
+          return rolled;
+        });
+      });
     },
-    [overrides]
+    []
   );
 
   const program = CREATIVE_PROGRAMS.find(p => p.id === activeProgramId) ?? CREATIVE_PROGRAMS[0];
@@ -389,11 +409,13 @@ export default function CreativePage() {
 
   const archivedCount = allAdsWithPriority.filter(x => x.effective === 'archived').length;
 
-  const visibleAds = allAdsWithPriority.filter(({ effective }) => {
-    if (effective === 'archived') return showArchived;
-    if (priorityFilter === 'all') return true;
-    return effective === priorityFilter;
-  });
+  const visibleAds = allAdsWithPriority
+    .filter(({ effective }) => {
+      if (effective === 'archived') return showArchived;
+      if (priorityFilter === 'all') return true;
+      return effective === priorityFilter;
+    })
+    .sort((a, b) => PRIORITY_RANK[a.effective] - PRIORITY_RANK[b.effective]);
 
   return (
     <div className="space-y-6">
@@ -490,7 +512,9 @@ export default function CreativePage() {
       <BatchSummary batch={batch} />
 
       {/* Ad grid */}
-      {visibleAds.length === 0 ? (
+      {!overridesLoaded ? (
+        <div className="text-center py-16 text-gray-400 text-sm animate-pulse">Loading curation state…</div>
+      ) : visibleAds.length === 0 ? (
         <div className="text-center py-16 text-gray-400 text-sm">No ads match this filter.</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
