@@ -1,7 +1,7 @@
 'use client';
 
-import { AlertOctagon, AlertTriangle, TrendingUp } from 'lucide-react';
-import { computeInsights } from '@/lib/performance/insights';
+import { AlertOctagon, AlertTriangle, TrendingUp, Sparkles } from 'lucide-react';
+import type { InsightsResult } from '@/lib/performance/aiInsights';
 import type { CurrentSnapshot, Insight, InsightSeverity } from '@/data/performance/types';
 import { usePersistentSchoolFilter, PageHeader, DataAsOf } from './shared';
 
@@ -70,10 +70,16 @@ function InsightCard({ insight }: { insight: Insight }) {
   );
 }
 
-export default function OptimizationDashboard({ snapshot }: { snapshot: CurrentSnapshot }) {
+export default function OptimizationDashboard({
+  snapshot,
+  result,
+}: {
+  snapshot: CurrentSnapshot;
+  result: InsightsResult;
+}) {
   const [school, setSchool] = usePersistentSchoolFilter();
 
-  const insights = computeInsights(snapshot).filter(i =>
+  const insights = result.insights.filter(i =>
     school === 'all' ? true : i.school === school || i.school === 'both'
   );
 
@@ -81,15 +87,42 @@ export default function OptimizationDashboard({ snapshot }: { snapshot: CurrentS
   const warning = insights.filter(i => i.severity === 'warning');
   const positive = insights.filter(i => i.severity === 'positive');
 
+  const isAi = result.source === 'ai';
+
   return (
     <div>
       <PageHeader
         title="Optimization Priorities"
-        subtitle="Auto-computed from historical trends, current pacing, and traffic data — sorted by urgency"
+        subtitle={
+          isAi
+            ? `AI analysis of the full performance picture — regenerated daily. Generated ${result.generatedAt} by ${result.model}.`
+            : 'Rule-based analysis (AI unavailable) — computed from historical trends, current pacing, and traffic data'
+        }
         school={school}
         onSchoolChange={setSchool}
-        right={<DataAsOf asOf={snapshot.asOf} live={snapshot.live} />}
+        right={
+          <span className="flex items-center gap-3">
+            {isAi && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border bg-violet-500/15 text-violet-300 border-violet-500/30">
+                <Sparkles size={10} />
+                AI-generated
+              </span>
+            )}
+            <DataAsOf asOf={snapshot.asOf} live={snapshot.live} />
+          </span>
+        }
       />
+
+      {/* Executive summary */}
+      {result.summary && (
+        <div className="bg-[#161b22] border border-violet-500/20 rounded-xl p-5 mb-6">
+          <p className="text-xs font-semibold text-violet-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Sparkles size={12} />
+            Executive Summary
+          </p>
+          <p className="text-sm text-gray-200 leading-relaxed">{result.summary}</p>
+        </div>
+      )}
 
       {/* Severity summary */}
       <div className="flex gap-4 flex-wrap mb-6">
