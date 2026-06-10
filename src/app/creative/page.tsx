@@ -10,23 +10,45 @@ import {
 import { CREATIVE_PROGRAMS } from '@/data/creativeReviews';
 import type { AdConcept, TestingPriority } from '@/data/creativeReviews';
 
-// ── Priority overrides (shared via Airtable) ─────────────────────────────────
+// ── Priority overrides ────────────────────────────────────────────────────────
+// localStorage is the source-of-truth fallback so changes always survive a
+// refresh. When the Airtable table exists, it syncs shared state on top.
+
+const LOCAL_KEY = 'creative-priority-overrides';
+
+function loadLocal(): Record<string, TestingPriority> {
+  if (typeof window === 'undefined') return {};
+  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}'); }
+  catch { return {}; }
+}
+
+function saveLocal(adId: string, priority: TestingPriority) {
+  const next = { ...loadLocal(), [adId]: priority };
+  localStorage.setItem(LOCAL_KEY, JSON.stringify(next));
+}
 
 async function fetchOverrides(): Promise<Record<string, TestingPriority>> {
+  const local = loadLocal();
   try {
     const res = await fetch('/api/creative-priority');
-    if (!res.ok) return {};
+    if (!res.ok) return local;
     const { overrides } = await res.json();
-    return overrides ?? {};
-  } catch { return {}; }
+    // Airtable wins for keys it knows about (shared state); localStorage fills the rest
+    return { ...local, ...(overrides ?? {}) };
+  } catch { return local; }
 }
 
 async function persistOverride(adId: string, priority: TestingPriority): Promise<void> {
-  await fetch('/api/creative-priority', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ adId, priority }),
-  });
+  // Write locally first — this is what survives a refresh regardless of Airtable
+  saveLocal(adId, priority);
+  // Best-effort sync to Airtable for shared state (no throw — localStorage already committed)
+  try {
+    await fetch('/api/creative-priority', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adId, priority }),
+    });
+  } catch { /* localStorage already has it */ }
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -383,17 +405,10 @@ export default function CreativePage() {
   const handlePriorityChange = useCallback(
     (programId: string, batchId: string, ad: AdConcept, newPriority: TestingPriority) => {
       const key = `${programId}/${batchId}/${ad.id}`;
-      // Optimistic update — UI responds instantly
+      // Update UI instantly
       setOverrides(prev => ({ ...prev, [key]: newPriority }));
-      // Persist to Airtable in the background
-      persistOverride(key, newPriority).catch(() => {
-        // Roll back on error
-        setOverrides(prev => {
-          const rolled = { ...prev };
-          delete rolled[key];
-          return rolled;
-        });
-      });
+      // Persist locally (guaranteed) + sync to Airtable (best-effort)
+      persistOverride(key, newPriority);
     },
     []
   );
