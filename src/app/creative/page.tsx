@@ -433,7 +433,6 @@ export default function CreativePage() {
             onClick={() => {
               setActiveProgramId(p.id);
               setActiveBatchId(p.batches[0].id);
-              setPriorityFilter('all');
             }}
             className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-colors ${
               activeProgramId === p.id
@@ -453,7 +452,7 @@ export default function CreativePage() {
           {program.batches.map(b => (
             <button
               key={b.id}
-              onClick={() => { setActiveBatchId(b.id); setPriorityFilter('all'); }}
+              onClick={() => { setActiveBatchId(b.id); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm transition-colors ${
                 activeBatchId === b.id
                   ? 'bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium'
