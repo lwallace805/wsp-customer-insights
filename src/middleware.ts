@@ -17,7 +17,8 @@ export default withAuth(
 
 export const config = {
   // Exclude /drafts from middleware so Vercel's CDN serves those static files directly.
+  // Exclude /api/performance/cron so Vercel Cron can invoke it (protected by CRON_SECRET).
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$|drafts).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$|drafts|api/performance/cron).*)',
   ],
 };

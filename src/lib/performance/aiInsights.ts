@@ -5,11 +5,13 @@
 // paid platforms, self-study — and returns prioritized insights in the same
 // Insight shape the UI renders.
 //
-// Regenerated once per WEEK (unstable_cache, revalidate 604800, tag
-// 'performance') to control token spend; POST /api/performance/refresh
-// forces an early regeneration. Falls back to the rule-based engine
-// (insights.ts) when ANTHROPIC_API_KEY is missing, in demo mode, or on
-// any API error.
+// Regenerated once per DAY, anchored to midnight Pacific: the cache key is
+// the Pacific calendar date, and a Vercel cron (vercel.json →
+// /api/performance/cron, 08:00 UTC = midnight PST) generates the new
+// briefing proactively so no visitor waits through generation.
+// POST /api/performance/refresh forces an early regeneration. Falls back to
+// the rule-based engine (insights.ts) when ANTHROPIC_API_KEY is missing, in
+// demo mode, or on any API error.
 
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
@@ -116,11 +118,11 @@ function buildPayload(snapshot: CurrentSnapshot) {
 
 const MODEL = 'claude-opus-4-8';
 
-// weekKey exists purely to scope the cache: unstable_cache keys on args, so
-// passing the (daily-changing) snapshot would regenerate daily. Instead the
-// key is the epoch-week number and the snapshot is fetched inside.
-async function generateAiInsights(weekKey: number): Promise<InsightsResult | null> {
-  void weekKey;
+// dayKey exists purely to scope the cache: unstable_cache keys on args, so
+// the key is the Pacific calendar date (rolls over at midnight PT) and the
+// snapshot is fetched inside.
+async function generateAiInsights(dayKey: string): Promise<InsightsResult | null> {
+  void dayKey;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
@@ -160,20 +162,24 @@ async function generateAiInsights(weekKey: number): Promise<InsightsResult | nul
   };
 }
 
-// Cached WEEKLY to control token spend (~$0.40/run on Opus 4.8). The live
-// snapshot still refreshes daily; the AI briefing regenerates every 7 days
-// (epoch-week cache key + revalidate) or on POST /api/performance/refresh
-// (tag 'performance').
+// Cached DAILY, anchored to midnight Pacific (~$0.30/run on Opus 4.8 →
+// ~$9/month). The Pacific-date cache key rolls over at midnight PT; the
+// Vercel cron generates the new day's briefing right after rollover.
+// POST /api/performance/refresh (tag 'performance') regenerates immediately.
 const cachedGenerate = unstable_cache(generateAiInsights, ['performance-ai-insights-v1'], {
-  revalidate: 604800,
+  revalidate: 86400,
   tags: ['performance'],
 });
+
+/** Today's date in Pacific time (YYYY-MM-DD) — the daily cache key. */
+function pacificDayKey(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+}
 
 export async function getInsights(snapshot: CurrentSnapshot): Promise<InsightsResult> {
   if (!isDemo() && process.env.ANTHROPIC_API_KEY) {
     try {
-      const weekKey = Math.floor(Date.now() / 604_800_000); // epoch week
-      const ai = await cachedGenerate(weekKey);
+      const ai = await cachedGenerate(pacificDayKey());
       if (ai) return ai;
     } catch (err) {
       console.error('[performance/aiInsights] falling back to rule-based insights:', err);
