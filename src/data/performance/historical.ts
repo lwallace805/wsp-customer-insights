@@ -104,7 +104,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     callout: 'Launch of AI program + start of bot lead issue',
   },
   {
-    cohort: 'Fall 2025', shortLabel: "F'25", school: 'wharton', certCount: 5,
+    cohort: 'Fall 2025', shortLabel: "F'25", school: 'wharton', certCount: 4,
     paidEnrolls: 324, organicEnrolls: 600, totalEnrolls: 924,
     b2bEnrolls: 27, totalEnrollsExB2B: 897,
     totalLeads: 30722, leadsExBots: 16314, leadCvr: 5.5,
@@ -116,8 +116,11 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     },
     callout: 'Bot lead issue continues',
   },
+  // RDI launched with the Spring 2026 cohort — F'25/W'26 ran 4 certs.
+  // (AVI was previously called "Buy Side" / "Hedge Fund" in older docs;
+  // all merged under AVI here.)
   {
-    cohort: 'Winter 2026', shortLabel: "W'26", school: 'wharton', certCount: 5,
+    cohort: 'Winter 2026', shortLabel: "W'26", school: 'wharton', certCount: 4,
     paidEnrolls: 413, organicEnrolls: 609, totalEnrolls: 1022,
     b2bEnrolls: 1, totalEnrollsExB2B: 1021,
     totalLeads: 19487, leadsExBots: 19487, leadCvr: 5.2,
@@ -140,7 +143,12 @@ export const COLUMBIA_HISTORY: CohortHistory[] = [
     totalLeads: 6749, leadsExBots: 6761, leadCvr: 6.1,
     cpl: 36, cpe: 591, ppcRoas: 1.9, blendedRoas: 7.6,
     ppcSpend: 166466, totalSpend: 245137, avgNetRev: 3029,
-    channelEnrolls: {},
+    // Channel detail from the CBS Summer 2025 cohort doc
+    // (1ZX917V1WmvXJKl4QIzBfv51SovfrWGLbBYveQ1xq64Y)
+    channelEnrolls: {
+      ppc: 74, email: 114, organicSearch: 42, social: 4, website: 29,
+      referrals: 11, sponsored: 38, affiliates: 27, offline: 77,
+    },
     callout: 'AI Certificate launch cohort',
   },
   {
@@ -150,7 +158,12 @@ export const COLUMBIA_HISTORY: CohortHistory[] = [
     totalLeads: 5063, leadsExBots: 5063, leadCvr: 9.2,
     cpl: 44, cpe: 473, ppcRoas: 2.7, blendedRoas: 9.5,
     ppcSpend: 168964, totalSpend: 221363, avgNetRev: 3029,
-    channelEnrolls: {},
+    // Channel detail from the CBS Fall 2025 cohort doc
+    // (1R8qzrOg2xuP0dmRNxYS1iizglfnBnU8oi9Yir93fXkE)
+    channelEnrolls: {
+      ppc: 101, email: 133, organicSearch: 58, website: 17,
+      referrals: 33, sponsored: 15, affiliates: 52, offline: 78,
+    },
   },
   {
     cohort: 'Winter 2026', shortLabel: "W'26", school: 'columbia', certCount: 1,
@@ -167,6 +180,21 @@ export const COLUMBIA_HISTORY: CohortHistory[] = [
 ];
 
 export const ALL_HISTORY: CohortHistory[] = [...WHARTON_HISTORY, ...COLUMBIA_HISTORY];
+
+// Current Wharton cohort (Spring 2026, in progress) — channel-attributed
+// enrollments from the cohort doc "Channel Tables" tab, Current Cohort column.
+// Snapshot 2026-06-10. Total (847) differs slightly from the dashboard
+// real-time figure (961) because only channel-attributed enrollments appear here.
+export const WHARTON_CURRENT_CHANNELS = {
+  cohort: 'Spring 2026',
+  shortLabel: "S'26*",
+  inProgress: true,
+  total: 847,
+  channelEnrolls: {
+    ppc: 356, aiReferral: 20, organicSearch: 97, email: 64, referrals: 26,
+    sponsored: 9, affiliates: 57, social: 3, website: 20, offline: 195,
+  } as Partial<Record<import('./types').ChannelKey, number>>,
+};
 
 // Combined (Wharton + Columbia) marketing efficiency by calendar cohort —
 // from the "Cohort Performance" summary block in the source sheet.

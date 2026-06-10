@@ -5,9 +5,9 @@ import {
   Tooltip, Legend, BarChart, Bar,
 } from 'recharts';
 import { WHARTON_HISTORY, COLUMBIA_HISTORY } from '@/data/performance/historical';
-import type { CohortHistory } from '@/data/performance/types';
+import { PROGRAM_SCHOOL, type CohortHistory, type CurrentSnapshot, type School } from '@/data/performance/types';
 import {
-  usePersistentSchoolFilter, PageHeader, SectionCard, KpiCard, ChartTooltip,
+  usePersistentSchoolFilter, PageHeader, SectionCard, KpiCard, ChartTooltip, DataAsOf,
   CHART_COLORS, SCHOOL_COLORS, AXIS_PROPS, fmt, fmtPct, fmtDollar,
 } from './shared';
 
@@ -23,9 +23,33 @@ function buildRows(school: 'all' | 'wharton' | 'columbia') {
   }));
 }
 
-export default function TrendsDashboard() {
+// In-progress cohort built from the current snapshot — only when its cohort
+// isn't already a closed entry in that school's history.
+function buildInProgress(snapshot: CurrentSnapshot, school: School) {
+  // Optional-chained: a stale cached snapshot may predate this field.
+  const label = snapshot.cohortLabels?.[school];
+  if (!label) return null;
+  const history = school === 'wharton' ? WHARTON_HISTORY : COLUMBIA_HISTORY;
+  if (history.some(c => c.cohort === label)) return null;
+  const programs = snapshot.programs.filter(p => PROGRAM_SCHOOL[p.program] === school);
+  if (!programs.length) return null;
+  const enrolls = programs.reduce((a, p) => a + p.enrolls.realTime, 0);
+  const leads = programs.reduce((a, p) => a + p.leads.realTime, 0);
+  return {
+    cohort: label,
+    shortLabel: label.replace(/(\w+) 20(\d\d)/, (_, s, y) => `${s[0]}'${y}`) + '*',
+    enrolls,
+    leads,
+    cvr: leads > 0 ? +((enrolls / leads) * 100).toFixed(1) : null,
+  };
+}
+
+export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapshot }) {
   const [school, setSchool] = usePersistentSchoolFilter();
   const rows = buildRows(school);
+
+  const wCurrent = school !== 'columbia' ? buildInProgress(snapshot, 'wharton') : null;
+  const cCurrent = school !== 'wharton' ? buildInProgress(snapshot, 'columbia') : null;
 
   const chartData = rows.map(r => ({
     cohort: r.wharton?.shortLabel ?? r.columbia?.shortLabel ?? r.label,
@@ -47,6 +71,23 @@ export default function TrendsDashboard() {
     cLeads: r.columbia?.leadsExBots ?? r.columbia?.totalLeads ?? null,
   }));
 
+  // Append the in-progress cohort as a final point (volume metrics only —
+  // cost/ROAS aren't final until the cohort closes).
+  if (wCurrent || cCurrent) {
+    chartData.push({
+      cohort: wCurrent?.shortLabel ?? cCurrent!.shortLabel,
+      wEnrolls: wCurrent?.enrolls ?? null,
+      cEnrolls: cCurrent?.enrolls ?? null,
+      wPaid: null, wOrganic: null,
+      wCvr: wCurrent?.cvr ?? null,
+      cCvr: cCurrent?.cvr ?? null,
+      wCpl: null, cCpl: null, wCpe: null, cCpe: null,
+      wPpcRoas: null, cPpcRoas: null, wBlended: null, cBlended: null,
+      wLeads: wCurrent?.leads ?? null,
+      cLeads: cCurrent?.leads ?? null,
+    });
+  }
+
   const visible: CohortHistory[] = [
     ...(school !== 'columbia' ? WHARTON_HISTORY : []),
     ...(school !== 'wharton' ? COLUMBIA_HISTORY : []),
@@ -63,9 +104,10 @@ export default function TrendsDashboard() {
     <div>
       <PageHeader
         title="Historical Trends"
-        subtitle="Cohort-over-cohort performance — Wharton Spring 2023 → Winter 2026, Columbia Summer 2025 →"
+        subtitle="Cohort-over-cohort performance — Wharton Spring 2023 →, Columbia Summer 2025 →. * = current cohort in progress (volume metrics only)."
         school={school}
         onSchoolChange={setSchool}
+        right={<DataAsOf asOf={snapshot.asOf} live={snapshot.live} />}
       />
 
       {/* Latest-cohort KPI row */}
@@ -249,6 +291,29 @@ export default function TrendsDashboard() {
                   <td className="px-4 py-3 text-right text-gray-300">{c.ppcRoas.toFixed(1)}x</td>
                   <td className="px-4 py-3 text-right text-gray-300">{c.blendedRoas.toFixed(1)}x</td>
                   <td className="px-4 py-3 text-right text-gray-300">{fmtDollar(c.totalSpend)}</td>
+                </tr>
+              ))}
+              {[
+                ...(wCurrent ? [{ ...wCurrent, school: 'wharton' as const, certCount: 5 }] : []),
+                ...(cCurrent ? [{ ...cCurrent, school: 'columbia' as const, certCount: 1 }] : []),
+              ].map(c => (
+                <tr key={`current-${c.school}`} className="border-b border-white/5 bg-white/5">
+                  <td className="px-5 py-3 text-white font-medium whitespace-nowrap">
+                    {c.cohort}
+                    <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                      In progress
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-300 capitalize">{c.school}</td>
+                  <td className="px-4 py-3 text-right text-gray-300">{c.certCount}</td>
+                  <td className="px-4 py-3 text-right text-gray-300">{fmt(c.enrolls)}</td>
+                  <td className="px-4 py-3 text-right text-gray-300">{fmt(c.leads)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-gray-300">{c.cvr != null ? fmtPct(c.cvr) : '—'}</td>
+                  <td className="px-4 py-3 text-right text-gray-500">—</td>
+                  <td className="px-4 py-3 text-right text-gray-500">—</td>
+                  <td className="px-4 py-3 text-right text-gray-500">—</td>
+                  <td className="px-4 py-3 text-right text-gray-500">—</td>
+                  <td className="px-4 py-3 text-right text-gray-500">—</td>
                 </tr>
               ))}
             </tbody>

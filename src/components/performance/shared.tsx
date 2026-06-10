@@ -137,8 +137,8 @@ export function PageHeader({
 }: {
   title: string;
   subtitle: string;
-  school: SchoolFilter;
-  onSchoolChange: (s: SchoolFilter) => void;
+  school?: SchoolFilter;
+  onSchoolChange?: (s: SchoolFilter) => void;
   right?: React.ReactNode;
 }) {
   return (
@@ -149,7 +149,9 @@ export function PageHeader({
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         {right}
-        <SchoolFilterToggle value={school} onChange={onSchoolChange} />
+        {school !== undefined && onSchoolChange && (
+          <SchoolFilterToggle value={school} onChange={onSchoolChange} />
+        )}
       </div>
     </div>
   );

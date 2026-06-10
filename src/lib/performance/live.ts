@@ -141,7 +141,9 @@ async function fetchLiveSnapshot(): Promise<CurrentSnapshot | null> {
   };
 }
 
-const cachedFetch = unstable_cache(fetchLiveSnapshot, ['performance-live-v2'], {
+// Bump the cache key whenever the CurrentSnapshot shape changes — cached
+// values persist across deploys and would otherwise serve the old shape.
+const cachedFetch = unstable_cache(fetchLiveSnapshot, ['performance-live-v3'], {
   revalidate: 86400, // single daily update
   tags: ['performance'],
 });

@@ -9,12 +9,11 @@ import {
   SELF_STUDY_2025, SELF_STUDY_2026, PREMIUM_PACKAGE_2026,
 } from '@/data/performance/selfStudy';
 import {
-  usePersistentSchoolFilter, PageHeader, SectionCard, KpiCard, ChartTooltip,
+  PageHeader, SectionCard, KpiCard, ChartTooltip,
   CHART_COLORS, AXIS_PROPS, fmt, fmtDollar,
 } from './shared';
 
 export default function SelfStudyDashboard() {
-  const [school, setSchool] = usePersistentSchoolFilter();
 
   const rows2026 = SS_WEEK_LABELS_2026.map((week, i) => {
     const actual = SELF_STUDY_2026.actual[i] ?? null;
@@ -51,9 +50,7 @@ export default function SelfStudyDashboard() {
     <div>
       <PageHeader
         title="Self-Study / Retail"
-        subtitle="Weekly self-study revenue and premium package units — school filter does not apply to retail"
-        school={school}
-        onSchoolChange={setSchool}
+        subtitle="Weekly self-study revenue and premium package units — Wall Street Prep retail (not school-affiliated)"
       />
 
       {/* KPI row */}

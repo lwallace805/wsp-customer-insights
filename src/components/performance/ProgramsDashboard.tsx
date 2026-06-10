@@ -22,11 +22,12 @@ const PROGRAM_COLORS: Record<ProgramKey, string> = {
 };
 
 // Cohort axis for the program history charts (Wharton cohort naming).
-const COHORT_AXIS = ['Spring 2024', 'Fall 2024', 'Winter 2025', 'Spring 2025', 'Fall 2025', 'Winter 2026'];
+// Spring 2026 is the current cohort, in progress.
+const COHORT_AXIS = ['Spring 2024', 'Fall 2024', 'Winter 2025', 'Spring 2025', 'Fall 2025', 'Winter 2026', 'Spring 2026'];
 const SHORT: Record<string, string> = {
   'Spring 2024': "S'24", 'Fall 2024': "F'24", 'Winter 2025': "W'25",
   'Spring 2025': "S'25", 'Fall 2025': "F'25", 'Winter 2026': "W'26",
-  'Summer 2025': "Su'25",
+  'Spring 2026': "S'26*", 'Summer 2025': "Su'25",
 };
 
 export default function ProgramsDashboard() {
@@ -100,7 +101,7 @@ export default function ProgramsDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Lead volume */}
-        <SectionCard title="Lead Volume by Program" subtitle="Per cohort · F'25/W'26 program-level data unavailable for Wharton (bot-issue artifacts in source)">
+        <SectionCard title="Lead Volume by Program" subtitle="Per cohort · F'25 leads are bot-inflated (unfiltered at program level) · S'26* in progress">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={leadRows}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
@@ -125,7 +126,7 @@ export default function ProgramsDashboard() {
         </SectionCard>
 
         {/* CVR */}
-        <SectionCard title="Lead → Enrollment CVR by Program" subtitle="Per cohort">
+        <SectionCard title="Lead → Enrollment CVR by Program" subtitle="Per cohort · F'25 CVR understated by bot-inflated lead base · S'26* in progress">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={leadRows}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
@@ -180,7 +181,13 @@ export default function ProgramsDashboard() {
                     <td className={`px-4 py-3 text-right font-medium ${pct >= 90 ? 'text-emerald-400' : pct >= 70 ? 'text-yellow-400' : 'text-red-400'}`}>{fmtPct(pct, 0)}</td>
                     <td className="px-4 py-3 text-right text-gray-300">{fmt(p.leads.realTime)}</td>
                     <td className="px-4 py-3 text-right text-gray-300">{fmt(p.leads.finalTarget)}</td>
-                    <td className="px-4 py-3 text-right text-gray-300">{p.leadCvr != null ? fmtPct(p.leadCvr) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-gray-300">
+                      {p.leadCvr != null
+                        ? fmtPct(p.leadCvr)
+                        : p.leads.realTime > 0
+                          ? fmtPct((p.enrolls.realTime / p.leads.realTime) * 100)
+                          : '—'}
+                    </td>
                     <td className="px-4 py-3 text-right text-gray-300">{p.infoSessionRsvps ? fmt(p.infoSessionRsvps.realTime) : '—'}</td>
                   </tr>
                 );

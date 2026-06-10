@@ -1,14 +1,21 @@
-// Per-program lead volume and lead→enrollment CVR by cohort.
+// Per-program lead volume, lead→enrollment CVR, and enrollments by cohort.
 //
-// Source: "Wharton + Columbia Historical Performance" Google Sheet
-//   https://docs.google.com/spreadsheets/d/1R5XiIsJ_rjcwjc9VBkftGs6WglEvnCR_VaYybgNRiJM
+// Sources:
+// - Spring 2024 → Winter 2025: "Wharton + Columbia Historical Performance"
+//   rollup sheet (1R5XiIsJ_rjcwjc9VBkftGs6WglEvnCR_VaYybgNRiJM)
+// - Spring 2025 → Spring 2026 (current): Wharton Spring 2026 cohort doc,
+//   "Channel Tables" tab (1o5lfRmA1nAe0BDnYtZ1OJOnU9eB8y4WeJdGNL0_BE_Y)
 // Snapshot taken 2026-06-10.
 //
-// Data quality notes from source:
-// - Fall 2025 / Winter 2026 per-program leads and CVR cells are corrupted in
-//   the source sheet (bot-issue artifacts, #VALUE! errors) — stored as null.
-// - AVI Spring 2025 leads repeat PE's value in the source sheet (likely a
-//   formula error); retained as-is to match the source.
+// Notes:
+// - AVI was previously labeled "Buy Side" / "Hedge Fund" in older docs —
+//   all merged under AVI here.
+// - RDI launched with the Spring 2026 cohort; no earlier history exists.
+// - Fall 2025 lead counts are bot-inflated (the bot issue was not filtered
+//   at the program level), so F'25 CVRs are understated.
+// - The two sources differ slightly for Spring 2025 (e.g. PE 5,689 vs 5,603
+//   leads) due to bot adjustments; doc values are used from S'25 onward for
+//   internal consistency.
 
 import type { ProgramHistory } from './types';
 
@@ -19,9 +26,10 @@ export const PROGRAM_HISTORY: ProgramHistory[] = [
       { cohort: 'Spring 2024', leads: 5086, cvr: 7.0 },
       { cohort: 'Fall 2024',   leads: 5749, cvr: 6.7 },
       { cohort: 'Winter 2025', leads: 5789, cvr: 6.5 },
-      { cohort: 'Spring 2025', leads: 5689, cvr: 5.5 },
-      { cohort: 'Fall 2025',   leads: null, cvr: null },
-      { cohort: 'Winter 2026', leads: null, cvr: null },
+      { cohort: 'Spring 2025', leads: 5603, cvr: 5.2, enrolls: 293 },
+      { cohort: 'Fall 2025',   leads: 7418, cvr: 3.2, enrolls: 238 },
+      { cohort: 'Winter 2026', leads: 5615, cvr: 5.2, enrolls: 292 },
+      { cohort: 'Spring 2026', leads: 4115, cvr: 5.9, enrolls: 242, inProgress: true },
     ],
   },
   {
@@ -30,9 +38,10 @@ export const PROGRAM_HISTORY: ProgramHistory[] = [
       { cohort: 'Spring 2024', leads: 4564, cvr: 6.8 },
       { cohort: 'Fall 2024',   leads: 5263, cvr: 6.8 },
       { cohort: 'Winter 2025', leads: 5836, cvr: 6.5 },
-      { cohort: 'Spring 2025', leads: 7421, cvr: 4.6 },
-      { cohort: 'Fall 2025',   leads: null, cvr: null },
-      { cohort: 'Winter 2026', leads: null, cvr: null },
+      { cohort: 'Spring 2025', leads: 7054, cvr: 4.5, enrolls: 316 },
+      { cohort: 'Fall 2025',   leads: 8028, cvr: 3.2, enrolls: 259 },
+      { cohort: 'Winter 2026', leads: 5270, cvr: 6.5, enrolls: 345 },
+      { cohort: 'Spring 2026', leads: 3782, cvr: 6.6, enrolls: 249, inProgress: true },
     ],
   },
   {
@@ -41,9 +50,10 @@ export const PROGRAM_HISTORY: ProgramHistory[] = [
       { cohort: 'Spring 2024', leads: 4250, cvr: 6.4 },
       { cohort: 'Fall 2024',   leads: 4656, cvr: 6.3 },
       { cohort: 'Winter 2025', leads: 4591, cvr: 6.3 },
-      { cohort: 'Spring 2025', leads: 7227, cvr: 3.6 },
-      { cohort: 'Fall 2025',   leads: null, cvr: null },
-      { cohort: 'Winter 2026', leads: null, cvr: null },
+      { cohort: 'Spring 2025', leads: 6839, cvr: 2.1, enrolls: 147 },
+      { cohort: 'Fall 2025',   leads: 9672, cvr: 1.3, enrolls: 128 },
+      { cohort: 'Winter 2026', leads: 6092, cvr: 2.7, enrolls: 164 },
+      { cohort: 'Spring 2026', leads: 5808, cvr: 4.5, enrolls: 262, inProgress: true },
     ],
   },
   {
@@ -52,9 +62,18 @@ export const PROGRAM_HISTORY: ProgramHistory[] = [
       { cohort: 'Spring 2024', leads: 2569, cvr: 4.7 },
       { cohort: 'Fall 2024',   leads: 3237, cvr: 3.5 },
       { cohort: 'Winter 2025', leads: 3105, cvr: 4.5 },
-      { cohort: 'Spring 2025', leads: 5689, cvr: 2.2 },
-      { cohort: 'Fall 2025',   leads: null, cvr: null },
-      { cohort: 'Winter 2026', leads: null, cvr: null },
+      { cohort: 'Spring 2025', leads: 5389, cvr: 2.1, enrolls: 112 },
+      { cohort: 'Fall 2025',   leads: 5407, cvr: 1.6, enrolls: 88 },
+      { cohort: 'Winter 2026', leads: 2097, cvr: 4.7, enrolls: 98 },
+      { cohort: 'Spring 2026', leads: 1784, cvr: 5.3, enrolls: 94, inProgress: true },
+    ],
+  },
+  {
+    program: 'rdi',
+    stats: [
+      // First cohort — launched Spring 2026. Leads/enrolls from the marketing
+      // dashboard tab; CVR computed (111 / 1,446).
+      { cohort: 'Spring 2026', leads: 1446, cvr: 7.7, enrolls: 111, inProgress: true },
     ],
   },
   {
@@ -68,7 +87,7 @@ export const PROGRAM_HISTORY: ProgramHistory[] = [
 ];
 
 // Fall 2025 vs Spring 2025 per-program info-session leads change (the one
-// clean F'25 program comparison in the source).
+// clean F'25 program comparison in the rollup source).
 export const FALL25_LEAD_CHANGE = [
   { program: 'pe' as const,  fall2025: 252, spring2025: 313, pctChange: -19 },
   { program: 're' as const,  fall2025: 277, spring2025: 339, pctChange: -18 },

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home, BarChart2, MessageSquare, Lightbulb,
   GraduationCap, TrendingUp, ChevronDown, Users, Layers,
-  Phone, Mic, Gauge, GitBranch, Globe, ShoppingCart, Target,
+  Phone, Mic, Gauge, GitBranch, Globe, ShoppingCart, Target, Megaphone,
 } from 'lucide-react';
 
 const CUSTOMER_INSIGHTS = [
@@ -34,6 +34,7 @@ const PERFORMANCE_DASHBOARDS = [
   { href: '/performance/overview',     label: 'Executive Overview',      icon: Gauge },
   { href: '/performance/trends',       label: 'Historical Trends',       icon: TrendingUp },
   { href: '/performance/channels',     label: 'Channel Performance',     icon: GitBranch },
+  { href: '/performance/paid-channels', label: 'Paid Channel Performance', icon: Megaphone },
   { href: '/performance/programs',     label: 'Program Performance',     icon: GraduationCap },
   { href: '/performance/traffic',      label: 'Traffic Analytics',       icon: Globe },
   { href: '/performance/self-study',   label: 'Self-Study / Retail',     icon: ShoppingCart },

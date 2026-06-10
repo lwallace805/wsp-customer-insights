@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, BarChart, Bar,
 } from 'recharts';
-import { WHARTON_HISTORY, COLUMBIA_HISTORY } from '@/data/performance/historical';
+import { WHARTON_HISTORY, COLUMBIA_HISTORY, WHARTON_CURRENT_CHANNELS } from '@/data/performance/historical';
 import { CURRENT_SNAPSHOT } from '@/data/performance/currentSnapshot';
 import { CHANNEL_LABELS, type ChannelKey, type School } from '@/data/performance/types';
 import {
@@ -33,8 +33,8 @@ const CHANNEL_COLORS: Record<ChannelKey, string> = {
 export default function ChannelsDashboard() {
   const [school, setSchool] = usePersistentSchoolFilter();
 
-  // Channel mix % over cohorts — Wharton has the full series; Columbia only
-  // has channel detail for Winter 2026.
+  // Channel mix % over cohorts. Wharton additionally gets the in-progress
+  // Spring 2026 point from the cohort doc's channel tables.
   const mixSource = school === 'columbia' ? COLUMBIA_HISTORY.filter(c => Object.keys(c.channelEnrolls).length > 0) : WHARTON_HISTORY;
   const mixData = mixSource.map(c => {
     const total = c.totalEnrolls || 1;
@@ -44,6 +44,13 @@ export default function ChannelsDashboard() {
     }
     return row;
   });
+  if (school !== 'columbia') {
+    const cur: Record<string, string | number> = { cohort: WHARTON_CURRENT_CHANNELS.shortLabel };
+    for (const key of CHANNEL_ORDER) {
+      cur[key] = +(((WHARTON_CURRENT_CHANNELS.channelEnrolls[key] ?? 0) / WHARTON_CURRENT_CHANNELS.total) * 100).toFixed(1);
+    }
+    mixData.push(cur);
+  }
 
   // Paid vs organic share trend
   const paidTrendSource = school === 'columbia' ? COLUMBIA_HISTORY : WHARTON_HISTORY;
@@ -58,9 +65,19 @@ export default function ChannelsDashboard() {
   const mixComparison = CURRENT_SNAPSHOT.channelMix[snapshotSchool];
   const paidVsOrganic = CURRENT_SNAPSHOT.paidVsOrganic[snapshotSchool];
 
-  // Latest cohort channel table (counts)
-  const latest = (school === 'columbia' ? COLUMBIA_HISTORY : WHARTON_HISTORY).slice(-1)[0];
-  const latestTotal = latest.totalEnrolls || 1;
+  // Channel detail table — Wharton shows the in-progress current cohort,
+  // Columbia the latest closed cohort. Sorted largest → smallest.
+  const detail = school === 'columbia'
+    ? (() => {
+        const latest = COLUMBIA_HISTORY.slice(-1)[0];
+        return { title: `${latest.cohort} (Columbia)`, subtitle: 'Most recent closed cohort', channelEnrolls: latest.channelEnrolls, total: latest.totalEnrolls || 1 };
+      })()
+    : { title: `${WHARTON_CURRENT_CHANNELS.cohort} (Wharton)`, subtitle: 'Current cohort, in progress — channel-attributed enrollments', channelEnrolls: WHARTON_CURRENT_CHANNELS.channelEnrolls, total: WHARTON_CURRENT_CHANNELS.total };
+
+  const detailRows = CHANNEL_ORDER
+    .map(key => ({ key, count: detail.channelEnrolls[key] ?? 0 }))
+    .filter(r => r.count > 0 || r.key === 'ppc')
+    .sort((a, b) => b.count - a.count);
 
   return (
     <div>
@@ -138,11 +155,11 @@ export default function ChannelsDashboard() {
         </SectionCard>
       </div>
 
-      {/* Latest closed cohort channel table */}
+      {/* Channel detail table — sorted largest to smallest */}
       <div className="bg-[#161b22] border border-white/10 rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-white/10">
-          <h2 className="text-sm font-semibold text-white">Channel Detail — {latest.cohort} ({latest.school === 'wharton' ? 'Wharton' : 'Columbia'})</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Most recent cohort with full channel attribution</p>
+          <h2 className="text-sm font-semibold text-white">Channel Detail — {detail.title}</h2>
+          <p className="text-xs text-gray-500 mt-0.5">{detail.subtitle}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -154,19 +171,16 @@ export default function ChannelsDashboard() {
               </tr>
             </thead>
             <tbody>
-              {CHANNEL_ORDER.filter(key => (latest.channelEnrolls[key] ?? 0) > 0 || key === 'ppc').map((key, i) => {
-                const count = latest.channelEnrolls[key] ?? 0;
-                return (
-                  <tr key={key} className={`border-b border-white/5 ${i % 2 === 1 ? 'bg-white/[0.02]' : ''}`}>
-                    <td className="px-5 py-3 text-white font-medium flex items-center gap-2">
-                      <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: CHANNEL_COLORS[key] }} />
-                      {CHANNEL_LABELS[key]}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-300">{fmt(count)}</td>
-                    <td className="px-4 py-3 text-right text-gray-300">{fmtPct((count / latestTotal) * 100)}</td>
-                  </tr>
-                );
-              })}
+              {detailRows.map(({ key, count }, i) => (
+                <tr key={key} className={`border-b border-white/5 ${i % 2 === 1 ? 'bg-white/[0.02]' : ''}`}>
+                  <td className="px-5 py-3 text-white font-medium flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: CHANNEL_COLORS[key] }} />
+                    {CHANNEL_LABELS[key]}
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-300">{fmt(count)}</td>
+                  <td className="px-4 py-3 text-right text-gray-300">{fmtPct((count / detail.total) * 100)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

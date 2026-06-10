@@ -84,6 +84,8 @@ export interface ProgramCohortStat {
   cohort: string;        // e.g. "Spring 2024"
   leads: number | null;
   cvr: number | null;    // %
+  enrolls?: number;      // where the source provides it
+  inProgress?: boolean;  // current cohort, not final
 }
 
 export interface ProgramHistory {
@@ -111,6 +113,7 @@ export interface ChannelMixComparison {
 export interface CurrentSnapshot {
   asOf: string;                       // ISO date the source data was updated through
   live: boolean;                      // true when fetched from sheets, false when static fallback
+  cohortLabels: Record<School, string>; // which cohort each school's "current" data describes
   programs: ProgramCurrent[];
   paidVsOrganic: Record<School, { paid: number; organic: number; priorCohortPaid: number; priorYearPaid: number }>;
   channelMix: Record<School, ChannelMixComparison[]>;

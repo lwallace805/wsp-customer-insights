@@ -13,6 +13,9 @@ import type { CurrentSnapshot } from './types';
 export const CURRENT_SNAPSHOT: CurrentSnapshot = {
   asOf: '2026-06-09',
   live: false,
+  // Which cohort each school's "current" numbers describe. Update when the
+  // COHORT_DOC_ID env vars are pointed at new cohort docs.
+  cohortLabels: { wharton: 'Spring 2026', columbia: 'Winter 2026' },
   forecastNote:
     'Wharton forecast: 60/40 weighted model on Winter 2026 + Spring 2025. CBS forecast: 60/40 weighted on Winter 2026 + Fall 2025.',
   programs: [
@@ -54,7 +57,7 @@ export const CURRENT_SNAPSHOT: CurrentSnapshot = {
       program: 'rdi',
       enrolls: { realTime: 111, forecast: 124, finalTarget: 125 },
       leads: { realTime: 1446, forecast: 2625, finalTarget: 2654 },
-      leadCvr: null,
+      leadCvr: 7.7, // computed: 111 / 1,446 (blank in source dashboard)
       infoSessionRsvps: { realTime: 862, baseline: 0, target: 245 },
     },
   ],

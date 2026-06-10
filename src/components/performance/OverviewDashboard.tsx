@@ -16,7 +16,8 @@ function ProgressToTarget({
 }) {
   const max = Math.max(realTime, forecast, target, 1);
   const pctOfTarget = target > 0 ? (realTime / target) * 100 : 0;
-  const onTrack = forecast >= target * 0.95;
+  // Green when real-time is beating the forecast, red when trailing it
+  const beatingForecast = realTime >= forecast;
   return (
     <div className="py-3 border-b border-white/5 last:border-0">
       <div className="flex items-baseline justify-between mb-1.5">
@@ -24,7 +25,7 @@ function ProgressToTarget({
         <p className="text-xs text-gray-400">
           <span className="text-white font-semibold">{fmt(realTime)}</span>
           {' '}of {fmt(target)} target · forecast{' '}
-          <span className={onTrack ? 'text-emerald-400' : 'text-red-400'}>{fmt(forecast)}</span>
+          <span className={beatingForecast ? 'text-emerald-400' : 'text-red-400'}>{fmt(forecast)}</span>
         </p>
       </div>
       <div className="relative w-full bg-white/5 rounded-full h-2.5">
