@@ -95,7 +95,7 @@ export default function OptimizationDashboard({
         title="Optimization Priorities"
         subtitle={
           isAi
-            ? `AI analysis of the full performance picture — regenerated daily. Generated ${result.generatedAt} by ${result.model}.`
+            ? `AI analysis of the full performance picture — regenerated weekly. Generated ${result.generatedAt} by ${result.model}.`
             : 'Rule-based analysis (AI unavailable) — computed from historical trends, current pacing, and traffic data'
         }
         school={school}

@@ -82,6 +82,8 @@ export const PROGRAM_HISTORY: ProgramHistory[] = [
       { cohort: 'Summer 2025', leads: 6749, cvr: 6.1 },
       { cohort: 'Fall 2025',   leads: 5063, cvr: 9.2 },
       { cohort: 'Winter 2026', leads: 4428, cvr: 11.0 },
+      // Current cohort — from the CBS Spring 2026 doc (195 enrolls / 2,987 leads)
+      { cohort: 'Spring 2026', leads: 2987, cvr: 6.5, enrolls: 195, inProgress: true },
     ],
   },
 ];

@@ -5,10 +5,11 @@
 // paid platforms, self-study — and returns prioritized insights in the same
 // Insight shape the UI renders.
 //
-// Regenerated once per day (unstable_cache, revalidate 86400, tag
-// 'performance' — same cycle as the live data; POST /api/performance/refresh
-// forces both). Falls back to the rule-based engine (insights.ts) when
-// ANTHROPIC_API_KEY is missing, in demo mode, or on any API error.
+// Regenerated once per WEEK (unstable_cache, revalidate 604800, tag
+// 'performance') to control token spend; POST /api/performance/refresh
+// forces an early regeneration. Falls back to the rule-based engine
+// (insights.ts) when ANTHROPIC_API_KEY is missing, in demo mode, or on
+// any API error.
 
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
@@ -20,9 +21,10 @@ import { CHANNEL_TRAFFIC, SITEWIDE_YOY, CERT_PAGES_WHARTON_YOY, CERT_PAGES_COLUM
 import { SELF_STUDY_2026 } from '@/data/performance/selfStudy';
 import {
   WHARTON_PAID_OVERALL, WHARTON_PAID_GOOGLE, WHARTON_PAID_WEEKLY,
-  CBS_PAID_PLATFORMS, CBS_PAID_WEEKLY,
+  CBS_SPRING_GOOGLE, CBS_SPRING_WEEKLY, CBS_PAID_PLATFORMS, CBS_PAID_WEEKLY,
 } from '@/data/performance/paidChannels';
 import { computeInsights } from './insights';
+import { getCurrentSnapshot } from './live';
 import { isDemo } from '@/lib/demo/flag';
 import type { CurrentSnapshot, Insight } from '@/data/performance/types';
 
@@ -77,8 +79,8 @@ function buildPayload(snapshot: CurrentSnapshot) {
     dataCaveats: [
       'Wharton Spring 2025 + Fall 2025 raw lead counts are bot-inflated; bot-adjusted counts in leadsExBots. Per-program Fall 2025 leads are NOT bot-adjusted, so F25 program CVRs are understated.',
       'GA4: from week of 2026-03-01, Direct sessions jump ~3x while Other drops — a channel reclassification, not a real traffic shift.',
-      'Current Wharton cohort (Spring 2026) is in progress — its enrollments/leads are not final. Columbia current doc is the closed Winter 2026 cohort.',
-      'Wharton paid media is Google-dominated; Meta/LinkedIn are not broken out for Wharton. Columbia LinkedIn spend includes a $44K employer-sponsored test driving cheap, low-converting leads.',
+      'Current Wharton and Columbia cohorts (both Spring 2026) are in progress — their enrollments/leads are not final. Wharton ends ~6/15; Columbia runs 3/24 → 7/20.',
+      'Wharton paid media is Google-dominated; Meta/LinkedIn are not broken out for Wharton. Columbia Spring 2026 paid is Google-only so far. Columbia Winter 2026 (prior) LinkedIn spend included a $44K employer-sponsored test driving cheap, low-converting leads.',
     ],
     currentCohorts: {
       cohortLabels: snapshot.cohortLabels,
@@ -95,8 +97,10 @@ function buildPayload(snapshot: CurrentSnapshot) {
       whartonOverallByProgram: WHARTON_PAID_OVERALL,
       whartonGoogleByProgram: WHARTON_PAID_GOOGLE,
       whartonWeeklyPaid: WHARTON_PAID_WEEKLY,
-      columbiaPlatforms: CBS_PAID_PLATFORMS,
-      columbiaWeeklyGoogle: CBS_PAID_WEEKLY,
+      columbiaCurrentSpringGoogle: CBS_SPRING_GOOGLE,
+      columbiaCurrentSpringWeekly: CBS_SPRING_WEEKLY,
+      columbiaPriorWinterPlatforms: CBS_PAID_PLATFORMS,
+      columbiaPriorWinterWeeklyGoogle: CBS_PAID_WEEKLY,
     },
     traffic: {
       weeklyByChannel: CHANNEL_TRAFFIC,
@@ -112,10 +116,15 @@ function buildPayload(snapshot: CurrentSnapshot) {
 
 const MODEL = 'claude-opus-4-8';
 
-async function generateAiInsights(snapshot: CurrentSnapshot): Promise<InsightsResult | null> {
+// weekKey exists purely to scope the cache: unstable_cache keys on args, so
+// passing the (daily-changing) snapshot would regenerate daily. Instead the
+// key is the epoch-week number and the snapshot is fetched inside.
+async function generateAiInsights(weekKey: number): Promise<InsightsResult | null> {
+  void weekKey;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
+  const snapshot = await getCurrentSnapshot();
   const client = new Anthropic({ apiKey });
 
   const response = await client.messages.parse({
@@ -151,17 +160,20 @@ async function generateAiInsights(snapshot: CurrentSnapshot): Promise<InsightsRe
   };
 }
 
-// Cached daily; keyed on the snapshot (asOf changes daily → fresh generation).
-// Tag 'performance' means POST /api/performance/refresh regenerates these too.
+// Cached WEEKLY to control token spend (~$0.40/run on Opus 4.8). The live
+// snapshot still refreshes daily; the AI briefing regenerates every 7 days
+// (epoch-week cache key + revalidate) or on POST /api/performance/refresh
+// (tag 'performance').
 const cachedGenerate = unstable_cache(generateAiInsights, ['performance-ai-insights-v1'], {
-  revalidate: 86400,
+  revalidate: 604800,
   tags: ['performance'],
 });
 
 export async function getInsights(snapshot: CurrentSnapshot): Promise<InsightsResult> {
   if (!isDemo() && process.env.ANTHROPIC_API_KEY) {
     try {
-      const ai = await cachedGenerate(snapshot);
+      const weekKey = Math.floor(Date.now() / 604_800_000); // epoch week
+      const ai = await cachedGenerate(weekKey);
       if (ai) return ai;
     } catch (err) {
       console.error('[performance/aiInsights] falling back to rule-based insights:', err);

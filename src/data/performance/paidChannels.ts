@@ -84,7 +84,35 @@ export const WHARTON_PAID_WEEKLY: PaidWeek[] = [
   { week: '6/9',  spend: 3601,  leads: 34,  enrolls: 2 },
 ];
 
-// ── Columbia / CBS — Winter 2026 cohort (closed) ─────────────────────────────
+// ── Columbia / CBS — Spring 2026 cohort (current, in progress) ───────────────
+// Source: CBS Spring 2026 cohort doc, "Paid WoW Performance & Goals"
+//   (1EfNBwZYYObVU3XSiW1VPC_Fi13ZLaQdq_tZZyPxZy14). Snapshot 2026-06-10.
+// Spring 2026 paid is Google-only so far; cohort runs 3/24 → 7/20/2026.
+
+export const CBS_SPRING_GOOGLE: PaidPlatform = {
+  platform: 'Google',
+  spend: 98330, leads: 691, enrolls: 27,
+  cpl: 142.30, cpe: 3641.86, cvr: 3.91,
+  note: 'CPL goal $175 · CPE goal $2,067 · target budget $155K · forecast 75 enrolls / 886 leads by 7/20',
+};
+
+// Weekly actuals (weeks with spend recorded; cohort in progress)
+export const CBS_SPRING_WEEKLY: PaidWeek[] = [
+  { week: '3/24', spend: 2280,  leads: 9,   enrolls: 1 },
+  { week: '3/31', spend: 2102,  leads: 8,   enrolls: 0 },
+  { week: '4/7',  spend: 3654,  leads: 8,   enrolls: 0 },
+  { week: '4/14', spend: 6433,  leads: 50,  enrolls: 1 },
+  { week: '4/21', spend: 8976,  leads: 78,  enrolls: 1 },
+  { week: '4/28', spend: 10098, leads: 87,  enrolls: 0 },
+  { week: '5/5',  spend: 11473, leads: 80,  enrolls: 3 },
+  { week: '5/12', spend: 13147, leads: 56,  enrolls: 0 },
+  { week: '5/19', spend: 14647, leads: 107, enrolls: 3 },
+  { week: '5/26', spend: 15343, leads: 142, enrolls: 9 },
+  { week: '6/2',  spend: 8735,  leads: 59,  enrolls: 9 },
+  { week: '6/9',  spend: 1443,  leads: 7,   enrolls: 0 },
+];
+
+// ── Columbia / CBS — Winter 2026 cohort (closed, prior) ──────────────────────
 
 export const CBS_PAID_PLATFORMS: PaidPlatform[] = [
   { platform: 'Google',   spend: 130536, leads: 1073, enrolls: 92, cpl: 121.65, cpe: 1418.87, cvr: 8.57 },
@@ -124,5 +152,6 @@ export const CBS_PAID_WEEKLY: PaidWeek[] = [
 
 export const PAID_COHORT_LABELS = {
   wharton: 'Spring 2026 (in progress)',
-  columbia: 'Winter 2026 (closed)',
+  columbia: 'Spring 2026 (in progress)',
+  columbiaPrior: 'Winter 2026 (closed)',
 } as const;

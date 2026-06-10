@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import {
   WHARTON_PAID_OVERALL, WHARTON_PAID_GOOGLE, WHARTON_PAID_WEEKLY,
+  CBS_SPRING_GOOGLE, CBS_SPRING_WEEKLY,
   CBS_PAID_PLATFORMS, CBS_OTHER_PAID, CBS_PAID_WEEKLY, PAID_COHORT_LABELS,
   type PaidProgramRow, type PaidWeek,
 } from '@/data/performance/paidChannels';
@@ -86,10 +87,6 @@ export default function PaidChannelsDashboard() {
   const [school, setSchool] = usePersistentSchoolFilter();
 
   const whartonTotal = WHARTON_PAID_OVERALL.find(r => r.program === 'Total')!;
-  const cbsSpend = CBS_PAID_PLATFORMS.reduce((a, p) => a + p.spend, 0);
-  const cbsLeads = CBS_PAID_PLATFORMS.reduce((a, p) => a + (p.leads ?? 0), 0);
-  const cbsEnrolls = CBS_PAID_PLATFORMS.reduce((a, p) => a + (p.enrolls ?? 0), 0);
-
   const showWharton = school !== 'columbia';
   const showColumbia = school !== 'wharton';
 
@@ -119,17 +116,23 @@ export default function PaidChannelsDashboard() {
         )}
         {showColumbia && (
           <>
-            <KpiCard label={`Columbia Paid Spend (${PAID_COHORT_LABELS.columbia})`} value={fmtDollar(cbsSpend)} sub={`${fmt(cbsLeads)} leads · ${fmt(cbsEnrolls)} enrolls`} />
-            <KpiCard label="Columbia Blended Paid CPE" value={fmtDollar(cbsSpend / Math.max(cbsEnrolls, 1))} sub={`CPL $${(cbsSpend / Math.max(cbsLeads, 1)).toFixed(0)} blended`} />
+            <KpiCard label={`Columbia Paid Spend (${PAID_COHORT_LABELS.columbia})`} value={fmtDollar(CBS_SPRING_GOOGLE.spend)} sub={`${fmt(CBS_SPRING_GOOGLE.leads)} leads · ${fmt(CBS_SPRING_GOOGLE.enrolls)} enrolls · Google-only`} />
+            <KpiCard label="Columbia CPL / CPE" value={`$${CBS_SPRING_GOOGLE.cpl?.toFixed(0)}`} sub={`CPE ${fmtDollar(CBS_SPRING_GOOGLE.cpe)} vs $2,067 goal · CVR ${fmtPct(CBS_SPRING_GOOGLE.cvr ?? 0)}`} positive={(CBS_SPRING_GOOGLE.cpe ?? Infinity) <= 2067} />
           </>
         )}
       </div>
 
-      {/* Columbia platform breakdown */}
+      {/* Columbia sections */}
       {showColumbia && (
         <div className="space-y-6 mb-6">
+          <WeeklyPaidChart
+            title={`Columbia — Weekly Google Performance (${PAID_COHORT_LABELS.columbia})`}
+            subtitle={`Cohort runs 3/24 → 7/20 · ${CBS_SPRING_GOOGLE.note}`}
+            weeks={CBS_SPRING_WEEKLY}
+          />
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SectionCard title="Columbia — Spend by Platform" subtitle="Winter 2026 cohort · Google 70% · LinkedIn 21% · Meta 8% · Bing <1%">
+            <SectionCard title="Columbia — Prior Cohort Spend by Platform" subtitle={`${PAID_COHORT_LABELS.columbiaPrior} · Google 70% · LinkedIn 21% · Meta 8% · Bing <1%`}>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={cbsPlatformChart} barCategoryGap="30%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
@@ -142,8 +145,8 @@ export default function PaidChannelsDashboard() {
             </SectionCard>
 
             <WeeklyPaidChart
-              title="Columbia — Weekly Google Performance"
-              subtitle="Winter 2026 cohort · spend vs leads vs enrollments"
+              title="Columbia — Prior Cohort Weekly Google"
+              subtitle={`${PAID_COHORT_LABELS.columbiaPrior} · spend vs leads vs enrollments`}
               weeks={CBS_PAID_WEEKLY}
             />
           </div>
@@ -151,7 +154,8 @@ export default function PaidChannelsDashboard() {
           {/* Platform table */}
           <div className="bg-[#161b22] border border-white/10 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/10">
-              <h2 className="text-sm font-semibold text-white">Columbia — Platform Detail ({PAID_COHORT_LABELS.columbia})</h2>
+              <h2 className="text-sm font-semibold text-white">Columbia — Platform Detail ({PAID_COHORT_LABELS.columbiaPrior})</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Last cohort with multi-platform spend; Spring 2026 is Google-only so far</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

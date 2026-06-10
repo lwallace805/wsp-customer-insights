@@ -15,7 +15,7 @@ export const CURRENT_SNAPSHOT: CurrentSnapshot = {
   live: false,
   // Which cohort each school's "current" numbers describe. Update when the
   // COHORT_DOC_ID env vars are pointed at new cohort docs.
-  cohortLabels: { wharton: 'Spring 2026', columbia: 'Winter 2026' },
+  cohortLabels: { wharton: 'Spring 2026', columbia: 'Spring 2026' },
   forecastNote:
     'Wharton forecast: 60/40 weighted model on Winter 2026 + Spring 2025. CBS forecast: 60/40 weighted on Winter 2026 + Fall 2025.',
   programs: [
