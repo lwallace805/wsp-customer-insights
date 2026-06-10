@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Home, BarChart2, MessageSquare, Lightbulb,
-  GraduationCap, TrendingUp, ChevronDown, Users, Layers,
+  GraduationCap, TrendingUp, ChevronDown, Layers,
   Phone, Mic, Gauge, GitBranch, Globe, ShoppingCart, Target, Megaphone,
 } from 'lucide-react';
 
@@ -15,22 +15,13 @@ const CUSTOMER_INSIGHTS = [
   { href: '/insights',     label: 'Insights',           icon: Lightbulb },
 ];
 
-const MARKETING_DASHBOARDS = [
-  { href: '/enrollment',   label: 'Enrollment Pacing',  icon: TrendingUp },
-];
-
-const COHORT_PERFORMANCE = [
-  { href: '/cohort-performance/wharton',      label: 'Wharton Online',          icon: Users },
-  { href: '/cohort-performance/columbia',     label: 'Columbia / CBSEE',        icon: Users },
-  { href: '/dashboards/spring-2026.html',     label: 'Spring 2026 Performance', icon: TrendingUp, static: true },
-];
-
 const TOOLS = [
   { href: '/tools/employer-reimbursement', label: 'Employer Reimbursement Guide', icon: Phone },
   { href: '/tools/webinar-repurposer',     label: 'Webinar Repurposer',           icon: Mic },
 ];
 
 const PERFORMANCE_DASHBOARDS = [
+  { href: '/enrollment',               label: 'Enrollment Pacing',       icon: TrendingUp },
   { href: '/performance/overview',     label: 'Executive Overview',      icon: Gauge },
   { href: '/performance/trends',       label: 'Historical Trends',       icon: TrendingUp },
   { href: '/performance/channels',     label: 'Channel Performance',     icon: GitBranch },
@@ -138,20 +129,6 @@ export default function NavBar() {
           <DropdownMenu
             label="Customer Insights"
             items={CUSTOMER_INSIGHTS}
-            activePath={pathname}
-          />
-
-          {/* Marketing Dashboards dropdown */}
-          <DropdownMenu
-            label="Marketing Dashboards"
-            items={MARKETING_DASHBOARDS}
-            activePath={pathname}
-          />
-
-          {/* Cohort Performance dropdown */}
-          <DropdownMenu
-            label="Cohort Performance"
-            items={COHORT_PERFORMANCE}
             activePath={pathname}
           />
 
