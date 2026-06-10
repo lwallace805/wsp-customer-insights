@@ -60,7 +60,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Nasdaq ticker takeover · live-data styling',
             angle: 'Native market-data format — information density',
             audience: 'Finance professionals, broad prospecting',
-            testingPriority: 'first',
+            testingPriority: 'second',
             rationale: [
               'Course details scroll across the Nasdaq ticker exactly like live market data. Dense information, zero friction for finance pros.',
               'Reads as native market data rather than an ad — earns attention from an audience that scans tickers all day.',
@@ -73,7 +73,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'IPO announcement · confetti motif',
             angle: 'Milestone framing / emotional weight',
             audience: 'All segments — brand + prospecting',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'The program treated as a major Nasdaq IPO, complete with confetti graphics. Borrows the emotional weight of a market milestone.',
             ],
@@ -97,7 +97,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Upward stock chart · inflection-point marker',
             angle: 'Before/after career trajectory',
             audience: 'Early-career builders & career pivoters',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'An upward-trending chart on the screen with the AI Certificate marked as the inflection point. The before/after concept in the finance audience’s native visual language.',
             ],
@@ -121,7 +121,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'New-listing spec card · ticker "WSP"',
             angle: 'Authority / specificity',
             audience: 'Consideration-stage prospects',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'The program formatted as a new Nasdaq listing: ticker symbol "WSP", duration, partner, prerequisites. Specificity delivered in the most authoritative format possible.',
             ],
@@ -133,7 +133,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: '9:16 vertical · cinematic silhouette (Stories/Reels)',
             angle: 'Aspirational / brand',
             audience: 'Stories & Reels placements, broad',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Cinematic silhouette of a professional looking up at the glowing screen. "The future of finance runs on AI. Do you?" Built for Stories/Reels full-screen.',
             ],
@@ -145,7 +145,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Split screen · Python terminal + ticker',
             angle: 'Tech-meets-finance / capability proof',
             audience: 'Technical & quant-curious finance pros',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'The screen split: terminal code on top, Nasdaq ticker below. Tech-meets-finance in a way no competitor is doing.',
             ],
@@ -169,7 +169,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Minimal editorial · Columbia seal',
             angle: 'Prestige / brand credibility',
             audience: 'CFO / VP / senior finance leaders',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'Minimal, editorial. Columbia seal dominant, elegant typography. Targets the CFO/VP segment who respond to luxury-brand aesthetics, not loud sales ads.',
             ],
@@ -200,7 +200,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Dramatic eye macro photography + urgency hook',
             angle: 'Scarcity / urgency — cohort filling',
             audience: 'All segments, broad prospecting',
-            testingPriority: 'first',
+            testingPriority: 'third',
             rationale: [
               'Directly replicates WSO\'s #1 scoring ad format (score 100) — proven in the same finance professional audience',
               'Human eye macro is WSO\'s most-used hero: 3 of their top 5 ads use it, none of WSP\'s current ads do',
@@ -215,7 +215,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Platform-native mobile UI mockup, dark mode',
             angle: 'Aspirational goal-setting / self-identification',
             audience: 'Career Pivoters and Early-Career Builders',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'WSO\'s iOS Notes mockup scored 84 with 101,868 reach — proven format in this exact audience',
               'Feels like content, not an ad — native UI format bypasses ad fatigue and stops the scroll',
@@ -277,7 +277,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Dark editorial quote card, testimonial',
             angle: 'Real learner voice — removes the "too technical" objection before the click',
             audience: 'Skeptics who fear the course is too coding-focused',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'First-ever testimonial-based ad in WSP AI paid social — 66% promoters are ready to advocate and have never been featured',
               'The quote chosen targets the #1 objection (too coding-focused) and neutralizes it before the click, improving post-click conversion quality',
@@ -337,7 +337,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Premium credential display on dark navy',
             angle: 'Tangible credential aspiration, premium positioning',
             audience: 'International Professionals and career credential-seekers',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'At $4,800 tuition, WSP competes in premium executive education — current creatives don\'t signal this price tier visually',
               'The certificate as hero object makes the outcome concrete: a physical artifact the viewer can picture on their wall or LinkedIn',
@@ -379,7 +379,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Dark market-data stat hero · 4:5',
             angle: 'Market cycle urgency — $350B / $1.7T stats as hero',
             audience: 'Credit investors, restructuring advisors, RX bankers',
-            testingPriority: 'first',
+            testingPriority: 'third',
             rationale: [
               '$350B leveraged loan maturities and $1.7T private credit AUM as the opening data hook — makes the case for the program without listing a single curriculum item.',
               'Finance professionals respond to market data, not program descriptions; this format earns credibility before making an ask.',
@@ -407,7 +407,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Clean white · audience checklist · 4:5',
             angle: 'Direct audience identification — 6 specific job segments',
             audience: 'Restructuring advisors, credit investors, bankruptcy attorneys, PE, RX bankers, corporate finance',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Lists 6 specific job titles as the hero — each reader self-identifies and feels the ad was written for them.',
               'Persona-specific targeting is entirely absent from the current creative library.',
@@ -435,7 +435,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Split comparison · crossed-out MBA · 4:5',
             angle: 'Efficiency comparison — "8 weeks, $4,800, keep working" vs. MBA',
             audience: 'Career pivoters, mid-career professionals',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Crossed-out MBA creates instant contrast without requiring copy: 2+ years and $150K+ vs. 8 weeks and $4,800.',
               'MBA comparison is flagged as a top paid social angle in the audience research and has never been run for RDI.',
@@ -463,7 +463,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'iPhone Notes dark UI mockup · 4:5',
             angle: 'Insider vocabulary — "Things I Need to Understand Before the Cycle Turns"',
             audience: 'Credit investors, RX professionals — mid-funnel retargeting',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Phone notes aesthetic makes the ad feel like content, not advertising — bypasses ad fatigue for a high-frequency audience.',
               'Insider vocabulary (J. Crew covenant, LME, Chapter 11) triggers self-identification in people who already know the terms.',
@@ -477,7 +477,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Cohort group photo + stats · 4:5',
             angle: 'Scale credibility — 5,000+ learners · 100+ countries · 750+ employers',
             audience: 'International professionals, broad prospecting',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               '5,000+ learners across 100+ countries and 750+ employers is a proof point the current ads never surface.',
               'Social proof reduces perceived risk for prospects who are unfamiliar with WSP; cohort photo makes the community real.',
@@ -491,7 +491,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Bold countdown deadline · 4:5',
             angle: 'Scarcity — "June 8 · Next cohort: October 2026"',
             audience: 'Warm audience, retargeting',
-            testingPriority: 'first',
+            testingPriority: 'second',
             rationale: [
               '"Next cohort: October 2026" creates real scarcity without fabricating it — a 4-month gap is a genuine cost of waiting.',
               'Zero urgency creative exists in the current RDI account; 100% of top competitor ads use urgency language.',
@@ -505,7 +505,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Credential flat-lay photography · 4:5',
             angle: 'Tangible credential — the physical Wharton certificate as hero',
             audience: 'International professionals, credential-seekers',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'The physical certificate as a visual object makes the outcome concrete — viewers can picture it on a wall or LinkedIn.',
               'Wharton brand carries global recognition that the WSP brand alone does not, especially for international audiences.',
@@ -545,7 +545,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Lifestyle portrait + transformation headline · 4:5',
             angle: '"From corporate attorney to value investor. In 8 weeks."',
             audience: 'Career pivoters — attorneys, CPAs, non-finance professionals',
-            testingPriority: 'first',
+            testingPriority: 'second',
             rationale: [
               'Career pivoters are the most underserved archetype — zero current ads address them specifically.',
               'A named profession ("attorney") triggers immediate self-identification and stops the scroll for that exact audience.',
@@ -573,7 +573,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Dark quote card + 5-star rating · 4:5',
             angle: 'Social proof — verbatim 10/10 learner quote',
             audience: 'Mid-funnel retargeting, consideration stage',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Zero testimonial ads exist in the current AVI campaign; social proof is a proven trust accelerator at the consideration stage.',
               'A verbatim quote ("the most comprehensive, practical, and intellectually rigorous") is more credible than any marketing copy.',
@@ -587,7 +587,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Side-by-side split comparison · 1:1',
             angle: '"The skills without the 2-year detour" — MBA vs. AVI',
             audience: 'Career pivoters, mid-career professionals',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'MBA comparison is flagged as a top paid social angle in the research and has never been run for AVI.',
               '2 years + $150K vs. 8 weeks + fraction of cost creates immediate value contrast without requiring the reader to do math.',
@@ -601,7 +601,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'iPhone Notes dark UI mockup · 4:5',
             angle: '"2026 Goals" native screenshot — WSO\'s #1 format adapted for AVI',
             audience: 'All segments, broad prospecting',
-            testingPriority: 'first',
+            testingPriority: 'second',
             rationale: [
               "WSO's iOS Notes format scored 84 with 101,868 reach — proven in the same finance professional audience.",
               'Feels like content, not advertising — native UI format bypasses ad fatigue for a high-frequency audience.',
@@ -615,7 +615,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Dark numbered deliverables list · 4:5',
             angle: '"In 8 weeks, you\'ll build these 4 models"',
             audience: 'Early-career builders, analysts',
-            testingPriority: 'second',
+            testingPriority: 'first',
             rationale: [
               '"Build a DCF model" beats "earn a Wharton certificate" as a message — specificity is the #1 NPS promoter driver.',
               'Four named models (DCF, stock pitch, short selling analysis, portfolio construction) make the output tangible.',
@@ -629,7 +629,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Dark bold typography · 1:1',
             angle: '"Can you explain why a stock is undervalued in 60 seconds?"',
             audience: 'Early-career builders, curious finance professionals',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Challenge format creates a self-assessment moment — readers who answer "no" immediately feel the gap the program fills.',
               '"60 seconds" adds a specificity hook that makes the question impossible to ignore.',
@@ -643,7 +643,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Side-by-side before/after · 1:1',
             angle: '"Reading Buffett quotes → Building the DCF model"',
             audience: 'Career pivoters, self-taught investors',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'Directly addresses the core detractor complaint — prospects expected Buffett/Graham philosophy, got corporate valuation. This ad reframes the gap as the product.',
               '"Reading quotes" vs. "building the model" is the sharpest possible expression of the specificity-over-credential insight.',
@@ -657,7 +657,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Physical certificate flat-lay + globe icons · 4:5',
             angle: 'Wharton credential + international reach — "travels with your career"',
             audience: 'International professionals, credential-focused segments',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'International professionals (a named AVI archetype) value brand recognition globally — Wharton carries weight the WSP brand alone does not.',
               'Physical credential as a visual object makes the outcome concrete and aspirational.',
@@ -671,7 +671,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Office lifestyle + skill list · 4:5',
             angle: '"Build the models your MD expects you to know"',
             audience: 'Early-career builders — analysts, junior associates',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               '"The models your MD expects" is a pointed outcome statement that speaks directly to the anxiety of early-career analysts.',
               'Naming specific models (DCF, comps, investment thesis, stock pitch) makes the deliverable concrete before the viewer even clicks.',
@@ -711,7 +711,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Dark cityscape + urgency headline · 4:5',
             angle: '"Applications Are Open" — deadline urgency with June 8 CTA',
             audience: 'All segments, broad prospecting',
-            testingPriority: 'first',
+            testingPriority: 'second',
             rationale: [
               "Directly adapts competitor #1's score-100 format: blurred background + bold urgency headline — the most validated format in the finance education space.",
               'Cohort deadline (June 8) creates a real reason to act now rather than bookmark and forget.',
@@ -725,7 +725,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Cream quote card · 4:5',
             angle: 'Social proof — graduate quote on gaining RE modeling skills',
             audience: 'Mid-funnel retargeting, consideration stage',
-            testingPriority: 'second',
+            testingPriority: 'archived',
             rationale: [
               'Zero testimonial ads exist in the current RE campaign — social proof is absent from the entire account.',
               'A real graduate voice is more credible than any marketing headline; cream background differentiates from the standard navy palette.',
@@ -739,7 +739,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Split comparison · crossed-out MBA · 4:5',
             angle: '"The Wharton credential. Without the 2-year detour."',
             audience: 'Career pivoters, mid-career professionals',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'MBA comparison is a top paid social angle validated across WSP programs and has never been run for RE.',
               '"Wharton credential" in the headline anchors prestige; "without the 2-year detour" answers the time-cost objection immediately.',
@@ -767,7 +767,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Practitioner mid-lecture + benefit list · 4:5',
             angle: '"Taught by Wharton Faculty. Mentored by Active Practitioners."',
             audience: 'All segments — brand + consideration',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Practitioner authority is the #2 NPS promoter driver across programs and absent from current RE creative.',
               'A professor in motion (mid-lecture) signals active learning rather than passive video content.',
@@ -781,7 +781,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'NPS + graduate count stats card · 4:5',
             angle: '66 NPS · 550+ graduates — scale and satisfaction as proof',
             audience: 'Broad prospecting, brand awareness',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               '66 NPS is a genuine differentiator in executive education — surfacing it reduces perceived risk for first-time visitors.',
               '550+ graduates signals a proven community; new enrollees aren\'t beta testers.',
@@ -809,7 +809,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Audience checklist · "This program is for you if…" · 4:5',
             angle: 'Direct persona identification — 4 specific audience segments',
             audience: 'Finance professionals considering a RE transition',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Explicit audience targeting tells the algorithm exactly who to optimize toward — high signal-to-noise for prospecting.',
               'Checklist format is scannable in 2 seconds; readers self-select without reading body copy.',
@@ -837,7 +837,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Aerial cityscape + enrollment scarcity banner · 4:5',
             angle: '"Cohort Opens June 8. Enrollment is limited." — Enroll Before It\'s Full',
             audience: 'Warm audience, retargeting',
-            testingPriority: 'first',
+            testingPriority: 'third',
             rationale: [
               'Aerial NYC cityscape is aspirational and category-relevant — signals real estate without showing a campus.',
               '"Enrollment is limited" + hard date creates genuine scarcity without fabricating it.',
@@ -890,7 +890,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Grid deliverables card · 4:5',
             angle: '"In 8 weeks, you\'ll build all of this" — 6 named outputs',
             audience: 'Analysts, associates — early-career builders',
-            testingPriority: 'first',
+            testingPriority: 'second',
             rationale: [
               'Specific outputs (Rolling Forecast Model, AI-Powered FP&A Toolkit) are more persuasive than module names or course titles.',
               'Addresses the gap: zero current FP&A ads communicate skill outcomes — they all describe the program structure.',
@@ -904,7 +904,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Split color blocks · crossed-out MBA · 4:5',
             angle: '"The FP&A skills your MBA would have taught." — 8 weeks vs. 2 years',
             audience: 'Career pivoters, mid-career professionals',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'MBA comparison is flagged as a top paid social angle across WSP programs and has never been run for FP&A.',
               'Splitting the frame creates visual contrast that communicates the comparison before any copy is read.',
@@ -918,7 +918,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Split screen transformation · 4:5',
             angle: 'Stressed analyst night before board meeting → confident presenter 8 weeks later',
             audience: 'FP&A analysts, senior accountants moving into FP&A roles',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Transformation story communicates the outcome without a single word of curriculum description.',
               'Before/after format is proven across categories and completely absent from FP&A creative.',
@@ -932,7 +932,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Dark testimonial quote card + 5-star rating · 4:5',
             angle: 'Social proof — verbatim graduate quote praising practical depth',
             audience: 'Mid-funnel retargeting, consideration stage',
-            testingPriority: 'second',
+            testingPriority: 'archived',
             rationale: [
               'Zero testimonial ads exist in the current FP&A campaign — social proof is completely absent.',
               'A verbatim quote ("practical content and Excel depth") is more credible than any marketing claim.',
@@ -960,7 +960,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Portrait + transition headline · 4:5',
             angle: '"You already understand the numbers. Now build the skills to lead the strategy."',
             audience: 'Senior accountants and analysts pivoting into FP&A roles',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Senior accountants moving into FP&A are a large, underserved segment — zero current ads speak to them.',
               '"You already understand the numbers" validates existing skills before asking for a commitment — reduces perceived barrier to entry.',
@@ -974,7 +974,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'LinkedIn profile screenshot mockup · 4:5',
             angle: '"Your next LinkedIn credential. Earn it in 8 weeks."',
             audience: 'Career builders, credential-focused professionals',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'LinkedIn certificate mockup makes the credential tangible and contextually relevant — viewers can picture it on their own profile.',
               '"Your next LinkedIn credential" is a specific, concrete aspiration that a vague "earn a certificate" claim is not.',
@@ -988,7 +988,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Cinematic boardroom presenter · 9:16 vertical (Stories/Reels)',
             angle: '"Finance teams CFOs trust don\'t just report numbers. They tell the story behind them."',
             audience: 'Stories & Reels placements — senior FP&A professionals',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Zero Stories/Reels format creative exists in the FP&A account — full-screen vertical is the fastest-growing placement.',
               'Cinematic boardroom shot elevates the program\'s perceived premium position.',
@@ -1002,7 +1002,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Bold dark minimal · eye icon · 1:1',
             angle: '"These professionals became FP&A leaders" — WSO\'s proven format adapted for FP&A',
             audience: 'Broad prospecting, all segments',
-            testingPriority: 'first',
+            testingPriority: 'second',
             rationale: [
               "Adapts WSO's score-100 formula (bold dark + eye motif + outcome headline) that has run 125 days with 12 variations in the same audience.",
               '1:1 format is feed-native and high-contrast against the light backgrounds dominating competitor creative.',
@@ -1043,7 +1043,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'iPhone Notes dark UI mockup · 4:5',
             angle: '"2026 Goals" — aspirational goal-setting in native UI format',
             audience: 'All segments, broad prospecting',
-            testingPriority: 'first',
+            testingPriority: 'third',
             rationale: [
               "WSO's iOS Notes format scored 84 with 101,868 reach — zero WSP coverage; first-mover advantage in the PE audience.",
               'Native UI format feels like content, not advertising — bypasses ad fatigue for a high-frequency audience.',
@@ -1057,7 +1057,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Career pivot flow graphic · 4:5',
             angle: '"You don\'t need an MBA. You need 8 weeks." — Attorney/CPA/Engineer → PE Professional',
             audience: 'Career pivoters — most underserved archetype',
-            testingPriority: 'first',
+            testingPriority: 'second',
             rationale: [
               'Career pivoters (CPAs, attorneys, engineers) are the most underserved archetype — zero current ads target them.',
               'Named professions (Attorney, CPA, Engineer) trigger immediate self-identification and improve algorithm targeting signal.',
@@ -1085,7 +1085,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Comparison table · 1:1',
             angle: '"Same credential. 100x less time. Zero career gap." — MBA vs. Wharton PE Certificate',
             audience: 'Career pivoters — top paid social angle, never run',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'MBA vs. PE Certificate comparison is explicitly flagged as a top paid social angle in the research and has never been run.',
               'Side-by-side table (2 years / $150K+ vs. 8 weeks / $5K) communicates the value proposition before any body copy is read.',
@@ -1113,7 +1113,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Practitioner headshot + firm pedigree · 4:5',
             angle: '"Learn from people who\'ve done the deals" — KKR, Blackstone, Apollo',
             audience: 'All segments — #2 NPS promoter driver',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Practitioner authority is the #2 NPS promoter driver and has zero visual coverage in the current PE account.',
               'KKR, Blackstone, Apollo name-drops signal real-world deal experience that no campus photo can convey.',
@@ -1127,7 +1127,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Dark quote card + NPS stats · 4:5',
             angle: '10/10 verbatim NPS quote + "549 PE graduates" social proof',
             audience: 'Mid-funnel retargeting',
-            testingPriority: 'second',
+            testingPriority: 'archived',
             rationale: [
               'NPS score of 56 and 549 PE graduates are genuine differentiators that have never appeared in a PE ad.',
               'Verbatim quote ("best online course I\'ve attended") is more credible than any marketing copy.',
@@ -1155,7 +1155,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'Bold vertical typography · 9:16 (Stories/Reels)',
             angle: '"The enrollment window closes soon." — June 8 cohort deadline',
             audience: 'Warm audience, Stories & Reels placements',
-            testingPriority: 'second',
+            testingPriority: 'third',
             rationale: [
               'Zero urgency creative exists in the entire PE account — 100% of top competitor ads use urgency language.',
               'Full-screen 9:16 format is the fastest-growing placement and has no WSP PE coverage.',
@@ -1169,7 +1169,7 @@ export const CREATIVE_PROGRAMS: CreativeProgram[] = [
             format: 'High-contrast gradient typography · 4:5',
             angle: '"Think like a GP. Model like an analyst." — WSP brand colors',
             audience: 'All segments, broad prospecting',
-            testingPriority: 'third',
+            testingPriority: 'archived',
             rationale: [
               'Uses WSP\'s own brand colors in a bold format — the brand palette has never appeared in PE paid social ads.',
               '"Think like a GP. Model like an analyst." compresses both the strategic and technical value propositions into one line.',
