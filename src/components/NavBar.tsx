@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home, BarChart2, MessageSquare, Lightbulb,
   GraduationCap, TrendingUp, ChevronDown, Users, Layers,
-  Phone, Mic,
+  Phone, Mic, Gauge, GitBranch, Globe, ShoppingCart, Target,
 } from 'lucide-react';
 
 const CUSTOMER_INSIGHTS = [
@@ -28,6 +28,16 @@ const COHORT_PERFORMANCE = [
 const TOOLS = [
   { href: '/tools/employer-reimbursement', label: 'Employer Reimbursement Guide', icon: Phone },
   { href: '/tools/webinar-repurposer',     label: 'Webinar Repurposer',           icon: Mic },
+];
+
+const PERFORMANCE_DASHBOARDS = [
+  { href: '/performance/overview',     label: 'Executive Overview',      icon: Gauge },
+  { href: '/performance/trends',       label: 'Historical Trends',       icon: TrendingUp },
+  { href: '/performance/channels',     label: 'Channel Performance',     icon: GitBranch },
+  { href: '/performance/programs',     label: 'Program Performance',     icon: GraduationCap },
+  { href: '/performance/traffic',      label: 'Traffic Analytics',       icon: Globe },
+  { href: '/performance/self-study',   label: 'Self-Study / Retail',     icon: ShoppingCart },
+  { href: '/performance/optimization', label: 'Optimization Priorities', icon: Target },
 ];
 
 
@@ -141,6 +151,13 @@ export default function NavBar() {
           <DropdownMenu
             label="Cohort Performance"
             items={COHORT_PERFORMANCE}
+            activePath={pathname}
+          />
+
+          {/* Performance Dashboards dropdown */}
+          <DropdownMenu
+            label="Performance"
+            items={PERFORMANCE_DASHBOARDS}
             activePath={pathname}
           />
 
