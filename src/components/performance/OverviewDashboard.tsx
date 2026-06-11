@@ -15,9 +15,12 @@ function ProgressToTarget({
   label: string; realTime: number; forecast: number; target: number;
 }) {
   const max = Math.max(realTime, forecast, target, 1);
-  const pctOfTarget = target > 0 ? (realTime / target) * 100 : 0;
   // Green when real-time is beating the forecast, red when trailing it
   const beatingForecast = realTime >= forecast;
+  // Bar color benchmarks against the forecast (the right mid-cohort yardstick):
+  // ahead of forecast → green · within ~70% → yellow · meaningfully behind → red
+  const ratio = forecast > 0 ? realTime / forecast : target > 0 ? realTime / target : 1;
+  const barColor = ratio >= 1 ? 'bg-emerald-500' : ratio >= 0.7 ? 'bg-yellow-500' : 'bg-red-500';
   return (
     <div className="py-3 border-b border-white/5 last:border-0">
       <div className="flex items-baseline justify-between mb-1.5">
@@ -42,7 +45,7 @@ function ProgressToTarget({
           title={`Target: ${fmt(target)}`}
         />
         <div
-          className={`h-2.5 rounded-full ${pctOfTarget >= 90 ? 'bg-emerald-500' : pctOfTarget >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
+          className={`h-2.5 rounded-full ${barColor}`}
           style={{ width: `${Math.min((realTime / max) * 100, 100)}%` }}
         />
       </div>
