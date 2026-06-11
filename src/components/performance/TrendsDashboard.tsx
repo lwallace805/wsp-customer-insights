@@ -4,7 +4,8 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, BarChart, Bar,
 } from 'recharts';
-import { WHARTON_HISTORY, COLUMBIA_HISTORY } from '@/data/performance/historical';
+import { WHARTON_HISTORY, COLUMBIA_HISTORY, WHARTON_CURRENT_CHANNELS } from '@/data/performance/historical';
+import { WHARTON_PAID_OVERALL, CBS_SPRING_GOOGLE } from '@/data/performance/paidChannels';
 import { PROGRAM_SCHOOL, type CohortHistory, type CurrentSnapshot, type School } from '@/data/performance/types';
 import {
   usePersistentSchoolFilter, PageHeader, SectionCard, KpiCard, ChartTooltip, DataAsOf,
@@ -71,18 +72,29 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
     cLeads: r.columbia?.leadsExBots ?? r.columbia?.totalLeads ?? null,
   }));
 
-  // Append the in-progress cohort as a final point (volume metrics only —
-  // cost/ROAS aren't final until the cohort closes).
+  // Append the in-progress cohort as a final point. Volume metrics come from
+  // the live snapshot; to-date cost metrics come from the cohort docs:
+  // - paid/organic split: channel-attributed enrollments (Channel Tables)
+  // - CPL to date: paid spend so far ÷ total leads so far
+  // - PPC ROAS to date: the cohort doc's own running figure
+  // CPE and blended ROAS stay blank — they're only meaningful at cohort close.
   if (wCurrent || cCurrent) {
+    const wPaidEnrolls = (WHARTON_CURRENT_CHANNELS.channelEnrolls.ppc ?? 0) + (WHARTON_CURRENT_CHANNELS.channelEnrolls.sponsored ?? 0);
+    const wOrganicEnrolls = WHARTON_CURRENT_CHANNELS.total - wPaidEnrolls;
+    const wPaidTotal = WHARTON_PAID_OVERALL.find(r => r.program === 'Total');
     chartData.push({
       cohort: wCurrent?.shortLabel ?? cCurrent!.shortLabel,
       wEnrolls: wCurrent?.enrolls ?? null,
       cEnrolls: cCurrent?.enrolls ?? null,
-      wPaid: null, wOrganic: null,
+      wPaid: wCurrent ? wPaidEnrolls : null,
+      wOrganic: wCurrent ? wOrganicEnrolls : null,
       wCvr: wCurrent?.cvr ?? null,
       cCvr: cCurrent?.cvr ?? null,
-      wCpl: null, cCpl: null, wCpe: null, cCpe: null,
-      wPpcRoas: null, cPpcRoas: null, wBlended: null, cBlended: null,
+      wCpl: wCurrent && wPaidTotal && wCurrent.leads > 0 ? +(wPaidTotal.spend / wCurrent.leads).toFixed(0) : null,
+      cCpl: cCurrent && cCurrent.leads > 0 ? +(CBS_SPRING_GOOGLE.spend / cCurrent.leads).toFixed(0) : null,
+      wCpe: null, cCpe: null,
+      wPpcRoas: wCurrent ? (wPaidTotal?.roas ?? null) : null,
+      cPpcRoas: null, wBlended: null, cBlended: null,
       wLeads: wCurrent?.leads ?? null,
       cLeads: cCurrent?.leads ?? null,
     });
@@ -152,7 +164,7 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
 
         {/* Paid vs organic (Wharton) */}
         {showW ? (
-          <SectionCard title="Paid vs. Organic Enrollments — Wharton" subtitle="Traditional paid (PPC + sponsored) vs. organic/direct/owned">
+          <SectionCard title="Paid vs. Organic Enrollments — Wharton" subtitle="Traditional paid (PPC + sponsored) vs. organic/direct/owned · S'26* = channel-attributed to date">
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
@@ -195,7 +207,7 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
         </SectionCard>
 
         {/* CPL / CPE */}
-        <SectionCard title="Cost per Lead & Cost per Enrollment" subtitle="Dollars, by cohort">
+        <SectionCard title="Cost per Lead & Cost per Enrollment" subtitle="Dollars, by cohort · S'26* CPL = paid spend to date ÷ leads · CPE shown for closed cohorts only">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
@@ -213,7 +225,7 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
         </SectionCard>
 
         {/* ROAS */}
-        <SectionCard title="PPC vs. Blended ROAS" subtitle="Return on ad spend (x)">
+        <SectionCard title="PPC vs. Blended ROAS" subtitle="Return on ad spend (x) · S'26* PPC ROAS is to date; blended ROAS finalizes at cohort close">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
