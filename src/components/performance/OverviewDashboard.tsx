@@ -1,7 +1,7 @@
 'use client';
 
 import { PROGRAM_LABELS, PROGRAM_SCHOOL, type CurrentSnapshot } from '@/data/performance/types';
-import { WHARTON_HISTORY, COLUMBIA_HISTORY } from '@/data/performance/historical';
+import { WHARTON_HISTORY, COLUMBIA_HISTORY, COMBINED_EFFICIENCY } from '@/data/performance/historical';
 import { WHARTON_PAID_OVERALL, CBS_SPRING_GOOGLE } from '@/data/performance/paidChannels';
 import { SELF_STUDY_2026 } from '@/data/performance/selfStudy';
 import { SITEWIDE_YOY } from '@/data/performance/traffic';
@@ -86,6 +86,12 @@ export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnaps
     : school === 'columbia' ? CBS_SPRING_GOOGLE.spend
     : (whartonPaidTotal?.spend ?? 0) + CBS_SPRING_GOOGLE.spend;
   const cplToDate = totals.leads > 0 ? Math.round(paidSpendToDate / totals.leads) : null;
+  // Final-CPL context: per school from that school's last closed cohort;
+  // under "All" from the combined rollup (C1'26).
+  const combinedFinal = COMBINED_EFFICIENCY[COMBINED_EFFICIENCY.length - 1];
+  const finalCplLabel = school === 'all'
+    ? `${combinedFinal.cohort} combined final: $${combinedFinal.cpl}`
+    : `${histLatest.cohort} final: $${histLatest.cpl}`;
 
   // Self-study QTD-ish summary (last 13 weeks of 2026 data)
   const ssRecent = SELF_STUDY_2026.actual.slice(-13).reduce((a, b) => a + b, 0);
@@ -117,8 +123,8 @@ export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnaps
         <KpiCard
           label="Paid Spend (to date)"
           value={fmtDollar(paidSpendToDate)}
-          sub={`CPL to date $${cplToDate} · ${histLatest.cohort} final: $${histLatest.cpl}`}
-          positive={cplToDate !== null && cplToDate <= histLatest.cpl}
+          sub={`CPL to date $${cplToDate} · ${finalCplLabel}`}
+          positive={cplToDate !== null && cplToDate <= (school === 'all' ? combinedFinal.cpl : histLatest.cpl)}
         />
         {school === 'columbia' ? (
           <KpiCard

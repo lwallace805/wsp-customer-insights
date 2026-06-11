@@ -4,9 +4,13 @@ import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, BarChart, Bar,
 } from 'recharts';
-import { WHARTON_HISTORY, COLUMBIA_HISTORY, WHARTON_CURRENT_CHANNELS } from '@/data/performance/historical';
+import { WHARTON_HISTORY, COLUMBIA_HISTORY, WHARTON_CURRENT_CHANNELS, COMBINED_EFFICIENCY } from '@/data/performance/historical';
 import { WHARTON_PAID_OVERALL, CBS_SPRING_GOOGLE } from '@/data/performance/paidChannels';
 import { PROGRAM_SCHOOL, type CohortHistory, type CurrentSnapshot, type School } from '@/data/performance/types';
+
+// Columbia cohorts run ~5 weeks behind Wharton; the rollup aligns Columbia
+// "Summer 2025" with the Wharton Spring 2025 cycle (C2'25).
+const COLUMBIA_ALIGN: Record<string, string> = { 'Spring 2025': 'Summer 2025' };
 import {
   usePersistentSchoolFilter, PageHeader, SectionCard, KpiCard, ChartTooltip, DataAsOf,
   CHART_COLORS, SCHOOL_COLORS, AXIS_PROPS, fmt, fmtPct, fmtDollar,
@@ -20,7 +24,9 @@ function buildRows(school: 'all' | 'wharton' | 'columbia') {
   return WHARTON_HISTORY.map(w => ({
     label: w.cohort,
     wharton: w,
-    columbia: school === 'all' ? COLUMBIA_HISTORY.find(c => c.cohort === w.cohort) ?? null : null,
+    columbia: school === 'all'
+      ? COLUMBIA_HISTORY.find(c => c.cohort === w.cohort || c.cohort === COLUMBIA_ALIGN[w.cohort]) ?? null
+      : null,
   }));
 }
 
@@ -118,42 +124,71 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
     <div>
       <PageHeader
         title="Historical Trends"
-        subtitle="Cohort-over-cohort performance — Wharton Spring 2023 →, Columbia Summer 2025 →. * = current cohort in progress (volume metrics only)."
+        subtitle="Cohort-over-cohort performance — Wharton Spring 2023 →, Columbia Summer 2025 →. * = current cohort in progress. All Schools aligns Columbia Su'25 with the concurrent Wharton S'25 cycle."
         school={school}
         onSchoolChange={setSchool}
         right={<DataAsOf asOf={snapshot.asOf} live={snapshot.live} />}
       />
 
-      {/* KPI row — current cohort first, last closed for final-only metrics */}
+      {/* KPI row — current cohort first; finals from the last closed cohort.
+          Under "All Schools" everything is Wharton + Columbia combined. */}
       {latest && (() => {
-        const cur = school === 'columbia' ? cCurrent : wCurrent;
-        const paidSpend = school === 'columbia' ? CBS_SPRING_GOOGLE.spend : WHARTON_PAID_OVERALL.find(r => r.program === 'Total')?.spend ?? 0;
+        const wPaidTotal = WHARTON_PAID_OVERALL.find(r => r.program === 'Total');
+        let cur: { shortLabel: string; enrolls: number; forecast: number; leads: number; cvr: number | null } | null;
+        let paidSpend: number;
+        let curRoas: number | null;
+        let finals: { label: string; enrolls: number; cvr: number; cpl: number; cpe: number; ppcRoas: number; blended: number; priorLabel: string; priorCpe: number; priorBlended: number };
+
+        if (school === 'all') {
+          const enrolls = (wCurrent?.enrolls ?? 0) + (cCurrent?.enrolls ?? 0);
+          const forecast = (wCurrent?.forecast ?? 0) + (cCurrent?.forecast ?? 0);
+          const leads = (wCurrent?.leads ?? 0) + (cCurrent?.leads ?? 0);
+          cur = { shortLabel: "S'26*", enrolls, forecast, leads, cvr: leads > 0 ? +((enrolls / leads) * 100).toFixed(1) : null };
+          paidSpend = (wPaidTotal?.spend ?? 0) + CBS_SPRING_GOOGLE.spend;
+          curRoas = null; // Columbia to-date ROAS unavailable — can't combine honestly
+          const ce = COMBINED_EFFICIENCY[COMBINED_EFFICIENCY.length - 1];
+          const cePrior = COMBINED_EFFICIENCY[COMBINED_EFFICIENCY.length - 2];
+          finals = {
+            label: `${ce.cohort} combined`, enrolls: ce.b2cEnrolls, cvr: ce.leadCvr, cpl: ce.cpl,
+            cpe: ce.cpe, ppcRoas: ce.ppcRoas, blended: ce.blendedRoas,
+            priorLabel: cePrior.cohort, priorCpe: cePrior.cpe, priorBlended: cePrior.blendedRoas,
+          };
+        } else {
+          cur = school === 'columbia' ? cCurrent : wCurrent;
+          paidSpend = school === 'columbia' ? CBS_SPRING_GOOGLE.spend : wPaidTotal?.spend ?? 0;
+          curRoas = school === 'columbia' ? null : wPaidTotal?.roas ?? null;
+          finals = {
+            label: `${latest.shortLabel} final`, enrolls: latest.totalEnrollsExB2B, cvr: latest.leadCvr,
+            cpl: latest.cpl, cpe: latest.cpe, ppcRoas: latest.ppcRoas, blended: latest.blendedRoas,
+            priorLabel: prior?.shortLabel ?? '', priorCpe: prior?.cpe ?? 0, priorBlended: prior?.blendedRoas ?? 0,
+          };
+        }
+
         const curCpl = cur && cur.leads > 0 ? Math.round(paidSpend / cur.leads) : null;
-        const curRoas = school === 'columbia' ? null : WHARTON_PAID_OVERALL.find(r => r.program === 'Total')?.roas ?? null;
         return (
           <div className="flex gap-4 flex-wrap mb-6">
-            <KpiCard label={`Enrolls (${cur?.shortLabel ?? latest.shortLabel})`}
-              value={fmt(cur?.enrolls ?? latest.totalEnrollsExB2B)}
-              sub={cur ? `forecast ${fmt(cur.forecast)} · ${latest.shortLabel} final: ${fmt(latest.totalEnrollsExB2B)}` : undefined}
+            <KpiCard label={`Enrolls (${cur?.shortLabel ?? finals.label})`}
+              value={fmt(cur?.enrolls ?? finals.enrolls)}
+              sub={cur ? `forecast ${fmt(cur.forecast)} · ${finals.label}: ${fmt(finals.enrolls)}` : undefined}
               positive={cur ? cur.enrolls >= cur.forecast : undefined} />
-            <KpiCard label={`Lead CVR (${cur?.shortLabel ?? latest.shortLabel})`}
-              value={fmtPct(cur?.cvr ?? latest.leadCvr)}
-              sub={`${latest.shortLabel} final: ${fmtPct(latest.leadCvr)}`}
-              positive={cur?.cvr != null ? cur.cvr >= latest.leadCvr : undefined} />
+            <KpiCard label={`Lead CVR (${cur?.shortLabel ?? finals.label})`}
+              value={fmtPct(cur?.cvr ?? finals.cvr)}
+              sub={`${finals.label}: ${fmtPct(finals.cvr)}`}
+              positive={cur?.cvr != null ? cur.cvr >= finals.cvr : undefined} />
             <KpiCard label="CPL (to date)"
-              value={curCpl != null ? `$${curCpl}` : `$${latest.cpl}`}
-              sub={`${latest.shortLabel} final: $${latest.cpl}`}
-              positive={curCpl != null ? curCpl <= latest.cpl : undefined} />
-            <KpiCard label={curRoas != null ? 'PPC ROAS (to date)' : `PPC ROAS (${latest.shortLabel} final)`}
-              value={curRoas != null ? `${curRoas.toFixed(2)}x` : `${latest.ppcRoas.toFixed(1)}x`}
-              sub={curRoas != null ? `${latest.shortLabel} final: ${latest.ppcRoas.toFixed(1)}x` : 'to-date ROAS finalizes at close'}
+              value={curCpl != null ? `$${curCpl}` : `$${finals.cpl}`}
+              sub={`${finals.label}: $${finals.cpl}`}
+              positive={curCpl != null ? curCpl <= finals.cpl : undefined} />
+            <KpiCard label={curRoas != null ? 'PPC ROAS (to date)' : `PPC ROAS (${finals.label})`}
+              value={curRoas != null ? `${curRoas.toFixed(2)}x` : `${finals.ppcRoas.toFixed(1)}x`}
+              sub={curRoas != null ? `${finals.label}: ${finals.ppcRoas.toFixed(1)}x` : 'to-date ROAS finalizes at close'}
               positive={curRoas != null ? curRoas >= 1.5 : undefined} />
-            <KpiCard label={`CPE (${latest.shortLabel} final)`} value={`$${latest.cpe}`}
-              sub={prior ? `${prior.shortLabel}: $${prior.cpe}` : undefined}
-              positive={prior ? latest.cpe <= prior.cpe : undefined} />
-            <KpiCard label={`Blended ROAS (${latest.shortLabel} final)`} value={`${latest.blendedRoas.toFixed(1)}x`}
-              sub={prior ? `${prior.shortLabel}: ${prior.blendedRoas.toFixed(1)}x` : undefined}
-              positive={prior ? latest.blendedRoas >= prior.blendedRoas : undefined} />
+            <KpiCard label={`CPE (${finals.label})`} value={`$${finals.cpe}`}
+              sub={finals.priorLabel ? `${finals.priorLabel}: $${finals.priorCpe}` : undefined}
+              positive={finals.priorLabel ? finals.cpe <= finals.priorCpe : undefined} />
+            <KpiCard label={`Blended ROAS (${finals.label})`} value={`${finals.blended.toFixed(1)}x`}
+              sub={finals.priorLabel ? `${finals.priorLabel}: ${finals.priorBlended.toFixed(1)}x` : undefined}
+              positive={finals.priorLabel ? finals.blended >= finals.priorBlended : undefined} />
           </div>
         );
       })()}

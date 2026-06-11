@@ -32,43 +32,117 @@ const CHANNEL_COLORS: Record<ChannelKey, string> = {
 export default function ChannelsDashboard({ snapshot }: { snapshot: CurrentSnapshot }) {
   const [school, setSchool] = usePersistentSchoolFilter();
 
-  // Channel mix % over cohorts, plus the in-progress Spring 2026 point from
-  // each school's cohort doc channel tables.
-  const currentChannels = school === 'columbia' ? COLUMBIA_CURRENT_CHANNELS : WHARTON_CURRENT_CHANNELS;
-  const mixSource = school === 'columbia' ? COLUMBIA_HISTORY.filter(c => Object.keys(c.channelEnrolls).length > 0) : WHARTON_HISTORY;
-  const mixData = mixSource.map(c => {
-    const total = c.totalEnrolls || 1;
+  // ── Cohort series per school filter ──────────────────────────────────────
+  // "All Schools" combines Wharton + Columbia counts. Columbia cohorts run
+  // ~5 weeks behind Wharton; Columbia Su'25 aligns with Wharton S'25 (C2'25).
+  const sumChannels = (
+    a: Partial<Record<ChannelKey, number>>,
+    b: Partial<Record<ChannelKey, number>>
+  ): Partial<Record<ChannelKey, number>> => {
+    const out: Partial<Record<ChannelKey, number>> = {};
+    for (const key of CHANNEL_ORDER) {
+      const v = (a[key] ?? 0) + (b[key] ?? 0);
+      if (v > 0) out[key] = v;
+    }
+    return out;
+  };
+  const COLUMBIA_ALIGN: Record<string, string> = { 'Spring 2025': 'Summer 2025' };
+
+  type MixCohort = {
+    shortLabel: string;
+    total: number;
+    channelEnrolls: Partial<Record<ChannelKey, number>>;
+    paid: number;
+    organic: number;
+  };
+
+  const cohortSeries: MixCohort[] =
+    school === 'columbia'
+      ? COLUMBIA_HISTORY.filter(c => Object.keys(c.channelEnrolls).length > 0).map(c => ({
+          shortLabel: c.shortLabel, total: c.totalEnrolls, channelEnrolls: c.channelEnrolls,
+          paid: c.paidEnrolls, organic: c.organicEnrolls,
+        }))
+      : WHARTON_HISTORY.map(w => {
+          const c = school === 'all'
+            ? COLUMBIA_HISTORY.find(x => x.cohort === w.cohort || x.cohort === COLUMBIA_ALIGN[w.cohort])
+            : undefined;
+          return {
+            shortLabel: w.shortLabel,
+            total: w.totalEnrolls + (c?.totalEnrolls ?? 0),
+            channelEnrolls: c ? sumChannels(w.channelEnrolls, c.channelEnrolls) : w.channelEnrolls,
+            paid: w.paidEnrolls + (c?.paidEnrolls ?? 0),
+            organic: w.organicEnrolls + (c?.organicEnrolls ?? 0),
+          };
+        });
+
+  // In-progress Spring 2026 point (per school, or combined)
+  const currentChannels =
+    school === 'columbia' ? COLUMBIA_CURRENT_CHANNELS
+    : school === 'wharton' ? WHARTON_CURRENT_CHANNELS
+    : {
+        cohort: 'Spring 2026', shortLabel: "S'26*",
+        total: WHARTON_CURRENT_CHANNELS.total + COLUMBIA_CURRENT_CHANNELS.total,
+        channelEnrolls: sumChannels(WHARTON_CURRENT_CHANNELS.channelEnrolls, COLUMBIA_CURRENT_CHANNELS.channelEnrolls),
+      };
+  const curPaid = (currentChannels.channelEnrolls.ppc ?? 0) + (currentChannels.channelEnrolls.sponsored ?? 0);
+  cohortSeries.push({
+    shortLabel: currentChannels.shortLabel,
+    total: currentChannels.total,
+    channelEnrolls: currentChannels.channelEnrolls,
+    paid: curPaid,
+    organic: currentChannels.total - curPaid,
+  });
+
+  const mixData = cohortSeries.map(c => {
     const row: Record<string, string | number> = { cohort: c.shortLabel };
     for (const key of CHANNEL_ORDER) {
-      row[key] = +(((c.channelEnrolls[key] ?? 0) / total) * 100).toFixed(1);
+      row[key] = +(((c.channelEnrolls[key] ?? 0) / (c.total || 1)) * 100).toFixed(1);
     }
     return row;
   });
-  {
-    const cur: Record<string, string | number> = { cohort: currentChannels.shortLabel };
-    for (const key of CHANNEL_ORDER) {
-      cur[key] = +(((currentChannels.channelEnrolls[key] ?? 0) / currentChannels.total) * 100).toFixed(1);
-    }
-    mixData.push(cur);
-  }
 
-  // Paid vs organic share trend
-  const paidTrendSource = school === 'columbia' ? COLUMBIA_HISTORY : WHARTON_HISTORY;
-  const paidTrend = paidTrendSource.map(c => ({
+  const paidTrend = cohortSeries.map(c => ({
     cohort: c.shortLabel,
-    paid: +((c.paidEnrolls / (c.totalEnrolls || 1)) * 100).toFixed(1),
-    organic: +((c.organicEnrolls / (c.totalEnrolls || 1)) * 100).toFixed(1),
+    paid: +((c.paid / (c.total || 1)) * 100).toFixed(1),
+    organic: +((c.organic / (c.total || 1)) * 100).toFixed(1),
   }));
 
-  // Current-cohort channel mix comparison (from the live snapshot)
-  const snapshotSchool: School = school === 'columbia' ? 'columbia' : 'wharton';
-  const mixComparison = snapshot.channelMix[snapshotSchool];
-  const paidVsOrganic = snapshot.paidVsOrganic[snapshotSchool];
+  const schoolLabel = school === 'all' ? 'All Schools (combined)' : school === 'columbia' ? 'Columbia' : 'Wharton';
 
-  // Channel detail table — both schools show the in-progress current cohort.
-  // Sorted largest → smallest.
+  // ── Current cohort mix comparison ─────────────────────────────────────────
+  // Per school: the cohort doc's own current/prior/prior-year percentages.
+  // Combined: computed from channel-attributed counts (prior = W'26 combined,
+  // prior year = W'25, Wharton only — Columbia didn't exist yet).
+  const snapshotSchool: School = school === 'columbia' ? 'columbia' : 'wharton';
+  let mixComparison;
+  let paidVsOrganic;
+  if (school === 'all') {
+    const priorW = WHARTON_HISTORY.find(c => c.cohort === 'Winter 2026')!;
+    const priorC = COLUMBIA_HISTORY.find(c => c.cohort === 'Winter 2026')!;
+    const prior = { total: priorW.totalEnrolls + priorC.totalEnrolls, ch: sumChannels(priorW.channelEnrolls, priorC.channelEnrolls) };
+    const py = WHARTON_HISTORY.find(c => c.cohort === 'Winter 2025')!;
+    const pct = (n: number, d: number) => +((n / (d || 1)) * 100).toFixed(0);
+    mixComparison = CHANNEL_ORDER.map(key => ({
+      channel: CHANNEL_LABELS[key],
+      current: pct(currentChannels.channelEnrolls[key] ?? 0, currentChannels.total),
+      priorCohort: pct(prior.ch[key] ?? 0, prior.total),
+      priorYear: pct(py.channelEnrolls[key] ?? 0, py.totalEnrolls),
+    }));
+    const paidOf = (ch: Partial<Record<ChannelKey, number>>, total: number) => pct((ch.ppc ?? 0) + (ch.sponsored ?? 0), total);
+    const curPaidPct = paidOf(currentChannels.channelEnrolls, currentChannels.total);
+    paidVsOrganic = {
+      paid: curPaidPct, organic: 100 - curPaidPct,
+      priorCohortPaid: paidOf(prior.ch, prior.total),
+      priorYearPaid: paidOf(py.channelEnrolls, py.totalEnrolls),
+    };
+  } else {
+    mixComparison = snapshot.channelMix[snapshotSchool];
+    paidVsOrganic = snapshot.paidVsOrganic[snapshotSchool];
+  }
+
+  // Channel detail table — current cohort, sorted largest → smallest.
   const detail = {
-    title: `${currentChannels.cohort} (${snapshotSchool === 'columbia' ? 'Columbia' : 'Wharton'})`,
+    title: `${currentChannels.cohort} (${schoolLabel})`,
     subtitle: 'Current cohort, in progress — channel-attributed enrollments',
     channelEnrolls: currentChannels.channelEnrolls,
     total: currentChannels.total,
@@ -92,7 +166,7 @@ export default function ChannelsDashboard({ snapshot }: { snapshot: CurrentSnaps
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Channel mix stacked area */}
         <SectionCard
-          title={`Channel Mix Over Time — ${school === 'columbia' ? 'Columbia' : 'Wharton'}`}
+          title={`Channel Mix Over Time — ${schoolLabel}`}
           subtitle="% of total enrollments by channel"
         >
           <ResponsiveContainer width="100%" height={320}>
@@ -137,7 +211,7 @@ export default function ChannelsDashboard({ snapshot }: { snapshot: CurrentSnaps
       {/* Current cohort mix vs prior cohort vs prior year */}
       <div className="mb-6">
         <SectionCard
-          title={`Current Cohort Channel Mix — ${snapshotSchool === 'wharton' ? 'Wharton' : 'Columbia'}`}
+          title={`Current Cohort Channel Mix — ${schoolLabel}`}
           subtitle={`% of enrollments · current vs. prior cohort vs. prior-year cohort · paid share ${paidVsOrganic.paid}% (prior cohort ${paidVsOrganic.priorCohortPaid}%, prior year ${paidVsOrganic.priorYearPaid}%)`}
         >
           <ResponsiveContainer width="100%" height={300}>
