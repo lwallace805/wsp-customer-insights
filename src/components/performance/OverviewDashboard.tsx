@@ -2,6 +2,7 @@
 
 import { PROGRAM_LABELS, PROGRAM_SCHOOL, type CurrentSnapshot } from '@/data/performance/types';
 import { WHARTON_HISTORY, COLUMBIA_HISTORY } from '@/data/performance/historical';
+import { WHARTON_PAID_OVERALL, CBS_SPRING_GOOGLE } from '@/data/performance/paidChannels';
 import { SELF_STUDY_2026 } from '@/data/performance/selfStudy';
 import { SITEWIDE_YOY } from '@/data/performance/traffic';
 import {
@@ -78,6 +79,14 @@ export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnaps
   // Historical context for the latest closed cohorts
   const histLatest = school === 'columbia' ? COLUMBIA_HISTORY.slice(-1)[0] : WHARTON_HISTORY.slice(-1)[0];
 
+  // Current-cohort paid spend to date (Wharton: all paid; Columbia: Google-only so far)
+  const whartonPaidTotal = WHARTON_PAID_OVERALL.find(r => r.program === 'Total');
+  const paidSpendToDate =
+    school === 'wharton' ? (whartonPaidTotal?.spend ?? 0)
+    : school === 'columbia' ? CBS_SPRING_GOOGLE.spend
+    : (whartonPaidTotal?.spend ?? 0) + CBS_SPRING_GOOGLE.spend;
+  const cplToDate = totals.leads > 0 ? Math.round(paidSpendToDate / totals.leads) : null;
+
   // Self-study QTD-ish summary (last 13 weeks of 2026 data)
   const ssRecent = SELF_STUDY_2026.actual.slice(-13).reduce((a, b) => a + b, 0);
   const ssRecentPrior = SELF_STUDY_2026.priorYear.slice(-13).reduce((a, b) => a + b, 0);
@@ -106,11 +115,25 @@ export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnaps
         <KpiCard label="Forecast" value={fmt(totals.forecast)} sub={`${forecastGap >= 0 ? '+' : ''}${fmt(forecastGap)} vs target`} positive={forecastGap >= 0} />
         <KpiCard label="Leads" value={fmt(totals.leads)} sub={`${leadGapPct >= 0 ? '+' : ''}${leadGapPct.toFixed(0)}% vs forecast`} positive={leadGapPct >= 0} />
         <KpiCard
-          label={`${school === 'columbia' ? 'Columbia' : 'Wharton'} CPE (last closed)`}
-          value={`$${histLatest.cpe}`}
-          sub={`${histLatest.cohort} · CPL $${histLatest.cpl}`}
+          label="Paid Spend (to date)"
+          value={fmtDollar(paidSpendToDate)}
+          sub={`CPL to date $${cplToDate} · ${histLatest.cohort} final: $${histLatest.cpl}`}
+          positive={cplToDate !== null && cplToDate <= histLatest.cpl}
         />
-        <KpiCard label="Blended ROAS (last closed)" value={`${histLatest.blendedRoas.toFixed(1)}x`} sub={`PPC ${histLatest.ppcRoas.toFixed(1)}x`} positive={histLatest.ppcRoas >= 2.5} />
+        {school === 'columbia' ? (
+          <KpiCard
+            label="PPC ROAS (last closed)"
+            value={`${histLatest.ppcRoas.toFixed(1)}x`}
+            sub={`${histLatest.cohort} · blended ${histLatest.blendedRoas.toFixed(1)}x · Spring to-date finalizes at close`}
+          />
+        ) : (
+          <KpiCard
+            label="Wharton PPC ROAS (to date)"
+            value={`${whartonPaidTotal?.roas?.toFixed(2) ?? '—'}x`}
+            sub={`${histLatest.cohort} final: ${histLatest.ppcRoas.toFixed(1)}x PPC · ${histLatest.blendedRoas.toFixed(1)}x blended`}
+            positive={(whartonPaidTotal?.roas ?? 0) >= 1.5}
+          />
+        )}
       </div>
 
       {/* Per-program progress */}

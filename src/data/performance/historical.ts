@@ -196,6 +196,22 @@ export const WHARTON_CURRENT_CHANNELS = {
   } as Partial<Record<import('./types').ChannelKey, number>>,
 };
 
+// Current Columbia cohort (Spring 2026, in progress) — channel-attributed
+// enrollments from the CBS Spring 2026 doc "Channel Tables" tab, Current
+// Cohort column (1EfNBwZYYObVU3XSiW1VPC_Fi13ZLaQdq_tZZyPxZy14).
+// Snapshot 2026-06-10. Mapping follows the Wharton convention:
+// "WSP Customer" → email, "SEO" → website.
+export const COLUMBIA_CURRENT_CHANNELS = {
+  cohort: 'Spring 2026',
+  shortLabel: "S'26*",
+  inProgress: true,
+  total: 208,
+  channelEnrolls: {
+    ppc: 35, aiReferral: 6, organicSearch: 26, email: 54, referrals: 22,
+    sponsored: 1, affiliates: 2, social: 2, website: 5, offline: 55,
+  } as Partial<Record<import('./types').ChannelKey, number>>,
+};
+
 // Combined (Wharton + Columbia) marketing efficiency by calendar cohort —
 // from the "Cohort Performance" summary block in the source sheet.
 export const COMBINED_EFFICIENCY = [

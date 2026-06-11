@@ -5,8 +5,7 @@ import {
   Tooltip, Legend, BarChart, Bar,
 } from 'recharts';
 import { PROGRAM_HISTORY, FALL25_LEAD_CHANGE } from '@/data/performance/programHistory';
-import { CURRENT_SNAPSHOT } from '@/data/performance/currentSnapshot';
-import { PROGRAM_LABELS, PROGRAM_SCHOOL, type ProgramKey } from '@/data/performance/types';
+import { PROGRAM_LABELS, PROGRAM_SCHOOL, type CurrentSnapshot, type ProgramKey } from '@/data/performance/types';
 import {
   usePersistentSchoolFilter, PageHeader, SectionCard, ChartTooltip, DataAsOf,
   CHART_COLORS, AXIS_PROPS, fmt, fmtPct,
@@ -30,7 +29,7 @@ const SHORT: Record<string, string> = {
   'Spring 2026': "S'26*", 'Summer 2025': "Su'25",
 };
 
-export default function ProgramsDashboard() {
+export default function ProgramsDashboard({ snapshot }: { snapshot: CurrentSnapshot }) {
   const [school, setSchool] = usePersistentSchoolFilter();
 
   const programs = PROGRAM_HISTORY.filter(p =>
@@ -56,7 +55,7 @@ export default function ProgramsDashboard() {
   });
 
   // Current cohort (live/snapshot) per-program view
-  const currentPrograms = CURRENT_SNAPSHOT.programs.filter(p =>
+  const currentPrograms = snapshot.programs.filter(p =>
     school === 'all' ? true : PROGRAM_SCHOOL[p.program] === school
   );
 
@@ -75,14 +74,14 @@ export default function ProgramsDashboard() {
         subtitle="Per-program lead volume, conversion, and current-cohort pacing"
         school={school}
         onSchoolChange={setSchool}
-        right={<DataAsOf asOf={CURRENT_SNAPSHOT.asOf} live={CURRENT_SNAPSHOT.live} />}
+        right={<DataAsOf asOf={snapshot.asOf} live={snapshot.live} />}
       />
 
       {/* Current cohort actual vs forecast vs target */}
       <div className="mb-6">
         <SectionCard
           title="Current Cohort — Enrollments vs. Forecast vs. Target"
-          subtitle={CURRENT_SNAPSHOT.forecastNote}
+          subtitle={snapshot.forecastNote}
         >
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={currentChart} barCategoryGap="25%">
@@ -155,7 +154,7 @@ export default function ProgramsDashboard() {
       <div className="bg-[#161b22] border border-white/10 rounded-xl overflow-hidden mb-6">
         <div className="px-5 py-4 border-b border-white/10">
           <h2 className="text-sm font-semibold text-white">Current Cohort Detail</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Updated through {CURRENT_SNAPSHOT.asOf} · info sessions through 2026-05-31</p>
+          <p className="text-xs text-gray-500 mt-0.5">Updated through {snapshot.asOf} · info sessions through 2026-05-31</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

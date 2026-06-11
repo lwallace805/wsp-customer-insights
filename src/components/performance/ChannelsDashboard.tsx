@@ -4,9 +4,8 @@ import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, BarChart, Bar,
 } from 'recharts';
-import { WHARTON_HISTORY, COLUMBIA_HISTORY, WHARTON_CURRENT_CHANNELS } from '@/data/performance/historical';
-import { CURRENT_SNAPSHOT } from '@/data/performance/currentSnapshot';
-import { CHANNEL_LABELS, type ChannelKey, type School } from '@/data/performance/types';
+import { WHARTON_HISTORY, COLUMBIA_HISTORY, WHARTON_CURRENT_CHANNELS, COLUMBIA_CURRENT_CHANNELS } from '@/data/performance/historical';
+import { CHANNEL_LABELS, type ChannelKey, type CurrentSnapshot, type School } from '@/data/performance/types';
 import {
   usePersistentSchoolFilter, PageHeader, SectionCard, ChartTooltip, DataAsOf,
   CHART_COLORS, AXIS_PROPS, fmt, fmtPct,
@@ -30,11 +29,12 @@ const CHANNEL_COLORS: Record<ChannelKey, string> = {
   offline: CHART_COLORS.gray,
 };
 
-export default function ChannelsDashboard() {
+export default function ChannelsDashboard({ snapshot }: { snapshot: CurrentSnapshot }) {
   const [school, setSchool] = usePersistentSchoolFilter();
 
-  // Channel mix % over cohorts. Wharton additionally gets the in-progress
-  // Spring 2026 point from the cohort doc's channel tables.
+  // Channel mix % over cohorts, plus the in-progress Spring 2026 point from
+  // each school's cohort doc channel tables.
+  const currentChannels = school === 'columbia' ? COLUMBIA_CURRENT_CHANNELS : WHARTON_CURRENT_CHANNELS;
   const mixSource = school === 'columbia' ? COLUMBIA_HISTORY.filter(c => Object.keys(c.channelEnrolls).length > 0) : WHARTON_HISTORY;
   const mixData = mixSource.map(c => {
     const total = c.totalEnrolls || 1;
@@ -44,10 +44,10 @@ export default function ChannelsDashboard() {
     }
     return row;
   });
-  if (school !== 'columbia') {
-    const cur: Record<string, string | number> = { cohort: WHARTON_CURRENT_CHANNELS.shortLabel };
+  {
+    const cur: Record<string, string | number> = { cohort: currentChannels.shortLabel };
     for (const key of CHANNEL_ORDER) {
-      cur[key] = +(((WHARTON_CURRENT_CHANNELS.channelEnrolls[key] ?? 0) / WHARTON_CURRENT_CHANNELS.total) * 100).toFixed(1);
+      cur[key] = +(((currentChannels.channelEnrolls[key] ?? 0) / currentChannels.total) * 100).toFixed(1);
     }
     mixData.push(cur);
   }
@@ -60,19 +60,19 @@ export default function ChannelsDashboard() {
     organic: +((c.organicEnrolls / (c.totalEnrolls || 1)) * 100).toFixed(1),
   }));
 
-  // Current-cohort channel mix comparison (from snapshot/live)
+  // Current-cohort channel mix comparison (from the live snapshot)
   const snapshotSchool: School = school === 'columbia' ? 'columbia' : 'wharton';
-  const mixComparison = CURRENT_SNAPSHOT.channelMix[snapshotSchool];
-  const paidVsOrganic = CURRENT_SNAPSHOT.paidVsOrganic[snapshotSchool];
+  const mixComparison = snapshot.channelMix[snapshotSchool];
+  const paidVsOrganic = snapshot.paidVsOrganic[snapshotSchool];
 
-  // Channel detail table — Wharton shows the in-progress current cohort,
-  // Columbia the latest closed cohort. Sorted largest → smallest.
-  const detail = school === 'columbia'
-    ? (() => {
-        const latest = COLUMBIA_HISTORY.slice(-1)[0];
-        return { title: `${latest.cohort} (Columbia)`, subtitle: 'Most recent closed cohort', channelEnrolls: latest.channelEnrolls, total: latest.totalEnrolls || 1 };
-      })()
-    : { title: `${WHARTON_CURRENT_CHANNELS.cohort} (Wharton)`, subtitle: 'Current cohort, in progress — channel-attributed enrollments', channelEnrolls: WHARTON_CURRENT_CHANNELS.channelEnrolls, total: WHARTON_CURRENT_CHANNELS.total };
+  // Channel detail table — both schools show the in-progress current cohort.
+  // Sorted largest → smallest.
+  const detail = {
+    title: `${currentChannels.cohort} (${snapshotSchool === 'columbia' ? 'Columbia' : 'Wharton'})`,
+    subtitle: 'Current cohort, in progress — channel-attributed enrollments',
+    channelEnrolls: currentChannels.channelEnrolls,
+    total: currentChannels.total,
+  };
 
   const detailRows = CHANNEL_ORDER
     .map(key => ({ key, count: detail.channelEnrolls[key] ?? 0 }))
@@ -86,7 +86,7 @@ export default function ChannelsDashboard() {
         subtitle="Enrollment channel mix, paid vs. organic balance, and channel efficiency"
         school={school}
         onSchoolChange={setSchool}
-        right={<DataAsOf asOf={CURRENT_SNAPSHOT.asOf} live={CURRENT_SNAPSHOT.live} />}
+        right={<DataAsOf asOf={snapshot.asOf} live={snapshot.live} />}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

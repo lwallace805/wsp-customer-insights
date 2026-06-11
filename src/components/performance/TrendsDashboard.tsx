@@ -35,11 +35,13 @@ function buildInProgress(snapshot: CurrentSnapshot, school: School) {
   const programs = snapshot.programs.filter(p => PROGRAM_SCHOOL[p.program] === school);
   if (!programs.length) return null;
   const enrolls = programs.reduce((a, p) => a + p.enrolls.realTime, 0);
+  const forecast = programs.reduce((a, p) => a + p.enrolls.forecast, 0);
   const leads = programs.reduce((a, p) => a + p.leads.realTime, 0);
   return {
     cohort: label,
     shortLabel: label.replace(/(\w+) 20(\d\d)/, (_, s, y) => `${s[0]}'${y}`) + '*',
     enrolls,
+    forecast,
     leads,
     cvr: leads > 0 ? +((enrolls / leads) * 100).toFixed(1) : null,
   };
@@ -122,29 +124,39 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
         right={<DataAsOf asOf={snapshot.asOf} live={snapshot.live} />}
       />
 
-      {/* Latest-cohort KPI row */}
-      {latest && (
-        <div className="flex gap-4 flex-wrap mb-6">
-          <KpiCard label={`Enrolls (${latest.shortLabel})`} value={fmt(latest.totalEnrollsExB2B)}
-            sub={prior ? `${latest.totalEnrollsExB2B >= prior.totalEnrollsExB2B ? '+' : ''}${fmt(latest.totalEnrollsExB2B - prior.totalEnrollsExB2B)} vs ${prior.shortLabel}` : undefined}
-            positive={prior ? latest.totalEnrollsExB2B >= prior.totalEnrollsExB2B : undefined} />
-          <KpiCard label="Lead CVR" value={fmtPct(latest.leadCvr)}
-            sub={prior ? `${prior.shortLabel}: ${fmtPct(prior.leadCvr)}` : undefined}
-            positive={prior ? latest.leadCvr >= prior.leadCvr : undefined} />
-          <KpiCard label="CPL" value={`$${latest.cpl}`}
-            sub={prior ? `${prior.shortLabel}: $${prior.cpl}` : undefined}
-            positive={prior ? latest.cpl <= prior.cpl : undefined} />
-          <KpiCard label="CPE" value={`$${latest.cpe}`}
-            sub={prior ? `${prior.shortLabel}: $${prior.cpe}` : undefined}
-            positive={prior ? latest.cpe <= prior.cpe : undefined} />
-          <KpiCard label="PPC ROAS" value={`${latest.ppcRoas.toFixed(1)}x`}
-            sub={prior ? `${prior.shortLabel}: ${prior.ppcRoas.toFixed(1)}x` : undefined}
-            positive={prior ? latest.ppcRoas >= prior.ppcRoas : undefined} />
-          <KpiCard label="Blended ROAS" value={`${latest.blendedRoas.toFixed(1)}x`}
-            sub={prior ? `${prior.shortLabel}: ${prior.blendedRoas.toFixed(1)}x` : undefined}
-            positive={prior ? latest.blendedRoas >= prior.blendedRoas : undefined} />
-        </div>
-      )}
+      {/* KPI row — current cohort first, last closed for final-only metrics */}
+      {latest && (() => {
+        const cur = school === 'columbia' ? cCurrent : wCurrent;
+        const paidSpend = school === 'columbia' ? CBS_SPRING_GOOGLE.spend : WHARTON_PAID_OVERALL.find(r => r.program === 'Total')?.spend ?? 0;
+        const curCpl = cur && cur.leads > 0 ? Math.round(paidSpend / cur.leads) : null;
+        const curRoas = school === 'columbia' ? null : WHARTON_PAID_OVERALL.find(r => r.program === 'Total')?.roas ?? null;
+        return (
+          <div className="flex gap-4 flex-wrap mb-6">
+            <KpiCard label={`Enrolls (${cur?.shortLabel ?? latest.shortLabel})`}
+              value={fmt(cur?.enrolls ?? latest.totalEnrollsExB2B)}
+              sub={cur ? `forecast ${fmt(cur.forecast)} · ${latest.shortLabel} final: ${fmt(latest.totalEnrollsExB2B)}` : undefined}
+              positive={cur ? cur.enrolls >= cur.forecast : undefined} />
+            <KpiCard label={`Lead CVR (${cur?.shortLabel ?? latest.shortLabel})`}
+              value={fmtPct(cur?.cvr ?? latest.leadCvr)}
+              sub={`${latest.shortLabel} final: ${fmtPct(latest.leadCvr)}`}
+              positive={cur?.cvr != null ? cur.cvr >= latest.leadCvr : undefined} />
+            <KpiCard label="CPL (to date)"
+              value={curCpl != null ? `$${curCpl}` : `$${latest.cpl}`}
+              sub={`${latest.shortLabel} final: $${latest.cpl}`}
+              positive={curCpl != null ? curCpl <= latest.cpl : undefined} />
+            <KpiCard label={curRoas != null ? 'PPC ROAS (to date)' : `PPC ROAS (${latest.shortLabel} final)`}
+              value={curRoas != null ? `${curRoas.toFixed(2)}x` : `${latest.ppcRoas.toFixed(1)}x`}
+              sub={curRoas != null ? `${latest.shortLabel} final: ${latest.ppcRoas.toFixed(1)}x` : 'to-date ROAS finalizes at close'}
+              positive={curRoas != null ? curRoas >= 1.5 : undefined} />
+            <KpiCard label={`CPE (${latest.shortLabel} final)`} value={`$${latest.cpe}`}
+              sub={prior ? `${prior.shortLabel}: $${prior.cpe}` : undefined}
+              positive={prior ? latest.cpe <= prior.cpe : undefined} />
+            <KpiCard label={`Blended ROAS (${latest.shortLabel} final)`} value={`${latest.blendedRoas.toFixed(1)}x`}
+              sub={prior ? `${prior.shortLabel}: ${prior.blendedRoas.toFixed(1)}x` : undefined}
+              positive={prior ? latest.blendedRoas >= prior.blendedRoas : undefined} />
+          </div>
+        );
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Enrollments trend */}
