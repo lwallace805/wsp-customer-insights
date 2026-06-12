@@ -33,6 +33,7 @@ export interface PaidPlatform {
   cpl: number | null;
   cpe: number | null;
   cvr: number | null;
+  roas?: number;        // x — enrolls × $4,500 AOV ÷ spend (the Wharton doc convention)
   note?: string;
 }
 
@@ -93,6 +94,9 @@ export const CBS_SPRING_GOOGLE: PaidPlatform = {
   platform: 'Google',
   spend: 98330, leads: 691, enrolls: 27,
   cpl: 142.30, cpe: 3641.86, cvr: 3.91,
+  // Computed (not in the CBS doc): 27 enrolls × $4,500 AOV ÷ $98,330 — the
+  // same formula behind the Wharton doc's ROAS column (395 × $4,500 ÷ $959,566 = 1.85).
+  roas: 1.24,
   note: 'CPL goal $175 · CPE goal $2,067 · target budget $155K · forecast 75 enrolls / 886 leads by 7/20',
 };
 

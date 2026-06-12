@@ -102,7 +102,8 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
       cCpl: cCurrent && cCurrent.leads > 0 ? +(CBS_SPRING_GOOGLE.spend / cCurrent.leads).toFixed(0) : null,
       wCpe: null, cCpe: null,
       wPpcRoas: wCurrent ? (wPaidTotal?.roas ?? null) : null,
-      cPpcRoas: null, wBlended: null, cBlended: null,
+      cPpcRoas: cCurrent ? (CBS_SPRING_GOOGLE.roas ?? null) : null,
+      wBlended: null, cBlended: null,
       wLeads: wCurrent?.leads ?? null,
       cLeads: cCurrent?.leads ?? null,
     });
@@ -145,7 +146,10 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
           const leads = (wCurrent?.leads ?? 0) + (cCurrent?.leads ?? 0);
           cur = { shortLabel: "S'26*", enrolls, forecast, leads, cvr: leads > 0 ? +((enrolls / leads) * 100).toFixed(1) : null };
           paidSpend = (wPaidTotal?.spend ?? 0) + CBS_SPRING_GOOGLE.spend;
-          curRoas = null; // Columbia to-date ROAS unavailable — can't combine honestly
+          // Combined to-date PPC ROAS, same convention as the cohort docs:
+          // (paid enrolls × $4,500 AOV) ÷ combined paid spend
+          const paidEnrolls = (wPaidTotal?.enrolls ?? 0) + (CBS_SPRING_GOOGLE.enrolls ?? 0);
+          curRoas = paidSpend > 0 ? +((paidEnrolls * 4500) / paidSpend).toFixed(2) : null;
           const ce = COMBINED_EFFICIENCY[COMBINED_EFFICIENCY.length - 1];
           const cePrior = COMBINED_EFFICIENCY[COMBINED_EFFICIENCY.length - 2];
           finals = {
@@ -156,7 +160,7 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
         } else {
           cur = school === 'columbia' ? cCurrent : wCurrent;
           paidSpend = school === 'columbia' ? CBS_SPRING_GOOGLE.spend : wPaidTotal?.spend ?? 0;
-          curRoas = school === 'columbia' ? null : wPaidTotal?.roas ?? null;
+          curRoas = school === 'columbia' ? CBS_SPRING_GOOGLE.roas ?? null : wPaidTotal?.roas ?? null;
           finals = {
             label: `${latest.shortLabel} final`, enrolls: latest.totalEnrollsExB2B, cvr: latest.leadCvr,
             cpl: latest.cpl, cpe: latest.cpe, ppcRoas: latest.ppcRoas, blended: latest.blendedRoas,
