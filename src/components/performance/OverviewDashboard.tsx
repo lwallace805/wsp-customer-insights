@@ -86,6 +86,15 @@ export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnaps
     : school === 'columbia' ? CBS_SPRING_GOOGLE.spend
     : (whartonPaidTotal?.spend ?? 0) + CBS_SPRING_GOOGLE.spend;
   const cplToDate = totals.leads > 0 ? Math.round(paidSpendToDate / totals.leads) : null;
+  // To-date PPC ROAS — Wharton from its doc; Columbia computed with the same
+  // convention (enrolls × $4,500 AOV ÷ spend); All = combined.
+  const roasToDate =
+    school === 'wharton' ? whartonPaidTotal?.roas ?? null
+    : school === 'columbia' ? CBS_SPRING_GOOGLE.roas ?? null
+    : paidSpendToDate > 0
+      ? +((((whartonPaidTotal?.enrolls ?? 0) + (CBS_SPRING_GOOGLE.enrolls ?? 0)) * 4500) / paidSpendToDate).toFixed(2)
+      : null;
+
   // Final-CPL context: per school from that school's last closed cohort;
   // under "All" from the combined rollup (C1'26).
   const combinedFinal = COMBINED_EFFICIENCY[COMBINED_EFFICIENCY.length - 1];
@@ -126,20 +135,16 @@ export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnaps
           sub={`CPL to date $${cplToDate} · ${finalCplLabel}`}
           positive={cplToDate !== null && cplToDate <= (school === 'all' ? combinedFinal.cpl : histLatest.cpl)}
         />
-        {school === 'columbia' ? (
-          <KpiCard
-            label="PPC ROAS (last closed)"
-            value={`${histLatest.ppcRoas.toFixed(1)}x`}
-            sub={`${histLatest.cohort} · blended ${histLatest.blendedRoas.toFixed(1)}x · Spring to-date finalizes at close`}
-          />
-        ) : (
-          <KpiCard
-            label="Wharton PPC ROAS (to date)"
-            value={`${whartonPaidTotal?.roas?.toFixed(2) ?? '—'}x`}
-            sub={`${histLatest.cohort} final: ${histLatest.ppcRoas.toFixed(1)}x PPC · ${histLatest.blendedRoas.toFixed(1)}x blended`}
-            positive={(whartonPaidTotal?.roas ?? 0) >= 1.5}
-          />
-        )}
+        <KpiCard
+          label="PPC ROAS (to date)"
+          value={roasToDate != null ? `${roasToDate.toFixed(2)}x` : '—'}
+          sub={
+            school === 'all'
+              ? `${combinedFinal.cohort} combined final: ${combinedFinal.ppcRoas.toFixed(1)}x PPC · ${combinedFinal.blendedRoas.toFixed(1)}x blended`
+              : `${histLatest.cohort} final: ${histLatest.ppcRoas.toFixed(1)}x PPC · ${histLatest.blendedRoas.toFixed(1)}x blended`
+          }
+          positive={(roasToDate ?? 0) >= 1.5}
+        />
       </div>
 
       {/* Per-program progress */}

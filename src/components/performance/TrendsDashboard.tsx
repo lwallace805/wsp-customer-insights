@@ -63,12 +63,12 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
   // Shared to-date paid figures for the in-progress (Spring 2026) cohorts, used
   // by both the charts and the All Cohorts table so they stay in sync:
   //  · CPL  = paid spend so far ÷ leads so far
-  //  · PPC ROAS = attributed paid revenue (enrolls × net rev) ÷ paid spend so far
-  //    (Wharton uses the cohort doc's running figure; Columbia is Google-only so far)
+  //  · PPC ROAS = the cohort doc's running figure for Wharton; for Columbia,
+  //    enrolls × $4,500 AOV ÷ spend (stored on CBS_SPRING_GOOGLE.roas — the same
+  //    convention behind the Wharton doc's ROAS column)
   //  · spend = paid spend so far
   // CPE and blended ROAS are intentionally left out — they finalize at cohort close.
   const wPaidTotal = WHARTON_PAID_OVERALL.find(r => r.program === 'Total');
-  const cAvgNetRev = COLUMBIA_HISTORY.length ? COLUMBIA_HISTORY[COLUMBIA_HISTORY.length - 1].avgNetRev : null;
   const wToDate = wCurrent && wPaidTotal
     ? {
         cpl: wCurrent.leads > 0 ? Math.round(wPaidTotal.spend / wCurrent.leads) : null,
@@ -79,9 +79,7 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
   const cToDate = cCurrent
     ? {
         cpl: cCurrent.leads > 0 ? Math.round(CBS_SPRING_GOOGLE.spend / cCurrent.leads) : null,
-        ppcRoas: cAvgNetRev && CBS_SPRING_GOOGLE.spend > 0 && CBS_SPRING_GOOGLE.enrolls != null
-          ? +((CBS_SPRING_GOOGLE.enrolls * cAvgNetRev) / CBS_SPRING_GOOGLE.spend).toFixed(1)
-          : null,
+        ppcRoas: CBS_SPRING_GOOGLE.roas ?? null,
         spend: CBS_SPRING_GOOGLE.spend,
       }
     : null;
@@ -170,7 +168,10 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
           const leads = (wCurrent?.leads ?? 0) + (cCurrent?.leads ?? 0);
           cur = { shortLabel: "S'26*", enrolls, forecast, leads, cvr: leads > 0 ? +((enrolls / leads) * 100).toFixed(1) : null };
           paidSpend = (wPaidTotal?.spend ?? 0) + CBS_SPRING_GOOGLE.spend;
-          curRoas = null; // Columbia to-date ROAS unavailable — can't combine honestly
+          // Combined to-date PPC ROAS, same convention as the cohort docs:
+          // (paid enrolls × $4,500 AOV) ÷ combined paid spend
+          const paidEnrolls = (wPaidTotal?.enrolls ?? 0) + (CBS_SPRING_GOOGLE.enrolls ?? 0);
+          curRoas = paidSpend > 0 ? +((paidEnrolls * 4500) / paidSpend).toFixed(2) : null;
           const ce = COMBINED_EFFICIENCY[COMBINED_EFFICIENCY.length - 1];
           const cePrior = COMBINED_EFFICIENCY[COMBINED_EFFICIENCY.length - 2];
           finals = {
