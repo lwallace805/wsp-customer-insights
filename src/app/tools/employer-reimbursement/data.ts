@@ -59,12 +59,12 @@ export const BRIGHT_HORIZONS_LOC = {
     'This is the most common employer-pay pathway, and the one Aubrey + Kristen\'s team documented from real enrollment experience (June 10, 2026). Most campaign employers — Goldman Sachs, Citi, Bank of America, PepsiCo, and likely Boeing — process employer-pay enrollments through Bright Horizons / EdAssist using a Letter of Credit (LOC). The student secures a signed LOC from their employer before enrolling, WSP works with Finance to send an invoice to EdAssist per the LOC instructions, and payment flows from EdAssist to WSP. Coach every Bright Horizons prospect through the exact 6-step sequence below.',
 
   employers: [
+    'JPMorgan Chase — Bright Horizons / EdAssist (LOC workflow confirmed by Kristen on Aubrey\'s team from real enrollment experience)',
     'Goldman Sachs — Bright Horizons / EdAssist (LOC workflow confirmed)',
     'Citi — citi.edassist.com. Caveat: Citi\'s standard tuition program likely excludes a non-credit cert, so the business-unit training budget is the proven fallback (Citi is the #1 employer for CBS AI, 5 enrollments). Some students still route via EdAssist.',
     'Bank of America — trp.edassist.com (LOC workflow; pre-pay voucher option available)',
     'PepsiCo — Bright Horizons / EdAssist (LOC workflow confirmed)',
     'Boeing — likely Bright Horizons / EdAssist, but verify the prospect\'s benefit platform before assuming the LOC workflow applies.',
-    'JPMorgan Chase — EXCEPTION: JPMC is NOT in the EdAssist database. It uses a reimbursement-only path through Guild Education (student pays upfront, submits a reimbursement claim). Longer process. See the JPMC employer section.',
   ],
 
   studentFields: [
@@ -89,7 +89,6 @@ export const BRIGHT_HORIZONS_LOC = {
     'Invoices must come from Columbia or Wharton, NOT WSP. The invoice cannot show "Wall Street Prep" or "WSP" anywhere — it must be issued under Columbia Business School (or Wharton) as the institution. Finance and Chris M need to be aligned on this for every employer-reimbursement invoice. If this is wrong, the LOC will be rejected.',
     'Credit hours must be listed, even though the program is non-credit. The EdAssist form expects credit hours and rejects "0". Most students enter "NA" for course code and credits. We do not yet know the defensible value to give for credit hours — flag this as an open question for Aubrey\'s team.',
     'Gray-area risk: the approval form indicates a college-credit course, but the WSP/Columbia program is non-credit Executive Education. Bright Horizons has not flagged any issues to date, but if their audit tightens we could be caught in non-alignment between the LOC approval and the actual course type. Worth tracking and worth a future conversation with Bright Horizons or Chris M if rejections start.',
-    'JPMC exception: JPMorgan Chase is NOT in the EdAssist database and cannot use the LOC path. JPMC students go through Guild Education\'s reimbursement-only process (pay upfront, reimburse after). Longer process — set that expectation early.',
   ],
 
   coachingLanguage: [
@@ -193,9 +192,9 @@ export const CROSS_EMPLOYER_SUMMARY: SummaryRow[] = [
     employer: 'JPMorganChase',
     verdict: 'clear',
     verdictWord: 'Clear',
-    cap: '$7,500/yr out-of-catalog',
-    platform: 'Guild Education (NOT EdAssist)',
-    recommendedPath: 'Out-of-catalog Guild path; pay upfront, reimburse. LOC path N/A — JPMC not in EdAssist DB.',
+    cap: '$7,500/yr (grad-level certs)',
+    platform: 'Bright Horizons / EdAssist',
+    recommendedPath: 'Standard LOC workflow — confirmed by Kristen on Aubrey\'s team',
   },
   {
     employer: 'Citi',
@@ -256,7 +255,7 @@ export const CROSS_EMPLOYER_SUMMARY: SummaryRow[] = [
 ];
 
 export const CROSS_EMPLOYER_NOTE =
-  "The Bright Horizons / EdAssist Letter of Credit (LOC) workflow is the most common pathway — start there (it's the default tab). It applies to Goldman Sachs, Bank of America, and PepsiCo, and likely Boeing (verify the platform first). Two exceptions and two nuances: JPMorgan Chase is NOT in the EdAssist database, so it uses a reimbursement-only path through Guild Education (pay upfront, reimburse after — longer process). Microsoft's formal tuition program explicitly excludes non-credit certs, so MSFT prospects route through a manager-approved team training budget (strongest for Finance/Corp Dev/Treasury/Strategy roles). Citi is in EdAssist but its tuition program likely excludes a non-credit cert, so the business-unit training budget is the proven fallback — Citi is the #1 employer for CBS AI with 5 employer-pay enrollments. Visa is historically validated (3 CBS AI enrollments via the $5,250 IRS §127 benefit); Mastercard is a clean policy fit but has no historical signal yet.";
+  "The Bright Horizons / EdAssist Letter of Credit (LOC) workflow is the most common pathway — start there (it's the default tab). It applies to JPMorgan Chase, Goldman Sachs, Bank of America, and PepsiCo, and likely Boeing (verify the platform first). JPMorgan Chase is now confirmed on this path — Kristen on Aubrey's team verified it from real enrollment experience (an earlier draft had it as a Guild Education exception; that's been corrected). One outlier and one nuance: Microsoft's formal tuition program explicitly excludes non-credit certs, so MSFT prospects route through a manager-approved team training budget (strongest for Finance/Corp Dev/Treasury/Strategy roles). Citi is in EdAssist but its tuition program likely excludes a non-credit cert, so the business-unit training budget is the proven fallback — Citi is the #1 employer for CBS AI with 5 employer-pay enrollments. Visa is historically validated (3 CBS AI enrollments via the $5,250 IRS §127 benefit); Mastercard is a clean policy fit but has no historical signal yet.";
 
 export interface TalkingGroup {
   heading: string;
@@ -277,7 +276,7 @@ export const UNIVERSAL_TALKING_POINTS: TalkingGroup[] = [
     heading: 'On the IRS Section 127 tax line',
     points: [
       'Up to $5,250/calendar year of employer educational assistance is tax-free to the employee under IRS Section 127. Above that ceiling, the amount is taxable W-2 wages unless the program is job-related under IRC Section 132 (working condition fringe).',
-      'For employers with caps above $5,250 (BofA $7,500; JPMC $7,500 out-of-catalog; GS ~$10K [likely]), the difference is reported on W-2. Visa and Mastercard cap at $5,250, which is fully tax-free — the cert price maps almost exactly to the benefit.',
+      'For employers with caps above $5,250 (BofA $7,500; JPMC $7,500 for grad-level certs; GS ~$10K [likely]), the difference is reported on W-2. Visa and Mastercard cap at $5,250, which is fully tax-free — the cert price maps almost exactly to the benefit.',
       'Most prospects do not need this level of tax detail; only bring it up if asked or if the prospect is calculating the net cost.',
     ],
   },
@@ -319,7 +318,7 @@ export const TOP_QUESTIONS: QA[] = [
     a: [
       'Per-employer caps are in the at-a-glance cards. Quick read:',
       'BofA: $7,500/year plus $1,000 books stipend',
-      'JPMC: $7,500/year out-of-catalog for grad-level certs',
+      'JPMC: $7,500/year for grad-level certs (Bright Horizons / EdAssist LOC)',
       "Citi: $7,500/year graduate tuition program (cert routes through the business-unit training budget instead — proven path, 5 CBS AI enrollments)",
       'Visa: $5,250/year education benefit (IRS §127); 3 historical CBS AI enrollments',
       'Mastercard: up to $5,250/year (IRS §127); no historical signal yet — confirm with HR',
@@ -406,12 +405,11 @@ export const SOURCES: SourceGroup[] = [
   },
   {
     employer: 'JPMorganChase',
+    note: "Operational path confirmed by Kristen on Aubrey's team from real enrollment experience (June 2026): JPMC uses the standard Bright Horizons / EdAssist Letter of Credit workflow, same as the other banks. An earlier draft framed JPMC as a Guild Education exception (pay upfront, reimburse via jpmc.guildeducation.com) — that came from Aubrey's tentative \"I believe we aren't in their database\" Slack note plus public aggregator sources describing a Guild path. Kristen's firsthand workflow supersedes both; JPMC is in EdAssist. The public links below are kept for the $7,500 cap reference only — disregard their platform (Guild) claims.",
     links: [
-      { label: 'Guild Education: JPMC portal', url: 'https://www.guildeducation.com/jpmc' },
-      { label: 'JPMC Guild login', url: 'https://jpmc.guildeducation.com/' },
-      { label: 'Learn.org: JPMorgan Chase Tuition Reimbursement', url: 'https://learn.org/financial-aid/jpmorgan-chase-tuition-reimbursement' },
-      { label: 'College Transitions: JPMorgan Chase Tuition Assistance', url: 'https://www.collegetransitions.com/blog/jpmorgan-chase-tuition-assistance-online-degrees-for-chase-employees/' },
-      { label: 'Benefit News: JPMorgan tuition-free education benefits', url: 'https://www.benefitnews.com/news/at-jpmorgan-tuition-free-education-benefits-helped-this-working-mom-advance-her-career' },
+      { label: 'Bright Horizons EdAssist: Educational Assistance Program', url: 'https://www.brighthorizons.com/employers/edassist/educational-assistance-program' },
+      { label: 'Learn.org: JPMorgan Chase Tuition Reimbursement (cap reference only)', url: 'https://learn.org/financial-aid/jpmorgan-chase-tuition-reimbursement' },
+      { label: 'College Transitions: JPMorgan Chase Tuition Assistance (cap reference only)', url: 'https://www.collegetransitions.com/blog/jpmorgan-chase-tuition-assistance-online-degrees-for-chase-employees/' },
     ],
   },
   {
@@ -523,45 +521,44 @@ export const EMPLOYERS: Employer[] = [
     name: 'JPMorganChase',
     verdict: 'clear',
     verdictWord: 'Clear',
-    verdictHeadline: 'Clear path',
+    verdictHeadline: 'Confirmed — same Bright Horizons / EdAssist LOC workflow',
     verdictSummary:
-      'Out-of-catalog $7,500/year reimbursement track through Guild Education; pre-approval required.',
+      "Uses the standard Bright Horizons / EdAssist Letter of Credit workflow, same as Goldman, Citi, and BofA. Confirmed by Kristen on Aubrey's team from real enrollment experience. $7,500/year for grad-level certs.",
     recommendedPath:
-      'Out-of-catalog Guild path: pre-approve through Guild, pay tuition upfront, then submit receipts + proof of completion for reimbursement (up to $7,500/year).',
+      'Standard Bright Horizons / EdAssist Letter of Credit workflow (see the Bright Horizons / EdAssist tab for the 6-step process). The student secures a signed LOC through the JPMC benefit portal, shares it with Enrollment, and WSP Finance invoices EdAssist under Columbia Business School.',
     atAGlance: [
-      { label: 'Annual cap', value: '$7,500/year for grad-level/certificate/professional certifications outside the Guild catalog; $5,250/year for outside-catalog undergrad; 100% (no cap) for in-catalog programs' },
-      { label: 'Tenure requirement', value: 'Benefits-eligible; standard Guild deployments typically require ~90 days [likely; JPMC does not publish explicit waiting period]' },
-      { label: 'Platform / admin', value: 'Guild Education at jpmc.guildeducation.com — NOT BrightHorizons/EdAssist' },
-      { label: 'Pre-approval', value: 'Required for out-of-catalog programs; employee pays upfront, submits receipts plus proof of completion for reimbursement' },
+      { label: 'Process', value: "Bright Horizons / EdAssist Letter of Credit — confirmed by Kristen on Aubrey's team from real enrollment experience" },
+      { label: 'Annual cap', value: '$7,500/year for grad-level / certificate / professional certifications; $5,250/year for undergrad' },
+      { label: 'Tenure requirement', value: 'Benefits-eligible (no separate waiting period documented)' },
+      { label: 'Platform / admin', value: 'Bright Horizons / EdAssist (the JPMC employee benefit portal)' },
+      { label: 'Pre-approval', value: 'Required via the EdAssist portal before enrollment; student is issued and signs a Letter of Credit' },
+      { label: 'Required invoice institution', value: 'Columbia Business School (NOT Wall Street Prep) — same as every LOC employer' },
       { label: 'Tax treatment', value: 'Tax-free up to $5,250; amounts above (in the $7,500 cert track) are taxable W-2 wages' },
-      { label: 'BrightHorizons LOC', value: 'NOT available — JPMC is not registered in the EdAssist/BrightHorizons database. Students attempting the LOC path must use Guild\'s standard reimbursement (pay upfront, reimburse after). Longer process — set this expectation early.' },
     ],
     approvalSteps: [
-      'Employee logs into jpmc.guildeducation.com via SSO.',
-      'Works with a Guild coach to confirm the program fits the out-of-catalog reimbursement criteria (job-related, qualifying credential type).',
-      'Submits pre-approval application before enrolling; pays tuition out of pocket.',
-      'After completion, submits receipts plus proof of completion through Guild for reimbursement.',
+      'Follow the standard Bright Horizons / EdAssist LOC workflow (see the Bright Horizons / EdAssist tab).',
+      'Student submits the course for approval through the JPMC benefit portal: institution = Columbia Business School, course code = NA, course credits = NA (not 0).',
+      'Student receives and signs the Letter of Credit, then shares it with WSP Enrollment.',
+      'Enrollment + Finance send the invoice to EdAssist under Columbia Business School (not WSP); the student is enrolled once the invoice is confirmed sent.',
     ],
     willCover: [
-      'Most plausible path: out-of-catalog $7,500/year reimbursement track for professional certificates. JPMC already covers Dalton CFP and Mark Meldrum CFA at 100% in-catalog, which proves finance-aligned non-degree providers are clearly in-scope philosophically; WSP is not a confirmed Guild partner in public sources, so the prospect goes through the out-of-catalog path.',
-      'Pitch as: Columbia Business School Executive Education cobranded certificate, job-related to finance role, falls under the out-of-catalog $7,500 track.',
-      'Coach prospects to expect administrative friction. Glassdoor reviewers report the out-of-catalog reimbursement process can require multiple follow-ups per semester. In-catalog Guild programs are direct-billed and frictionless; out-of-catalog is not.',
+      "Yes — confirmed. JPMC runs employer-pay enrollments through the Bright Horizons / EdAssist Letter of Credit workflow, the same path as Goldman, Citi, and BofA. Verified by Kristen on Aubrey's team from real enrollment experience.",
+      'The $7,500/year grad-level cert track covers the program. Pitch as: Columbia Business School Executive Education cobranded certificate, job-related to the finance role.',
+      'JPMC already covers finance-aligned non-degree credentials (e.g., CFA/CFP prep), so a Columbia-cobranded cert fits the same category.',
     ],
     timeline: [
-      'Pre-approval through Guild: typically 1 to 3 weeks [Guild standard SLA, not JPMC-specific]',
-      'Reimbursement after completion: process is reportedly slow; coach to plan ~6 to 12 weeks post-submission',
-      'Documentation: paid receipts, proof of payment, completion certificate, passing grade per class (B or higher cited anecdotally)',
-      'Clawback: per Glassdoor reports, 50% kept at 1 year post-reimbursement, 100% at 2 years',
+      'LOC issuance after the student submits through the EdAssist portal: typically 1 to 3 weeks.',
+      'Student is enrolled once Finance confirms the invoice has been sent to EdAssist; payment follows the LOC terms.',
+      'Documentation: signed Letter of Credit, invoice under Columbia Business School, course dates, itemized tuition + fees.',
     ],
     managerPitch: [
-      'JPMorganChase already covers Mark Meldrum CFA and Dalton CFP at 100% through Guild. This is the same category of credential, just routed through the out-of-catalog $7,500/year reimbursement track because WSP isn\'t yet a Guild-catalog partner.',
-      'The program is cobranded with Columbia Business School Executive Education and is directly job-related to my [role] work.',
-      "I'd pay upfront and submit for reimbursement after completion.",
+      'JPMorganChase already covers finance credentials like CFA and CFP prep. This is the same category — a Columbia Business School Executive Education cobranded certificate — and it goes through the standard Bright Horizons / EdAssist process.',
+      "It's cobranded with Columbia Business School Executive Education and is directly job-related to my [role] work.",
+      'No coding experience required; the program is built for finance professionals.',
     ],
     gaps: [
-      'WSP is not currently a Guild catalog partner (verify before sending prospect to assume in-catalog path).',
-      'Explicit job-relatedness criteria for the $7,500 out-of-catalog cert track not publicly documented.',
-      'BrightHorizons/EdAssist LOC path is NOT available for JPMC students — JPMC is not registered in the EdAssist database. If a student asks about the LOC path, redirect to Guild Education standard reimbursement.',
+      "Exact in-portal naming / submission steps on JPMC's EdAssist instance aren't documented in detail yet — follow the general LOC workflow and confirm specifics with the student's benefit portal.",
+      'Retention condition: a clawback has been reported (keep 50% at 1 year post-reimbursement, 100% at 2 years) — worth confirming with HR.',
     ],
   },
   {

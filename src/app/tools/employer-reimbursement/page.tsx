@@ -668,9 +668,9 @@ export default function EmployerReimbursementPage() {
                   Start here — this is the path most campaign employers use.
                 </p>
                 <p className="mt-0.5 text-sm text-gray-700">
-                  Goldman Sachs, Citi, Bank of America, PepsiCo, and likely Boeing all run the same
-                  6-step LOC workflow. JPMorgan Chase and Microsoft are the exceptions — see their
-                  employer tabs.
+                  JPMorgan Chase, Goldman Sachs, Citi, Bank of America, PepsiCo, and likely Boeing
+                  all run the same 6-step LOC workflow. Microsoft is the exception (manager-approved
+                  team training budget) — see its tab.
                 </p>
               </div>
             </div>
