@@ -5,11 +5,12 @@ import {
   Phone, CheckCircle2, AlertTriangle, XCircle, Copy, Check,
   ChevronDown, ExternalLink, ClipboardList, MessageSquareQuote,
   ListChecks, Clock, HelpCircle, ShieldQuestion, BookOpen, Info,
+  FileText,
 } from 'lucide-react';
 import {
   EMPLOYERS, PROGRAM_META, VERDICT_LEGEND, CROSS_EMPLOYER_SUMMARY,
   CROSS_EMPLOYER_NOTE, UNIVERSAL_TALKING_POINTS, TOP_QUESTIONS,
-  OBJECTIONS, SOURCES, type Verdict, type Employer,
+  OBJECTIONS, SOURCES, BRIGHT_HORIZONS_LOC, type Verdict, type Employer,
 } from './data';
 
 /* ── Verdict color system ──────────────────────────────────────── */
@@ -266,6 +267,135 @@ function Collapsible({
   );
 }
 
+/* ── BrightHorizons LOC Workflow ───────────────────────────────── */
+function BrightHorizonsLOC() {
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-gray-700 leading-relaxed">{BRIGHT_HORIZONS_LOC.summary}</p>
+
+      {/* Critical flags */}
+      <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
+        <h4 className="text-sm font-semibold text-amber-900 mb-2.5 flex items-center gap-2">
+          <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+          Critical flags
+        </h4>
+        <ul className="space-y-2">
+          {BRIGHT_HORIZONS_LOC.criticalFlags.map((f, i) => (
+            <li key={i} className="flex items-start gap-2.5">
+              <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400 mt-2" />
+              <p className="text-sm text-amber-800 leading-relaxed">{f}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Step-by-step workflow */}
+      <div>
+        <h4 className="text-sm font-semibold text-gray-900 mb-3">Step-by-step workflow</h4>
+        <ol className="space-y-3">
+          {BRIGHT_HORIZONS_LOC.workflow.map((s) => (
+            <li key={s.step} className="flex items-start gap-3">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white text-[11px] font-bold flex items-center justify-center mt-0.5">
+                {s.step}
+              </span>
+              <div>
+                <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                  <span className="text-sm font-semibold text-gray-900">{s.title}</span>
+                  <span className="text-[11px] text-gray-400">({s.actor})</span>
+                </div>
+                <p className="text-sm text-gray-700 leading-relaxed">{s.details}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* Two-column: student input fields + invoice requirements */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <h4 className="text-sm font-semibold text-gray-900 mb-2">What students enter when submitting</h4>
+          <dl className="space-y-2">
+            {BRIGHT_HORIZONS_LOC.studentFields.map((f) => (
+              <div key={f.field} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{f.field}</dt>
+                <dd className="mt-0.5 text-sm text-gray-800 leading-snug">{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        <div>
+          <h4 className="text-sm font-semibold text-gray-900 mb-2">Invoice must include</h4>
+          <ul className="space-y-2">
+            {BRIGHT_HORIZONS_LOC.invoiceRequirements.map((r, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300 mt-2" />
+                <p className="text-sm text-gray-700 leading-relaxed">{r}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Coaching language — copyable */}
+      <div className="rounded-2xl border border-violet-200 bg-violet-50/40 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-3 gap-3">
+          <div className="flex items-center gap-2">
+            <MessageSquareQuote size={16} className="text-violet-500" />
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+              Coaching language for the advisor call
+            </h3>
+          </div>
+          <CopyButton
+            text={BRIGHT_HORIZONS_LOC.coachingLanguage.map((c) => `• ${c}`).join('\n\n')}
+            label="Copy all"
+          />
+        </div>
+        <ul className="space-y-2.5">
+          {BRIGHT_HORIZONS_LOC.coachingLanguage.map((c, i) => (
+            <li
+              key={i}
+              className="flex items-start gap-3 rounded-xl bg-white border border-violet-100 p-3"
+            >
+              <p className="text-[15px] leading-relaxed text-gray-800 flex-1">{c}</p>
+              <CopyButton text={c} />
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Applies to */}
+      <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          Applies to — which employers use this workflow
+        </h4>
+        <ul className="space-y-1.5">
+          {BRIGHT_HORIZONS_LOC.employers.map((e, i) => (
+            <li key={i} className="flex items-start gap-2.5">
+              <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300 mt-2" />
+              <p className="text-sm text-gray-600 leading-relaxed">{e}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Open questions */}
+      <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5">
+        <SectionHeading icon={ShieldQuestion}>
+          Open questions — for Aubrey&rsquo;s team to clarify
+        </SectionHeading>
+        <ul className="space-y-1.5">
+          {BRIGHT_HORIZONS_LOC.openQuestions.map((q, i) => (
+            <li key={i} className="flex items-start gap-2.5">
+              <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400 mt-2" />
+              <p className="text-sm text-gray-600 leading-relaxed">{q}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 /* ── Quick Reference view ──────────────────────────────────────── */
 function QuickReference() {
   return (
@@ -419,9 +549,13 @@ function QuickReference() {
 }
 
 /* ── Page ──────────────────────────────────────────────────────── */
+// Sentinel for the default Bright Horizons / EdAssist LOC view (not an employer id).
+const BRIGHT_HORIZONS_VIEW = 'bright-horizons';
+
 export default function EmployerReimbursementPage() {
-  // null = Quick Reference; otherwise the selected employer id
-  const [selected, setSelected] = useState<string | null>(EMPLOYERS[0].id);
+  // BRIGHT_HORIZONS_VIEW = the default LOC workflow; null = Quick Reference;
+  // otherwise the selected employer id.
+  const [selected, setSelected] = useState<string | null>(BRIGHT_HORIZONS_VIEW);
   const employer = EMPLOYERS.find((e) => e.id === selected) ?? null;
 
   return (
@@ -452,6 +586,29 @@ export default function EmployerReimbursementPage() {
       {/* Sticky employer selector */}
       <div className="sticky top-14 z-30 -mx-6 px-6 py-3 bg-gray-50/95 backdrop-blur border-b border-gray-200 mb-6">
         <div className="flex flex-wrap items-center gap-2">
+          {/* Default: Bright Horizons / EdAssist LOC — the most common pathway */}
+          <button
+            type="button"
+            onClick={() => setSelected(BRIGHT_HORIZONS_VIEW)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+              selected === BRIGHT_HORIZONS_VIEW
+                ? 'bg-violet-600 text-white border-violet-600'
+                : 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'
+            }`}
+          >
+            <FileText size={14} />
+            Bright Horizons / EdAssist
+            <span
+              className={`ml-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                selected === BRIGHT_HORIZONS_VIEW
+                  ? 'bg-white/20 text-white'
+                  : 'bg-violet-200/70 text-violet-700'
+              }`}
+            >
+              Most common
+            </span>
+          </button>
+          <span className="w-px h-5 bg-gray-200 mx-1" />
           <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mr-1">
             Employer
           </span>
@@ -493,7 +650,38 @@ export default function EmployerReimbursementPage() {
       </div>
 
       {/* Body */}
-      {employer ? <EmployerDetail e={employer} /> : <QuickReference />}
+      {selected === BRIGHT_HORIZONS_VIEW ? (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5">
+            <div className="flex items-start gap-3">
+              <FileText size={24} className="text-violet-600 shrink-0 mt-0.5" />
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-lg font-bold text-gray-900">
+                    Bright Horizons / EdAssist — Letter of Credit
+                  </span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                    Most common pathway
+                  </span>
+                </div>
+                <p className="mt-1 font-semibold text-violet-900">
+                  Start here — this is the path most campaign employers use.
+                </p>
+                <p className="mt-0.5 text-sm text-gray-700">
+                  Goldman Sachs, Citi, Bank of America, PepsiCo, and likely Boeing all run the same
+                  6-step LOC workflow. JPMorgan Chase and Microsoft are the exceptions — see their
+                  employer tabs.
+                </p>
+              </div>
+            </div>
+          </div>
+          <BrightHorizonsLOC />
+        </div>
+      ) : employer ? (
+        <EmployerDetail e={employer} />
+      ) : (
+        <QuickReference />
+      )}
 
       {/* Footer note */}
       <p className="mt-10 pt-5 border-t border-gray-200 text-xs text-gray-400 leading-relaxed">

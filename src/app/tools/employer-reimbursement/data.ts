@@ -39,10 +39,115 @@ export const PROGRAM_META = {
     'AI for Business & Finance Certificate (Columbia Business School Executive Education + Wall Street Prep cobrand)',
   audience:
     "Enrollment advisors handling inbound calls from the employer reimbursement campaign",
-  lastUpdated: 'May 31, 2026',
+  lastUpdated: 'June 11, 2026',
   status:
     'Living document. Public-source research compiled to v1; gaps flagged in each section and will fill in as we hear back from employer ambassadors and HR contacts.',
   cohortClose: 'July 13, 2026',
+};
+
+/* ── BrightHorizons / EdAssist LOC Process ──────────────────────── */
+
+export interface LOCWorkflowStep {
+  step: number;
+  title: string;
+  actor: string;
+  details: string;
+}
+
+export const BRIGHT_HORIZONS_LOC = {
+  summary:
+    'This is the most common employer-pay pathway, and the one Aubrey + Kristen\'s team documented from real enrollment experience (June 10, 2026). Most campaign employers — Goldman Sachs, Citi, Bank of America, PepsiCo, and likely Boeing — process employer-pay enrollments through Bright Horizons / EdAssist using a Letter of Credit (LOC). The student secures a signed LOC from their employer before enrolling, WSP works with Finance to send an invoice to EdAssist per the LOC instructions, and payment flows from EdAssist to WSP. Coach every Bright Horizons prospect through the exact 6-step sequence below.',
+
+  employers: [
+    'Goldman Sachs — Bright Horizons / EdAssist (LOC workflow confirmed)',
+    'Citi — citi.edassist.com. Caveat: Citi\'s standard tuition program likely excludes a non-credit cert, so the business-unit training budget is the proven fallback (Citi is the #1 employer for CBS AI, 5 enrollments). Some students still route via EdAssist.',
+    'Bank of America — trp.edassist.com (LOC workflow; pre-pay voucher option available)',
+    'PepsiCo — Bright Horizons / EdAssist (LOC workflow confirmed)',
+    'Boeing — likely Bright Horizons / EdAssist, but verify the prospect\'s benefit platform before assuming the LOC workflow applies.',
+    'JPMorgan Chase — EXCEPTION: JPMC is NOT in the EdAssist database. It uses a reimbursement-only path through Guild Education (student pays upfront, submits a reimbursement claim). Longer process. See the JPMC employer section.',
+  ],
+
+  studentFields: [
+    { field: 'Institution', value: '"Columbia Business School" — or "University of Pennsylvania Wharton School" for Wharton programs. Do NOT enter Wall Street Prep.' },
+    { field: 'Course name', value: 'The exact program name WSP sends the student (e.g., AI for Business & Finance Certificate)' },
+    { field: 'Course dates', value: 'Cohort start and end dates' },
+    { field: 'Course code', value: 'Enter "NA" (most students do)' },
+    { field: 'Course credits', value: 'NOT zero — the field rejects "0". Most students enter "NA". (Open question: the exact value students should input is still being confirmed.)' },
+  ],
+
+  invoiceRequirements: [
+    'Institution name: "Columbia Business School" (or "Wharton School, University of Pennsylvania" for Wharton programs) — NOT Wall Street Prep. If this is wrong, the LOC will be rejected.',
+    'Student full name',
+    'LOC identification number',
+    'Course name',
+    'Course dates (start and end)',
+    'Employer name',
+    'Itemized breakdown of tuition and all fees associated with the course',
+  ],
+
+  criticalFlags: [
+    'Invoices must come from Columbia or Wharton, NOT WSP. The invoice cannot show "Wall Street Prep" or "WSP" anywhere — it must be issued under Columbia Business School (or Wharton) as the institution. Finance and Chris M need to be aligned on this for every employer-reimbursement invoice. If this is wrong, the LOC will be rejected.',
+    'Credit hours must be listed, even though the program is non-credit. The EdAssist form expects credit hours and rejects "0". Most students enter "NA" for course code and credits. We do not yet know the defensible value to give for credit hours — flag this as an open question for Aubrey\'s team.',
+    'Gray-area risk: the approval form indicates a college-credit course, but the WSP/Columbia program is non-credit Executive Education. Bright Horizons has not flagged any issues to date, but if their audit tightens we could be caught in non-alignment between the LOC approval and the actual course type. Worth tracking and worth a future conversation with Bright Horizons or Chris M if rejections start.',
+    'JPMC exception: JPMorgan Chase is NOT in the EdAssist database and cannot use the LOC path. JPMC students go through Guild Education\'s reimbursement-only process (pay upfront, reimburse after). Longer process — set that expectation early.',
+  ],
+
+  coachingLanguage: [
+    '"Your employer uses Bright Horizons / EdAssist for tuition reimbursement. I\'ll walk you through the six-step Letter of Credit process so you know exactly what to enter, what we\'ll need from you, and what we handle on our end."',
+    '"When you submit the course in your EdAssist portal, enter Columbia Business School as the institution and the course name we\'ll send you. For credit hours, the field doesn\'t accept zero; most students enter NA. We\'ll send you the exact text to copy."',
+    '"Once you have your signed Letter of Credit, forward it to us. We work with our Finance team to generate the invoice in the format EdAssist requires."',
+    '"The invoice will come from Columbia Business School, not from Wall Street Prep. That\'s important: EdAssist won\'t process invoices that show WSP as the institution."',
+  ],
+
+  openQuestions: [
+    'What value do students put in the credit hours field if "0" isn\'t accepted? (Need a defensible default before the next cohort to avoid flagging risk.)',
+    'Are post-course follow-up steps required from the student (e.g., grade or completion confirmation back to EdAssist)?',
+    'Can students submit an LOC request after the course start date, or is pre-approval the only path?',
+    "What's the typical LOC turnaround time from each employer (submission to approval)?",
+  ],
+
+  workflow: [
+    {
+      step: 1,
+      title: 'Student submits course for approval',
+      actor: 'Student',
+      details:
+        "Student submits the course for approval through their employer's benefit portal (linked to Bright Horizons / EdAssist). They include the institution (Columbia Business School), course name, course dates, course code (NA), and course credits (NA — \"0\" is not an accepted value).",
+    },
+    {
+      step: 2,
+      title: 'Letter of Credit issued',
+      actor: 'Bright Horizons / EdAssist',
+      details:
+        'Student receives an approval notification and is issued a Letter of Credit. They review and sign the document.',
+    },
+    {
+      step: 3,
+      title: 'Student shares the signed LOC with Enrollment',
+      actor: 'Student → WSP Enrollment',
+      details: 'Student forwards their signed Letter of Credit to the WSP Enrollment team.',
+    },
+    {
+      step: 4,
+      title: 'Invoice generated per LOC instructions',
+      actor: 'WSP Enrollment + Finance',
+      details:
+        'Enrollment works with Finance to generate the invoice per the LOC instructions. The invoice must include: institution name (Columbia Business School — NOT WSP), student name and LOC identification number, course name, course dates, employer name, and an itemized breakdown of tuition and all fees.',
+    },
+    {
+      step: 5,
+      title: 'Student enrolled',
+      actor: 'WSP Enrollment',
+      details: 'Student is enrolled when Finance confirms the invoice has been sent to EdAssist.',
+    },
+    {
+      step: 6,
+      title: 'Payment follow-up & student takes course',
+      actor: 'WSP Enrollment + Finance',
+      details:
+        'Enrollment follows up with Finance on payment and communicates with the student if there are any issues. Student takes the course. Note: students likely cannot submit a new LOC request after the course starts — pre-approval must be secured first.',
+    },
+  ] as LOCWorkflowStep[],
 };
 
 export const VERDICT_LEGEND: { verdict: Verdict; label: string; description: string }[] = [
@@ -81,16 +186,16 @@ export const CROSS_EMPLOYER_SUMMARY: SummaryRow[] = [
     verdict: 'likely',
     verdictWord: 'Likely',
     cap: '~$10K/yr [older data]',
-    platform: 'GS HR/benefits portal',
-    recommendedPath: 'Standard tuition reimbursement; confirm with HR',
+    platform: 'BrightHorizons/EdAssist (confirmed)',
+    recommendedPath: 'BrightHorizons LOC workflow; confirm cap with HR',
   },
   {
     employer: 'JPMorganChase',
     verdict: 'clear',
     verdictWord: 'Clear',
     cap: '$7,500/yr out-of-catalog',
-    platform: 'Guild Education',
-    recommendedPath: 'Out-of-catalog Guild path; pre-approve, pay upfront, reimburse',
+    platform: 'Guild Education (NOT EdAssist)',
+    recommendedPath: 'Out-of-catalog Guild path; pay upfront, reimburse. LOC path N/A — JPMC not in EdAssist DB.',
   },
   {
     employer: 'Citi',
@@ -105,8 +210,32 @@ export const CROSS_EMPLOYER_SUMMARY: SummaryRow[] = [
     verdict: 'clear',
     verdictWord: 'Clear',
     cap: '$7,500/yr + $1K stipend',
-    platform: 'EdAssist (trp.edassist.com)',
-    recommendedPath: 'Tuition program; request pre-pay voucher',
+    platform: 'BrightHorizons EdAssist (trp.edassist.com)',
+    recommendedPath: 'BrightHorizons LOC workflow; request pre-pay voucher',
+  },
+  {
+    employer: 'PepsiCo',
+    verdict: 'likely',
+    verdictWord: 'Likely',
+    cap: 'Not confirmed',
+    platform: 'BrightHorizons/EdAssist (confirmed)',
+    recommendedPath: 'BrightHorizons LOC workflow; confirm cap and eligibility with HR',
+  },
+  {
+    employer: 'Boeing',
+    verdict: 'likely',
+    verdictWord: 'Likely',
+    cap: 'Not documented',
+    platform: 'Possibly BrightHorizons/EdAssist (unconfirmed)',
+    recommendedPath: 'Unconfirmed — verify with HR whether BrightHorizons applies',
+  },
+  {
+    employer: 'Microsoft',
+    verdict: 'difficult',
+    verdictWord: 'Difficult',
+    cap: 'Team budget varies (formal program excludes cert)',
+    platform: 'EdAssist (formal, excludes); team training budget (alt)',
+    recommendedPath: 'Manager-approved team/group training budget — strongest for Finance/Corp Dev/Treasury/Strategy roles',
   },
   {
     employer: 'Visa',
@@ -127,7 +256,7 @@ export const CROSS_EMPLOYER_SUMMARY: SummaryRow[] = [
 ];
 
 export const CROSS_EMPLOYER_NOTE =
-  "Most employers in this campaign have a clear or likely path. The three banks (BofA, JPMC, GS) run tuition-program paths; the payments employers (Visa, Mastercard) cover it through the standard $5,250 IRS §127 education benefit. Citi is the one nuance: its standard tuition program (EdAssist) likely excludes a non-credit Executive Education cert, but the business-unit training budget channel is proven in practice — Citi is the #1 employer for CBS AI with 5 employer-pay enrollments. For Citi prospects, the advisor's job is to route to the team/department training budget, not the tuition program. Visa is historically validated (3 CBS AI enrollments); Mastercard is a clean policy fit but has no historical signal yet, so confirm coverage with HR.";
+  "The Bright Horizons / EdAssist Letter of Credit (LOC) workflow is the most common pathway — start there (it's the default tab). It applies to Goldman Sachs, Bank of America, and PepsiCo, and likely Boeing (verify the platform first). Two exceptions and two nuances: JPMorgan Chase is NOT in the EdAssist database, so it uses a reimbursement-only path through Guild Education (pay upfront, reimburse after — longer process). Microsoft's formal tuition program explicitly excludes non-credit certs, so MSFT prospects route through a manager-approved team training budget (strongest for Finance/Corp Dev/Treasury/Strategy roles). Citi is in EdAssist but its tuition program likely excludes a non-credit cert, so the business-unit training budget is the proven fallback — Citi is the #1 employer for CBS AI with 5 employer-pay enrollments. Visa is historically validated (3 CBS AI enrollments via the $5,250 IRS §127 benefit); Mastercard is a clean policy fit but has no historical signal yet.";
 
 export interface TalkingGroup {
   heading: string;
@@ -223,7 +352,7 @@ export const OBJECTIONS: Objection[] = [
     objection: '"My employer doesn\'t pay for non-degree programs."',
     counters: [
       'Counter: This is cobranded with Columbia Business School Executive Education; Columbia is the accredited institutional partner. The accredited-institution requirement is the main gate for non-degree certs.',
-      'If the employer still excludes professional certs from the tuition program (the Citi case), redirect to the team or department training budget. "That\'s a tuition-program rule. The team training budget channel is different and is the right channel for this kind of program." At Citi this path is proven — 5 employees enrolled in the CBS AI cohorts this way.',
+      'If the employer still excludes professional certs from the tuition program (the Citi and Microsoft cases), redirect to the team or department training budget. "That\'s a tuition-program rule. The team training budget channel is different and is the right channel for this kind of program." At Citi this path is proven — 5 employees enrolled in the CBS AI cohorts this way.',
     ],
   },
   {
@@ -253,7 +382,7 @@ export const OBJECTIONS: Objection[] = [
     objection: '"How long does this take to get approved?"',
     counters: [
       'Counter: "Plan on 2 to 4 weeks for pre-approval at most large employers. The fastest path is to have your manager and HR aligned in parallel before the formal application."',
-      'Counter (Citi or any team-budget path): "Team budget approval is faster: usually 1 to 3 weeks because it doesn\'t go through a benefits platform."',
+      'Counter (Citi or Microsoft team-budget path): "Team budget approval is faster: usually 1 to 3 weeks because it doesn\'t go through a benefits platform."',
     ],
   },
 ];
@@ -307,6 +436,16 @@ export const SOURCES: SourceGroup[] = [
     ],
   },
   {
+    employer: 'Microsoft',
+    links: [
+      { label: 'Microsoft US Benefits: Tuition Assistance', url: 'https://usbenefits.microsoft.com/us/en/tuition-assistance.html' },
+      { label: 'Microsoft US Benefits: Get help with college', url: 'https://usbenefits.microsoft.com/us/en/get-help-with-college.html' },
+      { label: 'Microsoft Careers: Benefits', url: 'https://careers.microsoft.com/v2/global/en/benefits' },
+      { label: 'Learn.org: Microsoft Tuition Reimbursement', url: 'https://learn.org/financial-aid/microsoft-tuition-reimbursement' },
+      { label: 'EdAssist by Bright Horizons (Microsoft portal)', url: 'https://microsoft.edassist.com/start/welcome' },
+    ],
+  },
+  {
     employer: 'Visa',
     note: 'Coverage validated by internal data: WSP Employer Reimbursement Analysis (Apr 2026) shows 3 Visa employer-pay CBS AI enrollments across the Summer + Fall 2025 cohorts. Reimbursement structure follows the standard IRS §127 ($5,250, job-related, manager-approved) model. Confirm the internal submission process with the employee\'s HR.',
     links: [
@@ -346,14 +485,14 @@ export const EMPLOYERS: Employer[] = [
     atAGlance: [
       { label: 'Annual cap', value: '~$10,000/year [likely; cited by multiple aggregators, GS does not publish]' },
       { label: 'Tenure requirement', value: '1 year of service before applying [likely; anecdotal]' },
-      { label: 'Platform / admin', value: 'GS internal HR/benefits portal (not Guild, not EdAssist per available public sources)' },
+      { label: 'Platform / admin', value: 'BrightHorizons / EdAssist — confirmed by enrollment team (see BrightHorizons LOC workflow in Quick Reference)' },
       { label: 'Pre-approval', value: 'Required before enrollment [likely; standard banking-sector practice]' },
       { label: 'Tax treatment', value: 'Tax-free up to IRS $5,250/year; amounts above are taxable W-2 wages' },
     ],
     approvalSteps: [
-      'Standard path is HR/benefits portal submission plus manager sign-off, with pre-approval before enrollment.',
-      'Goldman also runs a selective MBA sponsorship track for high-performing associates/VPs (typically 2 to 6 years tenure) with manager nomination and committee approval. That track is separate from standard tuition reimbursement.',
-      'Reimbursement is paid after course completion with proof of passing grade.',
+      'Goldman uses BrightHorizons / EdAssist for employer-pay enrollments. Follow the BrightHorizons LOC workflow (Quick Reference → BrightHorizons / EdAssist LOC process): student submits for course approval through the EdAssist benefit portal, receives a Letter of Credit, shares the signed LOC with Enrollment, and WSP Finance sends an invoice to EdAssist.',
+      'Pre-approval (manager sign-off) is required before enrollment.',
+      'Goldman also runs a selective MBA sponsorship track for high-performing associates/VPs (typically 2 to 6 years tenure) with manager nomination and committee approval. That track is separate from the standard EdAssist reimbursement path.',
     ],
     willCover: [
       'No public GS documentation addresses non-degree external certificates directly. The Columbia Business School Executive Education cobranding is the strongest qualification lever to lead with: many Section 127 plans accept executive-education programs from accredited universities even when non-degree.',
@@ -392,9 +531,10 @@ export const EMPLOYERS: Employer[] = [
     atAGlance: [
       { label: 'Annual cap', value: '$7,500/year for grad-level/certificate/professional certifications outside the Guild catalog; $5,250/year for outside-catalog undergrad; 100% (no cap) for in-catalog programs' },
       { label: 'Tenure requirement', value: 'Benefits-eligible; standard Guild deployments typically require ~90 days [likely; JPMC does not publish explicit waiting period]' },
-      { label: 'Platform / admin', value: 'Guild Education at jpmc.guildeducation.com' },
+      { label: 'Platform / admin', value: 'Guild Education at jpmc.guildeducation.com — NOT BrightHorizons/EdAssist' },
       { label: 'Pre-approval', value: 'Required for out-of-catalog programs; employee pays upfront, submits receipts plus proof of completion for reimbursement' },
       { label: 'Tax treatment', value: 'Tax-free up to $5,250; amounts above (in the $7,500 cert track) are taxable W-2 wages' },
+      { label: 'BrightHorizons LOC', value: 'NOT available — JPMC is not registered in the EdAssist/BrightHorizons database. Students attempting the LOC path must use Guild\'s standard reimbursement (pay upfront, reimburse after). Longer process — set this expectation early.' },
     ],
     approvalSteps: [
       'Employee logs into jpmc.guildeducation.com via SSO.',
@@ -421,6 +561,7 @@ export const EMPLOYERS: Employer[] = [
     gaps: [
       'WSP is not currently a Guild catalog partner (verify before sending prospect to assume in-catalog path).',
       'Explicit job-relatedness criteria for the $7,500 out-of-catalog cert track not publicly documented.',
+      'BrightHorizons/EdAssist LOC path is NOT available for JPMC students — JPMC is not registered in the EdAssist database. If a student asks about the LOC path, redirect to Guild Education standard reimbursement.',
     ],
   },
   {
@@ -437,7 +578,8 @@ export const EMPLOYERS: Employer[] = [
       { label: 'Historical CBS AI enrollments', value: '5 employer-pay enrollments (Summer + Fall 2025) — Citi is the #1 employer for CBS AI. Almost certainly via business-unit training budget, not the tuition program.' },
       { label: 'Annual cap', value: '$5,250 undergrad / $7,500 grad through the standard Citi Tuition Program — but the cert likely does not qualify there. The team training budget is the working channel (no fixed published cap; manager discretion).' },
       { label: 'Tenure requirement', value: '90 days at Citi (tuition program)' },
-      { label: 'Platform / admin', value: 'Bright Horizons EdAssist at citi.edassist.com (tuition); business-unit training budget via manager + HR business partner (recommended)' },
+      { label: 'Platform / admin', value: 'Bright Horizons EdAssist at citi.edassist.com (tuition program — likely excludes non-credit cert); business-unit training budget via manager + HR business partner (recommended path)' },
+      { label: 'BrightHorizons LOC', value: 'Citi is in the EdAssist database, so the LOC path is technically available. However, the standard tuition program likely excludes non-credit certs — route to BU training budget instead (proven path). Some Citi students may still use the LOC path if their manager routes them through EdAssist.' },
       { label: 'Pre-approval', value: 'Manager approval; for the team-budget path, line manager + business-unit L&D lead' },
       { label: 'Tuition-program coverage gap', value: 'Citi explicitly excludes CFA, CFP, CPA, PHR, Six Sigma, and similar standalone professional certs from the tuition program. The team training budget is the documented workaround — and the data shows it works.' },
     ],
@@ -481,7 +623,7 @@ export const EMPLOYERS: Employer[] = [
       { label: 'Annual cap', value: '$7,500/year plus $1,000 books/supplies stipend; resets annually, no lifetime maximum' },
       { label: 'Tenure requirement', value: '6 months at BofA' },
       { label: 'Eligibility', value: 'Full-time AND part-time US employees (includes branch staff, not just corporate)' },
-      { label: 'Platform / admin', value: 'Bright Horizons EdAssist at trp.edassist.com; support 855-825-0120' },
+      { label: 'Platform / admin', value: 'BrightHorizons EdAssist at trp.edassist.com; support 855-825-0120. Uses BrightHorizons LOC workflow — see Quick Reference → BrightHorizons / EdAssist LOC process.' },
       { label: 'Pre-approval', value: 'Required before enrolling; coursework approved in advance via EdAssist portal, then manager and 2nd-level manager' },
       { label: 'Payment option', value: 'Pre-pay voucher available; voucher pays the school directly so employee does not front the cost' },
     ],
@@ -599,6 +741,141 @@ export const EMPLOYERS: Employer[] = [
       'No historical WSP enrollment signal; coverage is policy-inferred, not confirmed in practice — confirm with HR before promising it.',
       'Internal submission system / benefit name not documented; confirm with HR.',
       'Recent layoffs may tighten discretionary / manager-approved spend.',
+    ],
+  },
+  {
+    id: 'pepsico',
+    name: 'PepsiCo',
+    verdict: 'likely',
+    verdictWord: 'Likely',
+    verdictHeadline: 'Likely covered — uses BrightHorizons/EdAssist LOC process',
+    verdictSummary:
+      'PepsiCo processes employer-pay enrollments through Bright Horizons/EdAssist via Letter of Credit. Coverage terms and cap not yet fully documented — confirm with HR.',
+    recommendedPath:
+      'BrightHorizons/EdAssist Letter of Credit (LOC) path. Student submits through the employer benefit portal, secures a signed LOC, shares it with Enrollment, and WSP Finance sends the invoice to EdAssist. See Quick Reference → BrightHorizons / EdAssist LOC process for the full workflow.',
+    atAGlance: [
+      { label: 'Process', value: 'BrightHorizons/EdAssist Letter of Credit (LOC) — confirmed as LOC-using employer' },
+      { label: 'Annual cap', value: 'Not confirmed — check with HR' },
+      { label: 'Platform / admin', value: 'BrightHorizons/EdAssist employer benefit portal' },
+      { label: 'Pre-approval', value: 'Required via BrightHorizons/EdAssist portal before enrollment' },
+      { label: 'Invoice requirements', value: 'Must show Columbia Business School (not WSP), student name, LOC ID, course dates, itemized fees' },
+      { label: 'Historical CBS AI enrollments', value: 'Confirmed as LOC-using employer; enrollment count not yet tracked' },
+    ],
+    approvalSteps: [
+      'Student submits for course approval through the BrightHorizons/EdAssist employer benefit portal.',
+      'Student enters: institution (Columbia Business School), course name, course dates, course code (NA), course credits (NA — not zero).',
+      'Student receives a Letter of Credit, reviews and signs it.',
+      'Student shares the signed LOC with WSP Enrollment.',
+      'Enrollment works with Finance to send an invoice to EdAssist per the LOC instructions. Invoice must show Columbia Business School (not WSP), student name, LOC ID, course name, course dates, and itemized fee breakdown.',
+      'Enrollment enrolls the student once the invoice is confirmed sent to EdAssist.',
+      'Finance follows up on payment from EdAssist.',
+    ],
+    willCover: [
+      'Likely yes — PepsiCo is confirmed as one of the employers that uses the BrightHorizons/EdAssist LOC process for employer-pay enrollments in this program.',
+      'Specific coverage eligibility, cap amount, and any tenure requirements are not yet documented. Coach prospects to confirm through their HR or benefits portal before assuming coverage.',
+    ],
+    timeline: [
+      'LOC issuance: typically 1 to 3 weeks after student submits through the benefit portal.',
+      'Enrollment happens after the invoice is confirmed sent to EdAssist.',
+      'Payment from EdAssist to WSP follows the LOC payment terms.',
+    ],
+    managerPitch: [
+      "I'd like to enroll in the AI for Business & Finance Certificate cobranded with Columbia Business School Executive Education and process the payment through PepsiCo's Bright Horizons employee education benefit.",
+      "It's directly job-related to my role in [function/team] because [specific application].",
+      'No coding required — the program is designed for finance and business professionals.',
+    ],
+    gaps: [
+      'Annual reimbursement cap not confirmed.',
+      'Eligibility requirements (tenure, employment status) not documented.',
+      'No historical CBS AI enrollment count on record.',
+      'Whether all PepsiCo employees have access to this benefit (vs. select job families) not confirmed.',
+    ],
+  },
+  {
+    id: 'boeing',
+    name: 'Boeing',
+    verdict: 'likely',
+    verdictWord: 'Likely',
+    verdictHeadline: 'Possible LOC path — unconfirmed',
+    verdictSummary:
+      'Boeing may use the BrightHorizons/EdAssist LOC process, but this is unconfirmed. Treat as a possible path and coach the prospect to verify with their HR before proceeding.',
+    recommendedPath:
+      "Confirm with the student's HR whether Boeing's education benefit uses BrightHorizons/EdAssist. If yes, follow the standard BrightHorizons LOC workflow. If no, identify the correct reimbursement channel.",
+    atAGlance: [
+      { label: 'Process', value: 'Possibly BrightHorizons/EdAssist LOC — unconfirmed' },
+      { label: 'Annual cap', value: 'Not documented' },
+      { label: 'Platform / admin', value: 'Likely BrightHorizons/EdAssist if LOC path applies — confirm with HR' },
+      { label: 'Pre-approval', value: 'Required; specific process not yet confirmed' },
+      { label: 'Historical CBS AI enrollments', value: 'None documented — Boeing is unconfirmed as an active employer in this program' },
+    ],
+    approvalSteps: [
+      "Confirm with the student's HR whether Boeing's education benefit uses BrightHorizons/EdAssist.",
+      'If yes: follow the standard BrightHorizons LOC workflow (see Quick Reference → BrightHorizons / EdAssist LOC process).',
+      'If no: confirm the correct reimbursement channel with HR before advising the student.',
+    ],
+    willCover: [
+      "Unconfirmed. Boeing may use the BrightHorizons/EdAssist LOC process, but this has not been verified with actual enrollments. Treat as a possible path, not a guaranteed one.",
+      "Coach the prospect to check with their HR or benefits portal and confirm whether the program qualifies under Boeing's education assistance benefit before assuming coverage.",
+    ],
+    timeline: [
+      'Process and timeline not yet confirmed.',
+      'If BrightHorizons LOC applies: typically 1 to 4 weeks for LOC issuance + enrollment.',
+    ],
+    managerPitch: [
+      "I'd like to enroll in the AI for Business & Finance Certificate cobranded with Columbia Business School Executive Education and process it through Boeing's employee education benefit.",
+      'It applies directly to my work in [role/team] because [specific application]. No coding required.',
+    ],
+    gaps: [
+      'Unconfirmed whether Boeing uses BrightHorizons/EdAssist for education benefits — do not assume.',
+      'Annual cap not documented.',
+      'Eligibility criteria not documented.',
+      'No historical CBS AI enrollments on record.',
+      'Confirm the specific benefit structure and submission process with the prospect\'s HR before advising.',
+    ],
+  },
+  {
+    id: 'microsoft',
+    name: 'Microsoft',
+    verdict: 'difficult',
+    verdictWord: 'Difficult',
+    verdictHeadline: 'Formal tuition program excludes the cert — route to team training budget',
+    verdictSummary:
+      "Microsoft's formal Tuition Assistance Program explicitly excludes non-credit certificates. The only realistic path is a manager-approved team/group training budget — strongest for Finance, Corp Dev, Treasury, FP&A, IR, and Strategy roles.",
+    recommendedPath:
+      "Manager-approved team / group training budget. Microsoft's own benefits page states certificates/CEUs may be reimbursable through your group's training budget if your manager approves. Coach the prospect to position the cert as job-related L&D and get manager sign-off before assuming approval.",
+    atAGlance: [
+      { label: 'Formal tuition program', value: '$10K/year, but explicitly EXCLUDES non-credit certificates — the AI Cert does not qualify here.' },
+      { label: 'Recommended path', value: 'Manager-approved team / group training budget (decentralized; varies by org and manager; no published per-employee allotment).' },
+      { label: 'Best-fit roles', value: 'Finance, Corp Dev, Treasury, FP&A, Investor Relations, Strategy. Weaker fit for Engineering / Product unless framed as FinTech / Cloud Finance / AI Productivity.' },
+      { label: 'Platform / admin', value: 'EdAssist at microsoft.edassist.com (formal program); team training budget via manager + org finance (recommended)' },
+      { label: 'Pre-approval', value: 'Manager approval required for the team-budget path; test the waters before assuming approval' },
+      { label: 'Tax treatment', value: 'Tax-free up to IRS $5,250/year; amounts above are taxable W-2 wages' },
+    ],
+    approvalSteps: [
+      'Do NOT route to the formal Tuition Assistance Program / EdAssist — non-credit certs are explicitly excluded.',
+      "Position the cert as manager-approved L&D funded from the team / group training budget. Microsoft's benefits page explicitly allows certificate reimbursement through a group's training budget with manager approval.",
+      'Target: the prospect\'s line manager (and org finance / training-budget owner).',
+      'Frame: "This is a finance-focused AI certificate, not a degree program. I\'d like to fund it from our team training budget — Microsoft\'s benefits page says this category is eligible with manager approval."',
+      'Coach the prospect to test the waters with their manager before assuming approval; friction varies significantly by org.',
+    ],
+    willCover: [
+      'Through the formal Tuition Assistance Program (EdAssist): no. Non-credit certificates are explicitly excluded by name in Microsoft policy.',
+      'Through a manager-approved group training budget: yes, with the right pitch — most likely for Finance / Corp Dev / Treasury / Strategy roles where the finance angle maps directly to job function.',
+      'For Engineering / Product / non-finance roles: the manager-pitch case is weaker because the finance focus doesn\'t map as cleanly. Still possible if the prospect frames AI-finance integration as relevant to their org (FinTech, Cloud Finance, AI Productivity).',
+    ],
+    timeline: [
+      'Team training budget approval timeline is variable: 1 to 4 weeks depending on manager and quarterly budget cycle.',
+      'Documentation: invoice from WSP, manager email approval, internal finance/PO process per org.',
+    ],
+    managerPitch: [
+      "This is a finance-focused AI certificate, cobranded with Columbia Business School Executive Education. It's not eligible for the formal tuition program because it's non-credit Executive Education, but Microsoft's benefits page specifically says team training budgets can cover this category if the manager approves.",
+      'The program is built for finance professionals; it covers Python for finance, predictive analytics, GenAI/LLMs, and AI automation. It applies directly to my work in [role] because [specific application].',
+      '8 weeks, no coding required, $5,000-range investment, taught by practitioners.',
+    ],
+    gaps: [
+      'No published dollar figure for typical team training budgets at Microsoft.',
+      'Recent (2025-2026) approval rates for external certs through team budgets not documented publicly.',
+      'Friction varies significantly by manager and org; coach prospects to test the waters with their manager before assuming approval.',
     ],
   },
 ];
