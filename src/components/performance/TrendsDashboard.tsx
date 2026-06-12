@@ -60,6 +60,32 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
   const wCurrent = school !== 'columbia' ? buildInProgress(snapshot, 'wharton') : null;
   const cCurrent = school !== 'wharton' ? buildInProgress(snapshot, 'columbia') : null;
 
+  // Shared to-date paid figures for the in-progress (Spring 2026) cohorts, used
+  // by both the charts and the All Cohorts table so they stay in sync:
+  //  · CPL  = paid spend so far ÷ leads so far
+  //  · PPC ROAS = attributed paid revenue (enrolls × net rev) ÷ paid spend so far
+  //    (Wharton uses the cohort doc's running figure; Columbia is Google-only so far)
+  //  · spend = paid spend so far
+  // CPE and blended ROAS are intentionally left out — they finalize at cohort close.
+  const wPaidTotal = WHARTON_PAID_OVERALL.find(r => r.program === 'Total');
+  const cAvgNetRev = COLUMBIA_HISTORY.length ? COLUMBIA_HISTORY[COLUMBIA_HISTORY.length - 1].avgNetRev : null;
+  const wToDate = wCurrent && wPaidTotal
+    ? {
+        cpl: wCurrent.leads > 0 ? Math.round(wPaidTotal.spend / wCurrent.leads) : null,
+        ppcRoas: wPaidTotal.roas ?? null,
+        spend: wPaidTotal.spend,
+      }
+    : null;
+  const cToDate = cCurrent
+    ? {
+        cpl: cCurrent.leads > 0 ? Math.round(CBS_SPRING_GOOGLE.spend / cCurrent.leads) : null,
+        ppcRoas: cAvgNetRev && CBS_SPRING_GOOGLE.spend > 0 && CBS_SPRING_GOOGLE.enrolls != null
+          ? +((CBS_SPRING_GOOGLE.enrolls * cAvgNetRev) / CBS_SPRING_GOOGLE.spend).toFixed(1)
+          : null,
+        spend: CBS_SPRING_GOOGLE.spend,
+      }
+    : null;
+
   const chartData = rows.map(r => ({
     cohort: r.wharton?.shortLabel ?? r.columbia?.shortLabel ?? r.label,
     wEnrolls: r.wharton?.totalEnrollsExB2B ?? null,
@@ -89,7 +115,6 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
   if (wCurrent || cCurrent) {
     const wPaidEnrolls = (WHARTON_CURRENT_CHANNELS.channelEnrolls.ppc ?? 0) + (WHARTON_CURRENT_CHANNELS.channelEnrolls.sponsored ?? 0);
     const wOrganicEnrolls = WHARTON_CURRENT_CHANNELS.total - wPaidEnrolls;
-    const wPaidTotal = WHARTON_PAID_OVERALL.find(r => r.program === 'Total');
     chartData.push({
       cohort: wCurrent?.shortLabel ?? cCurrent!.shortLabel,
       wEnrolls: wCurrent?.enrolls ?? null,
@@ -98,11 +123,12 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
       wOrganic: wCurrent ? wOrganicEnrolls : null,
       wCvr: wCurrent?.cvr ?? null,
       cCvr: cCurrent?.cvr ?? null,
-      wCpl: wCurrent && wPaidTotal && wCurrent.leads > 0 ? +(wPaidTotal.spend / wCurrent.leads).toFixed(0) : null,
-      cCpl: cCurrent && cCurrent.leads > 0 ? +(CBS_SPRING_GOOGLE.spend / cCurrent.leads).toFixed(0) : null,
+      wCpl: wToDate?.cpl ?? null,
+      cCpl: cToDate?.cpl ?? null,
       wCpe: null, cCpe: null,
-      wPpcRoas: wCurrent ? (wPaidTotal?.roas ?? null) : null,
-      cPpcRoas: null, wBlended: null, cBlended: null,
+      wPpcRoas: wToDate?.ppcRoas ?? null,
+      cPpcRoas: cToDate?.ppcRoas ?? null,
+      wBlended: null, cBlended: null,
       wLeads: wCurrent?.leads ?? null,
       cLeads: cCurrent?.leads ?? null,
     });
@@ -133,7 +159,6 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
       {/* KPI row — current cohort first; finals from the last closed cohort.
           Under "All Schools" everything is Wharton + Columbia combined. */}
       {latest && (() => {
-        const wPaidTotal = WHARTON_PAID_OVERALL.find(r => r.program === 'Total');
         let cur: { shortLabel: string; enrolls: number; forecast: number; leads: number; cvr: number | null } | null;
         let paidSpend: number;
         let curRoas: number | null;
@@ -156,7 +181,7 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
         } else {
           cur = school === 'columbia' ? cCurrent : wCurrent;
           paidSpend = school === 'columbia' ? CBS_SPRING_GOOGLE.spend : wPaidTotal?.spend ?? 0;
-          curRoas = school === 'columbia' ? null : wPaidTotal?.roas ?? null;
+          curRoas = school === 'columbia' ? cToDate?.ppcRoas ?? null : wPaidTotal?.roas ?? null;
           finals = {
             label: `${latest.shortLabel} final`, enrolls: latest.totalEnrollsExB2B, cvr: latest.leadCvr,
             cpl: latest.cpl, cpe: latest.cpe, ppcRoas: latest.ppcRoas, blended: latest.blendedRoas,
@@ -353,8 +378,8 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
                 </tr>
               ))}
               {[
-                ...(wCurrent ? [{ ...wCurrent, school: 'wharton' as const, certCount: 5 }] : []),
-                ...(cCurrent ? [{ ...cCurrent, school: 'columbia' as const, certCount: 1 }] : []),
+                ...(wCurrent ? [{ ...wCurrent, school: 'wharton' as const, certCount: 5, toDate: wToDate }] : []),
+                ...(cCurrent ? [{ ...cCurrent, school: 'columbia' as const, certCount: 1, toDate: cToDate }] : []),
               ].map(c => (
                 <tr key={`current-${c.school}`} className="border-b border-white/5 bg-white/5">
                   <td className="px-5 py-3 text-white font-medium whitespace-nowrap">
@@ -368,15 +393,20 @@ export default function TrendsDashboard({ snapshot }: { snapshot: CurrentSnapsho
                   <td className="px-4 py-3 text-right text-gray-300">{fmt(c.enrolls)}</td>
                   <td className="px-4 py-3 text-right text-gray-300">{fmt(c.leads)}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-300">{c.cvr != null ? fmtPct(c.cvr) : '—'}</td>
-                  <td className="px-4 py-3 text-right text-gray-500">—</td>
-                  <td className="px-4 py-3 text-right text-gray-500">—</td>
-                  <td className="px-4 py-3 text-right text-gray-500">—</td>
-                  <td className="px-4 py-3 text-right text-gray-500">—</td>
-                  <td className="px-4 py-3 text-right text-gray-500">—</td>
+                  <td className="px-4 py-3 text-right text-gray-300">{c.toDate?.cpl != null ? `$${c.toDate.cpl}` : '—'}</td>
+                  <td className="px-4 py-3 text-right text-gray-500" title="Finalizes at cohort close">—</td>
+                  <td className="px-4 py-3 text-right text-gray-300">{c.toDate?.ppcRoas != null ? `${c.toDate.ppcRoas.toFixed(1)}x` : '—'}</td>
+                  <td className="px-4 py-3 text-right text-gray-500" title="Finalizes at cohort close">—</td>
+                  <td className="px-4 py-3 text-right text-gray-300">{c.toDate?.spend != null ? fmtDollar(c.toDate.spend) : '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="px-5 py-3 border-t border-white/10 text-[11px] text-gray-500 leading-relaxed">
+          In-progress rows show to-date figures: CPL is paid spend so far ÷ leads, PPC ROAS is
+          attributed paid revenue ÷ spend, and Total Spend is paid spend so far. CPE and blended
+          ROAS are blank until the cohort closes.
         </div>
       </div>
     </div>
