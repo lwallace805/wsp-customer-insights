@@ -26,6 +26,7 @@ const PERFORMANCE_DASHBOARDS = [
   { href: '/performance/trends',       label: 'Historical Trends',       icon: TrendingUp },
   { href: '/performance/channels',     label: 'Channel Performance',     icon: GitBranch },
   { href: '/performance/paid-channels', label: 'Paid Channel Performance', icon: Megaphone },
+  { href: '/performance/paid-optimization', label: 'Paid Optimization',    icon: Target },
   { href: '/performance/programs',     label: 'Program Performance',     icon: GraduationCap },
   { href: '/performance/traffic',      label: 'Traffic Analytics',       icon: Globe },
   { href: '/performance/self-study',   label: 'Self-Study / Retail',     icon: ShoppingCart },
