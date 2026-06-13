@@ -108,11 +108,24 @@ export const WHARTON_CHANNELS: ChannelTotal[] = [
 
 // Columbia (CBSEE) — Spring 2026, all paid channels. Σ spend = $125,976 ·
 // leads 1,432 · enrolls 37. Single program ("AI for Business & Finance").
+//
+// PLATFORM LABELS ARE INFERRED. The source sheet only labels the Google table;
+// the other three tables are unlabeled, so platform is inferred from each line's
+// budget + CPL target, corroborated by Meta Ads Manager:
+//   • Meta = the $11,806 line ($81K budget, $19.81 CPL, 596 leads — the cheap,
+//     high-volume social fingerprint). Ads Manager showed ~$6K Meta in a single
+//     trailing-30-day window, which rules out the tiny $1,865 line being Meta.
+//   • LinkedIn = the $11,595 line ($23K budget, $200 CPL goal — expensive B2B).
+//   • Bing = the $1,865 line ($2K budget — a minor search/test channel).
+// (Earlier this had Meta and Bing swapped.) The sheet also slightly under-
+// captures vs. the platform: its latest week lags Ads Manager by manual entry,
+// so cohort-to-date here can read low vs. the live ad accounts. Confirm labels
+// with the sheet owner (jbain) — ideally add platform banners at the source.
 export const COLUMBIA_CHANNELS: ChannelTotal[] = [
   { channel: 'google',   spend: 100710, leads: 726, enrolls: 30, spendForecast: 84549, cplGoal: 175, cpeGoal: 2067 },
-  { channel: 'bing',     spend: 11806,  leads: 596, enrolls: 4,  spendForecast: 44183, cplGoal: 49,  cpeGoal: 2700 },
+  { channel: 'meta',     spend: 11806,  leads: 596, enrolls: 4,  spendForecast: 44183, cplGoal: 49,  cpeGoal: 2700 },
   { channel: 'linkedin', spend: 11595,  leads: 91,  enrolls: 3,  spendForecast: 12546, cplGoal: 200, cpeGoal: 2556 },
-  { channel: 'meta',     spend: 1865,   leads: 19,  enrolls: 0,  spendForecast: 1091,  cplGoal: 83,  cpeGoal: 1350 },
+  { channel: 'bing',     spend: 1865,   leads: 19,  enrolls: 0,  spendForecast: 1091,  cplGoal: 83,  cpeGoal: 1350 },
 ];
 
 export const CHANNELS_BY_SCHOOL: Record<School, ChannelTotal[]> = {
