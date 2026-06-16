@@ -216,3 +216,81 @@ export async function getPaidPerformance(): Promise<PaidData> {
   }
   return STATIC_PAID_DATA;
 }
+
+// ── Diagnostics ───────────────────────────────────────────────────────────────
+// Read-only introspection used by /api/performance/paid-debug to see why the
+// live parse is or isn't engaging in production (no secrets returned). Remove
+// once the parser is verified.
+
+interface SchoolDebug {
+  docId: string | null;
+  skipped?: string;
+  tabCount?: number;
+  tabs?: string[];
+  totalRows?: number;
+  paidHeaderCount?: number;
+  paidHeaders?: { row: number; banner: string; cols: string[] }[];
+  parsedChannels?: ChannelTotal[] | null;
+  reconcile?: boolean;
+  adsAnchors?: string[][];
+  error?: string;
+}
+
+export interface PaidDebug {
+  env: { serviceAccount: boolean; whartonDocId: string | null; columbiaDocId: string | null };
+  fatal?: string;
+  schools: Record<string, SchoolDebug>;
+}
+
+export async function debugPaidParse(): Promise<PaidDebug> {
+  const out: PaidDebug = {
+    env: {
+      serviceAccount: !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
+      whartonDocId: process.env.WHARTON_COHORT_DOC_ID ?? null,
+      columbiaDocId: process.env.COLUMBIA_COHORT_DOC_ID ?? null,
+    },
+    schools: {},
+  };
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+    out.fatal = 'GOOGLE_SERVICE_ACCOUNT_KEY not set';
+    return out;
+  }
+  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+  for (const school of ['wharton', 'columbia'] as School[]) {
+    const docId = DOC_ENV[school];
+    const s: SchoolDebug = { docId: docId ?? null };
+    if (!docId) {
+      s.skipped = `${school.toUpperCase()}_COHORT_DOC_ID not set`;
+      out.schools[school] = s;
+      continue;
+    }
+    try {
+      const meta = await sheets.spreadsheets.get({ spreadsheetId: docId });
+      s.tabs = (meta.data.sheets ?? []).map(x => x.properties?.title ?? '');
+      s.tabCount = s.tabs.length;
+      const grid = await readAllTabs(sheets, docId);
+      s.totalRows = grid.length;
+      const headers: { row: number; banner: string; cols: string[] }[] = [];
+      for (let i = 0; i < grid.length; i++) {
+        if (isPaidHeader(grid[i] ?? [])) {
+          headers.push({ row: i, banner: (grid[i - 1]?.[0] ?? '').trim(), cols: (grid[i] ?? []).slice(0, 18) });
+        }
+      }
+      s.paidHeaderCount = headers.length;
+      s.paidHeaders = headers.slice(0, 12);
+      const parsed = parseChannels(grid);
+      s.parsedChannels = parsed;
+      s.reconcile = parsed ? channelsReconcile(parsed, grid) : false;
+      const anchors: string[][] = [];
+      for (const row of grid) {
+        const l = (row[0] ?? '').toLowerCase();
+        if (l.includes('ads') && l.includes('google')) anchors.push(row.slice(0, 12));
+      }
+      s.adsAnchors = anchors.slice(0, 5);
+    } catch (e) {
+      s.error = e instanceof Error ? e.message : String(e);
+    }
+    out.schools[school] = s;
+  }
+  return out;
+}
