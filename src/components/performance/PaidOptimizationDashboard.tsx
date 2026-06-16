@@ -9,18 +9,15 @@ import { AlertTriangle, TrendingUp, TrendingDown, Info, Lightbulb } from 'lucide
 import type { School, SchoolFilter } from '@/data/performance/types';
 import {
   CHANNEL_LABEL, PROGRAMS_BY_SCHOOL, MATRIX_CHANNELS,
-  CHANNELS_BY_SCHOOL, WHARTON_PROGRAM_CHANNEL, WHARTON_WEEKLY, COLUMBIA_WEEKLY,
-  COHORT_CONTEXT, MISSING_PLATFORM_METRICS, NET_REV,
+  MISSING_PLATFORM_METRICS, NET_REV,
   derive, sumCounts,
-  type PaidChannel, type DerivedMetrics, type PaidWeekPoint,
+  type PaidChannel, type DerivedMetrics, type PaidWeekPoint, type PaidData,
 } from '@/data/performance/paidOptimization';
 import { COMBINED_EFFICIENCY } from '@/data/performance/historical';
 import {
   usePersistentSchoolFilter, PageHeader, SectionCard, KpiCard, DataAsOf, ChartTooltip,
   CHART_COLORS, AXIS_PROPS, fmt, fmtDollar, fmtPct,
 } from './shared';
-
-const AS_OF = '2026-06-13';
 
 const SCHOOL_LABEL: Record<School, string> = { wharton: 'Wharton', columbia: 'Columbia' };
 const SCHOOLS: School[] = ['wharton', 'columbia'];
@@ -55,8 +52,8 @@ function roasColor(v: number | null): string {
 /* ────────────────────────────────────────────────────────────────────────────
    Channel scorecard — the headline "what's working by channel" table
    ──────────────────────────────────────────────────────────────────────────── */
-function ChannelScorecard({ school }: { school: School }) {
-  const channels = CHANNELS_BY_SCHOOL[school];
+function ChannelScorecard({ school, data }: { school: School; data: PaidData }) {
+  const channels = data.channelsBySchool[school];
   const total = derive(sumCounts(channels), school);
   const rows = channels
     .map(c => ({ channel: c.channel, m: derive(c, school) }))
@@ -68,7 +65,7 @@ function ChannelScorecard({ school }: { school: School }) {
         <div>
           <h2 className="text-sm font-semibold text-white">{SCHOOL_LABEL[school]} — Channel Scorecard</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            {COHORT_CONTEXT[school].cohort} · paid-attributed spend → leads → enrollments. CVR is lead→enroll.
+            {data.cohortContext[school].cohort} · paid-attributed spend → leads → enrollments. CVR is lead→enroll.
           </p>
         </div>
         <span className="text-xs text-gray-500">{fmtDollar(total.spend)} total paid · {fmt(total.enrolls)} paid enrolls</span>
@@ -134,7 +131,7 @@ const MATRIX_METRICS: { key: MatrixMetric; label: string; lowerBetter: boolean }
   { key: 'spend', label: 'Spend', lowerBetter: false },
 ];
 
-function ProgramChannelMatrix() {
+function ProgramChannelMatrix({ data }: { data: PaidData }) {
   const [metric, setMetric] = useState<MatrixMetric>('cpe');
   const programs = PROGRAMS_BY_SCHOOL.wharton;
   const cfg = MATRIX_METRICS.find(m => m.key === metric)!;
@@ -142,11 +139,11 @@ function ProgramChannelMatrix() {
   // Build a program×channel grid of derived metrics.
   const grid = useMemo(() => {
     const map = new Map<string, DerivedMetrics>();
-    for (const leaf of WHARTON_PROGRAM_CHANNEL) {
+    for (const leaf of data.whartonProgramChannel) {
       map.set(`${leaf.program}|${leaf.channel}`, derive(leaf, 'wharton'));
     }
     return map;
-  }, []);
+  }, [data.whartonProgramChannel]);
 
   // Collect values for the selected metric to build a color scale (skip nulls/0-spend).
   const values: number[] = [];
@@ -245,28 +242,29 @@ function weeklyValue(p: PaidWeekPoint, metric: WeeklyMetric): number | null {
   return p[metric];
 }
 
-function WeeklyTrend({ school }: { school: School }) {
+function WeeklyTrend({ school, data }: { school: School; data: PaidData }) {
   const [metric, setMetric] = useState<WeeklyMetric>('spend');
+  const wk = data.weekly[school];
 
   // Per-channel series available for the school.
-  const series: { channel: PaidChannel; data: PaidWeekPoint[] }[] =
+  const series: { channel: PaidChannel; points: PaidWeekPoint[] }[] =
     school === 'wharton'
       ? [
-          { channel: 'google', data: WHARTON_WEEKLY.google },
-          { channel: 'meta', data: WHARTON_WEEKLY.meta },
-          { channel: 'linkedin', data: WHARTON_WEEKLY.linkedin },
+          { channel: 'google', points: wk.google },
+          { channel: 'meta', points: wk.meta ?? [] },
+          { channel: 'linkedin', points: wk.linkedin ?? [] },
         ]
-      : [{ channel: 'google', data: COLUMBIA_WEEKLY.google }];
+      : [{ channel: 'google', points: wk.google }];
 
   // Weeks with any activity (drop trailing all-zero future weeks).
-  const allWeeks = (school === 'wharton' ? WHARTON_WEEKLY.all : COLUMBIA_WEEKLY.all)
+  const allWeeks = wk.all
     .filter(w => w.spend > 0 || w.leads > 0 || w.enrolls > 0)
     .map(w => w.week);
 
   const chartData = allWeeks.map(week => {
     const row: Record<string, number | string | null> = { week };
     for (const s of series) {
-      const pt = s.data.find(d => d.week === week);
+      const pt = s.points.find(d => d.week === week);
       row[s.channel] = pt ? weeklyValue(pt, metric) : null;
     }
     return row;
@@ -352,8 +350,8 @@ function CohortHistory() {
 type Severity = 'critical' | 'warning' | 'positive';
 interface Signal { severity: Severity; title: string; detail: string }
 
-function buildSignals(school: School): Signal[] {
-  const channels = CHANNELS_BY_SCHOOL[school].map(c => ({ channel: c.channel, m: derive(c, school) }));
+function buildSignals(school: School, data: PaidData): Signal[] {
+  const channels = data.channelsBySchool[school].map(c => ({ channel: c.channel, m: derive(c, school) }));
   const withEnrolls = channels.filter(c => c.m.enrolls > 0);
   const signals: Signal[] = [];
 
@@ -400,7 +398,7 @@ function buildSignals(school: School): Signal[] {
   // Programs below 1.0x ROAS (Wharton only — multi-program)
   if (school === 'wharton') {
     const progTotals = PROGRAMS_BY_SCHOOL.wharton.map(p => {
-      const leaves = WHARTON_PROGRAM_CHANNEL.filter(l => l.program === p);
+      const leaves = data.whartonProgramChannel.filter(l => l.program === p);
       return { program: p, m: derive(sumCounts(leaves), 'wharton') };
     });
     const underwater = progTotals.filter(p => p.m.roas != null && p.m.roas < 1).sort((a, b) => (a.m.roas ?? 0) - (b.m.roas ?? 0));
@@ -414,7 +412,7 @@ function buildSignals(school: School): Signal[] {
   }
 
   // Biggest spend concentration
-  const total = derive(sumCounts(CHANNELS_BY_SCHOOL[school]), school);
+  const total = derive(sumCounts(data.channelsBySchool[school]), school);
   const top = [...channels].sort((a, b) => b.m.spend - a.m.spend)[0];
   if (top && total.spend > 0) {
     const share = (top.m.spend / total.spend) * 100;
@@ -437,9 +435,9 @@ const SEV_STYLE: Record<Severity, { ring: string; icon: React.ReactNode; chip: s
 };
 const SEV_ORDER: Record<Severity, number> = { critical: 0, warning: 1, positive: 2 };
 
-function OptimizationSignals({ schools }: { schools: School[] }) {
+function OptimizationSignals({ schools, data }: { schools: School[]; data: PaidData }) {
   const signals = schools
-    .flatMap(s => buildSignals(s).map(sig => ({ ...sig, school: s })))
+    .flatMap(s => buildSignals(s, data).map(sig => ({ ...sig, school: s })))
     .sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity]);
 
   return (
@@ -518,20 +516,20 @@ function FunnelCoverage() {
 /* ────────────────────────────────────────────────────────────────────────────
    Page
    ──────────────────────────────────────────────────────────────────────────── */
-export default function PaidOptimizationDashboard() {
+export default function PaidOptimizationDashboard({ data }: { data: PaidData }) {
   const [school, setSchool] = usePersistentSchoolFilter();
   const activeSchools: School[] = school === 'all' ? SCHOOLS : [school as School];
 
   // Scope KPIs to the active school(s).
-  const scopeChannels = activeSchools.flatMap(s => CHANNELS_BY_SCHOOL[s]);
+  const scopeChannels = activeSchools.flatMap(s => data.channelsBySchool[s]);
   const scopeTotal = derive(sumCounts(scopeChannels), activeSchools[0]);
-  const scopeContext = activeSchools.map(s => COHORT_CONTEXT[s]);
+  const scopeContext = activeSchools.map(s => data.cohortContext[s]);
   const totalCohortEnrolls = scopeContext.reduce((a, c) => a + c.enrollsRealTime, 0);
   const totalCohortGoal = scopeContext.reduce((a, c) => a + c.enrollsGoal, 0);
   const blendedCpe = totalCohortEnrolls > 0 ? scopeTotal.spend / totalCohortEnrolls : null;
   // ROAS weighted by each school's net revenue (correct when scope = both).
   const scopeNetRev = activeSchools.reduce(
-    (a, s) => a + sumCounts(CHANNELS_BY_SCHOOL[s]).enrolls * NET_REV[s], 0,
+    (a, s) => a + sumCounts(data.channelsBySchool[s]).enrolls * NET_REV[s], 0,
   );
   const scopeRoas = scopeTotal.spend > 0 ? scopeNetRev / scopeTotal.spend : null;
 
@@ -542,12 +540,12 @@ export default function PaidOptimizationDashboard() {
         subtitle="One view of paid channel performance — by university, program, and channel (Google · Meta · LinkedIn · Bing). Current cohort: Spring 2026."
         school={school as SchoolFilter}
         onSchoolChange={setSchool}
-        right={<DataAsOf asOf={AS_OF} live={false} />}
+        right={<DataAsOf asOf={data.asOf} live={data.live} />}
       />
 
       {/* Source / coverage banner */}
       <div className="mb-6 rounded-xl border border-white/10 bg-[#161b22] px-5 py-3 text-xs text-gray-400 leading-relaxed">
-        <span className="font-semibold text-gray-300">Source of truth:</span> synced from the live{' '}
+        <span className="font-semibold text-gray-300">Source of truth:</span> {data.live ? 'synced daily from' : 'curated snapshot of'} the live{' '}
         <span className="text-gray-300">Wharton</span> & <span className="text-gray-300">Columbia</span> performance dashboards (the same sheets the paid team maintains).{' '}
         Metrics are <span className="text-gray-300">paid-attributed</span> (platform spend → leads → enrollments); CVR is lead→enroll; ROAS is on <span className="text-gray-300">net revenue/enroll</span> (≈$2.8K Wharton / $3.0K Columbia), so <span className="text-gray-300">1.0× = contribution breakeven</span>.{' '}
         <span className="text-gray-400">Both cohorts are in progress — enrollments lag spend, so CPE/ROAS improve toward each deadline (Wharton ~done; Columbia has ~37 days left).</span>{' '}
@@ -581,27 +579,27 @@ export default function PaidOptimizationDashboard() {
 
       {/* Optimization signals — lead with the "so what" */}
       <div className="mb-6">
-        <OptimizationSignals schools={activeSchools} />
+        <OptimizationSignals schools={activeSchools} data={data} />
       </div>
 
       {/* Channel scorecards */}
       <div className="space-y-6 mb-6">
         {activeSchools.map(s => (
-          <ChannelScorecard key={s} school={s} />
+          <ChannelScorecard key={s} school={s} data={data} />
         ))}
       </div>
 
       {/* Program × channel matrix — Wharton (multi-program) */}
       {activeSchools.includes('wharton') && (
         <div className="mb-6">
-          <ProgramChannelMatrix />
+          <ProgramChannelMatrix data={data} />
         </div>
       )}
 
       {/* Weekly trend within cohort */}
       <div className="space-y-6 mb-6">
         {activeSchools.map(s => (
-          <WeeklyTrend key={s} school={s} />
+          <WeeklyTrend key={s} school={s} data={data} />
         ))}
       </div>
 

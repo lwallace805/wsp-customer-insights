@@ -350,3 +350,36 @@ export const COHORT_CONTEXT: Record<School, CohortContext> = {
 // ── The metrics the source sheets do NOT contain ──────────────────────────────
 // Surfaced in the UI so the gap is explicit and actionable.
 export const MISSING_PLATFORM_METRICS = ['CPM', 'CTR', 'CPC'] as const;
+
+// ── Bundled dashboard data (live layer or static fallback) ────────────────────
+// The dashboard renders from a PaidData bundle. In production the live layer
+// (src/lib/performance/paidLive.ts) parses this from the source sheets via the
+// service account and refreshes daily via the Vercel cron; if the parse fails
+// or its sanity checks don't reconcile, it serves STATIC_PAID_DATA below so the
+// page is always correct. `asOf`/`live` drive the freshness badge.
+
+export interface WeeklySeries {
+  all: PaidWeekPoint[];
+  google: PaidWeekPoint[];
+  meta?: PaidWeekPoint[];
+  linkedin?: PaidWeekPoint[];
+}
+
+export interface PaidData {
+  asOf: string;        // YYYY-MM-DD the data is current through
+  live: boolean;       // true = parsed from sheets this run; false = static snapshot
+  channelsBySchool: Record<School, ChannelTotal[]>;
+  whartonProgramChannel: ProgramChannelLeaf[];
+  weekly: Record<School, WeeklySeries>;
+  cohortContext: Record<School, CohortContext>;
+}
+
+// The curated snapshot, assembled from the constants above. Sourced 2026-06-13.
+export const STATIC_PAID_DATA: PaidData = {
+  asOf: '2026-06-13',
+  live: false,
+  channelsBySchool: CHANNELS_BY_SCHOOL,
+  whartonProgramChannel: WHARTON_PROGRAM_CHANNEL,
+  weekly: { wharton: WHARTON_WEEKLY, columbia: COLUMBIA_WEEKLY },
+  cohortContext: COHORT_CONTEXT,
+};
