@@ -11,14 +11,15 @@
 // Env vars (shared with live.ts — these are the same Wharton/Columbia docs):
 //   WHARTON_COHORT_DOC_ID, COLUMBIA_COHORT_DOC_ID, GOOGLE_SERVICE_ACCOUNT_KEY
 //
-// LABEL-DRIVEN, NO GUESSING. The source sheets only label the Google platform
-// table; Meta/LinkedIn/Bing tables are unlabeled and (for Wharton) have nearly
-// identical CPL goals, so there is no safe way to infer them. This parser reads
-// a platform's numbers ONLY when its table carries an explicit banner label
-// (Google / Meta / LinkedIn / Bing / Affiliates) — it never guesses. So today
-// (only Google labeled) a school fails validation and keeps the snapshot; the
-// moment the sheet owner adds the other banner labels, the full per-channel
-// split goes live automatically. This eliminates the earlier Meta/Bing mix-up.
+// LABEL-DRIVEN, NO GUESSING. In the "Paid WoW Performance & Goals" tab the four
+// platform tables are laid out SIDE-BY-SIDE (Google in the left columns, then
+// Bing, Meta, LinkedIn stretching out to ~col BY) — not stacked vertically.
+// Each carries an explicit banner cell ("Google" / "Bing" / "Meta" /
+// "LinkedIn"). We scan every cell for those banners and read each table at its
+// own column offset; a channel is taken ONLY from an explicitly-labeled table,
+// never inferred (CPL-goal fingerprinting caused the earlier Meta/Bing &
+// Meta/LinkedIn mix-ups). A school goes live only when Google + Meta + LinkedIn
+// all parse with sane economics; otherwise it keeps the snapshot.
 
 import { google } from 'googleapis';
 import { unstable_cache } from 'next/cache';
@@ -54,8 +55,8 @@ const DOC_ENV: Record<School, string | undefined> = {
 
 type Grid = string[][];
 
-/** Read every tab of a doc as one flattened row list. Deep range so per-platform
- *  tables (which sit well below row 400 in the paid tab) aren't cut off. */
+/** Read every tab as one flattened row list. Wide (to col CB) so the
+ *  side-by-side platform tables (LinkedIn reaches ~col BY) aren't cut off. */
 async function readAllTabs(
   sheets: ReturnType<typeof google.sheets>,
   docId: string,
@@ -67,7 +68,7 @@ async function readAllTabs(
   if (!titles.length) return [];
   const res = await sheets.spreadsheets.values.batchGet({
     spreadsheetId: docId,
-    ranges: titles.map(t => `'${t}'!A1:AZ1200`),
+    ranges: titles.map(t => `'${t}'!A1:CB400`),
   });
   const out: Grid = [];
   for (const vr of res.data.valueRanges ?? []) {
@@ -76,77 +77,57 @@ async function readAllTabs(
   return out;
 }
 
-// A per-platform/per-program table header carries Spend/Leads/Enroll/CPL + a
-// "CPL Goal" column. Weekly tables also match, so they're filtered separately.
-function isPaidHeader(row: string[]): boolean {
-  const joined = row.join(' ').toLowerCase();
-  return (
-    joined.includes('spend') && joined.includes('lead') &&
-    joined.includes('enroll') && joined.includes('cpl') &&
-    /cpl\s*goal/i.test(joined)
-  );
-}
-function isWeeklyHeader(row: string[]): boolean {
-  const joined = row.join(' ').toLowerCase();
-  return joined.includes('week start') || joined.includes('date range') || joined.includes('week ');
-}
-
-// Map an explicit banner label → channel. LABEL ONLY — never inferred.
-function labelToChannel(text: string): PaidChannel | null {
-  const t = text.toLowerCase();
-  if (/\bgoogle\b/.test(t)) return 'google';
-  if (/\bmeta\b|facebook|instagram/.test(t)) return 'meta';
-  if (/linked\s*in/.test(t)) return 'linkedin';
-  if (/\bbing\b|microsoft/.test(t)) return 'bing';
-  if (/affiliate/.test(t)) return 'affiliates';
+// A cell is a platform banner only if it's EXACTLY the platform name (avoids
+// matching "Ads - Google / FB / LI / Other" or "Google Ads Catch-Up …").
+function bannerCell(s: string): PaidChannel | null {
+  const t = s.trim().toLowerCase();
+  if (t === 'google') return 'google';
+  if (t === 'meta' || t === 'facebook') return 'meta';
+  if (t === 'linkedin' || t === 'linked in') return 'linkedin';
+  if (t === 'bing' || t === 'microsoft' || t === 'microsoft ads') return 'bing';
   return null;
 }
 
-/** Look up to 2 rows above a table header for a platform banner (col 0 or 1). */
-function bannerChannel(grid: Grid, headerIdx: number): PaidChannel | null {
-  for (let k = headerIdx - 1; k >= Math.max(0, headerIdx - 2); k--) {
-    const r = grid[k] ?? [];
-    const text = `${r[0] ?? ''} ${r[1] ?? ''}`.trim();
-    if (!text) continue;            // blank spacer row — keep looking up
-    return labelToChannel(text);    // matched platform, or null (some other header)
-  }
-  return null;
-}
-
-/** Parse per-platform channel totals — only from explicitly-labeled tables. */
+/** Parse per-platform channel totals from the side-by-side, banner-labeled
+ *  tables. For each banner at (r,c): header is row r+1 (columns ≥ c), and the
+ *  "Total" row sits a few rows below with its label at col c or c+1. */
 function parseChannels(grid: Grid): ChannelTotal[] {
   const found: ChannelTotal[] = [];
-  for (let i = 0; i < grid.length; i++) {
-    const row = grid[i] ?? [];
-    if (!isPaidHeader(row) || isWeeklyHeader(row)) continue;
+  for (let r = 0; r < grid.length; r++) {
+    const row = grid[r] ?? [];
+    for (let c = 0; c < row.length; c++) {
+      const channel = bannerCell(String(row[c] ?? ''));
+      if (!channel || found.some(f => f.channel === channel)) continue;
 
-    const channel = bannerChannel(grid, i);
-    if (!channel || found.some(f => f.channel === channel)) continue;
+      const hdr = grid[r + 1] ?? [];
+      const findCol = (pred: (h: string) => boolean) => {
+        for (let k = c; k < Math.min(c + 25, hdr.length); k++) {
+          if (pred(String(hdr[k] ?? '').toLowerCase())) return k;
+        }
+        return -1;
+      };
+      const cSpend = findCol(h => h.includes('spend') && h.includes('actual'));
+      const cLeads = findCol(h => h.includes('lead') && h.includes('actual'));
+      const cEnroll = findCol(h => h.includes('enroll') && h.includes('actual'));
+      if (cSpend < 0 || cLeads < 0 || cEnroll < 0) continue; // not a paid table
+      const cCplGoal = findCol(h => h.includes('cpl') && h.includes('goal'));
+      const cCpeGoal = findCol(h => h.includes('cpe') && h.includes('goal'));
 
-    const header = row.map(c => String(c).toLowerCase());
-    const findCol = (pred: (h: string) => boolean) => header.findIndex(pred);
-    const cSpend = findCol(h => h.includes('spend') && h.includes('actual'));
-    const cLeads = findCol(h => h.includes('lead') && h.includes('actual'));
-    const cEnroll = findCol(h => h.includes('enroll') && h.includes('actual'));
-    const cCplGoal = findCol(h => h.includes('cpl') && h.includes('goal'));
-    const cCpeGoal = findCol(h => h.includes('cpe') && h.includes('goal'));
-    if (cSpend < 0 || cLeads < 0 || cEnroll < 0) continue;
-
-    // "Total" row sits a few rows below; label is in col 0 OR col 1.
-    for (let j = i + 1; j < Math.min(i + 12, grid.length); j++) {
-      const r = grid[j] ?? [];
-      const label = (String(r[0] ?? '').trim() || String(r[1] ?? '').trim()).toLowerCase();
-      if (label !== 'total') continue;
-      const spend = N(r[cSpend]);
-      const leads = N(r[cLeads]);
-      const enrolls = N(r[cEnroll]);
-      if (spend == null || leads == null || enrolls == null) break;
-      found.push({
-        channel, spend, leads, enrolls,
-        cplGoal: cCplGoal >= 0 ? (N(r[cCplGoal]) ?? undefined) : undefined,
-        cpeGoal: cCpeGoal >= 0 ? (N(r[cCpeGoal]) ?? undefined) : undefined,
-      });
-      break;
+      for (let j = r + 2; j < Math.min(r + 9, grid.length); j++) {
+        const rr = grid[j] ?? [];
+        const label = (String(rr[c] ?? '').trim() || String(rr[c + 1] ?? '').trim()).toLowerCase();
+        if (label !== 'total') continue;
+        const spend = N(rr[cSpend]);
+        const leads = N(rr[cLeads]);
+        const enrolls = N(rr[cEnroll]);
+        if (spend == null || leads == null || enrolls == null) break;
+        found.push({
+          channel, spend, leads, enrolls,
+          cplGoal: cCplGoal >= 0 ? (N(rr[cCplGoal]) ?? undefined) : undefined,
+          cpeGoal: cCpeGoal >= 0 ? (N(rr[cCpeGoal]) ?? undefined) : undefined,
+        });
+        break;
+      }
     }
   }
   return found;
@@ -183,11 +164,12 @@ async function fetchLivePaid(): Promise<PaidData | null> {
       const grid = await readAllTabs(sheets, docId);
       const parsed = parseChannels(grid);
       if (validateChannels(parsed)) {
-        // Preserve the static channel ordering; live values where parsed.
+        // Order channels by parsed spend desc; keep any snapshot channel we
+        // didn't parse (none expected once all four are labeled).
         const byKey = new Map(parsed.map(c => [c.channel, c] as const));
-        channelsBySchool[school] = STATIC_PAID_DATA.channelsBySchool[school].map(
-          c => byKey.get(c.channel) ?? c,
-        );
+        const merged = STATIC_PAID_DATA.channelsBySchool[school].map(c => byKey.get(c.channel) ?? c);
+        for (const c of parsed) if (!merged.some(m => m.channel === c.channel)) merged.push(c);
+        channelsBySchool[school] = merged.sort((a, b) => b.spend - a.spend);
         anyLive = true;
       }
     } catch (err) {
@@ -206,7 +188,7 @@ async function fetchLivePaid(): Promise<PaidData | null> {
 }
 
 // Bump the key when the parse/shape changes so stale cache doesn't persist.
-const cachedFetch = unstable_cache(fetchLivePaid, ['paid-perf-v2'], {
+const cachedFetch = unstable_cache(fetchLivePaid, ['paid-perf-v3'], {
   revalidate: 86400,
   tags: ['performance'],
 });
@@ -223,18 +205,15 @@ export async function getPaidPerformance(): Promise<PaidData> {
 }
 
 // ── Diagnostics ───────────────────────────────────────────────────────────────
-// Read-only introspection used by /api/performance/paid-debug to see why the
-// live parse is or isn't engaging in production (no secrets returned). Remove
-// once the parser is verified live.
+// Read-only introspection used by /api/performance/paid-debug. Remove once the
+// parser is verified live.
 
 interface SchoolDebug {
   docId: string | null;
   skipped?: string;
   tabCount?: number;
-  tabs?: string[];
   totalRows?: number;
-  paidTableCount?: number;
-  paidTables?: { row: number; banner: string; channel: PaidChannel | null }[];
+  banners?: { row: number; col: number; channel: PaidChannel }[];
   parsedChannels?: ChannelTotal[];
   valid?: boolean;
   error?: string;
@@ -270,21 +249,18 @@ export async function debugPaidParse(): Promise<PaidDebug> {
     }
     try {
       const meta = await sheets.spreadsheets.get({ spreadsheetId: docId });
-      s.tabs = (meta.data.sheets ?? []).map(x => x.properties?.title ?? '');
-      s.tabCount = s.tabs.length;
+      s.tabCount = (meta.data.sheets ?? []).length;
       const grid = await readAllTabs(sheets, docId);
       s.totalRows = grid.length;
-      // Every non-weekly paid-style table + the banner we detect above it.
-      const tables: { row: number; banner: string; channel: PaidChannel | null }[] = [];
-      for (let i = 0; i < grid.length; i++) {
-        if (!isPaidHeader(grid[i] ?? []) || isWeeklyHeader(grid[i] ?? [])) continue;
-        const r1 = grid[i - 1] ?? [];
-        const r2 = grid[i - 2] ?? [];
-        const banner = (`${r1[0] ?? ''} ${r1[1] ?? ''}`.trim() || `${r2[0] ?? ''} ${r2[1] ?? ''}`.trim());
-        tables.push({ row: i, banner, channel: bannerChannel(grid, i) });
+      const banners: { row: number; col: number; channel: PaidChannel }[] = [];
+      for (let r = 0; r < grid.length; r++) {
+        const row = grid[r] ?? [];
+        for (let c = 0; c < row.length; c++) {
+          const ch = bannerCell(String(row[c] ?? ''));
+          if (ch) banners.push({ row: r, col: c, channel: ch });
+        }
       }
-      s.paidTableCount = tables.length;
-      s.paidTables = tables.slice(0, 20);
+      s.banners = banners.slice(0, 20);
       const parsed = parseChannels(grid);
       s.parsedChannels = parsed;
       s.valid = validateChannels(parsed);

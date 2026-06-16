@@ -97,35 +97,31 @@ export interface ChannelTotal extends RawCounts {
   channel: PaidChannel;
 }
 
-// Wharton — Spring 2026, all paid channels. Σ spend = $960,016 · leads 11,819 ·
-// enrolls 399. (Google spend includes ~$131K brand/non-program search.)
+// Wharton — Spring 2026, all paid channels (Google / Meta / LinkedIn / Bing).
+// Σ spend = $960,016 · leads 11,821 · enrolls 406. (Google spend includes ~$131K
+// brand/non-program search.) Source: "Paid WoW Performance & Goals" tab, where
+// the four platform tables are banner-labeled and laid out side-by-side. (The
+// $45K table is Bing — an earlier snapshot mislabeled it "Affiliates".)
 export const WHARTON_CHANNELS: ChannelTotal[] = [
-  { channel: 'google',     spend: 565235, leads: 3837, enrolls: 223, spendForecast: 597343, cplGoal: 48, cpeGoal: 1350 },
-  { channel: 'meta',       spend: 233483, leads: 3956, enrolls: 107, spendForecast: 165967, cplGoal: 38, cpeGoal: 1350 },
-  { channel: 'linkedin',   spend: 116303, leads: 3527, enrolls: 45,  spendForecast: 118736, cplGoal: 36, cpeGoal: 1350 },
-  { channel: 'affiliates', spend: 44995,  leads: 499,  enrolls: 24,  spendForecast: 38881,  cplGoal: 47, cpeGoal: 1350 },
+  { channel: 'google',   spend: 565235, leads: 3839, enrolls: 225, spendForecast: 597343, cplGoal: 48, cpeGoal: 1350 },
+  { channel: 'meta',     spend: 233483, leads: 3956, enrolls: 111, spendForecast: 165967, cplGoal: 38, cpeGoal: 1350 },
+  { channel: 'linkedin', spend: 116303, leads: 3527, enrolls: 45,  spendForecast: 118736, cplGoal: 36, cpeGoal: 1350 },
+  { channel: 'bing',     spend: 44995,  leads: 499,  enrolls: 25,  spendForecast: 38881,  cplGoal: 47, cpeGoal: 1350 },
 ];
 
-// Columbia (CBSEE) — Spring 2026, all paid channels. Σ spend = $125,976 ·
-// leads 1,432 · enrolls 37. Single program ("AI for Business & Finance").
-//
-// PLATFORM LABELS ARE INFERRED. The source sheet only labels the Google table;
-// the other three tables are unlabeled, so platform is inferred from each line's
-// budget + CPL target, corroborated by Meta Ads Manager:
-//   • Meta = the $11,806 line ($81K budget, $19.81 CPL, 596 leads — the cheap,
-//     high-volume social fingerprint). Ads Manager showed ~$6K Meta in a single
-//     trailing-30-day window, which rules out the tiny $1,865 line being Meta.
-//   • LinkedIn = the $11,595 line ($23K budget, $200 CPL goal — expensive B2B).
-//   • Bing = the $1,865 line ($2K budget — a minor search/test channel).
-// (Earlier this had Meta and Bing swapped.) The sheet also slightly under-
-// captures vs. the platform: its latest week lags Ads Manager by manual entry,
-// so cohort-to-date here can read low vs. the live ad accounts. Confirm labels
-// with the sheet owner (jbain) — ideally add platform banners at the source.
+// Columbia (CBSEE) — Spring 2026, all paid channels (Google / Meta / LinkedIn /
+// Bing). Σ spend = $131,870 · leads 1,515 · enrolls 52. Single program ("AI for
+// Business & Finance"). Source: "Paid WoW Performance & Goals" tab — the four
+// platform tables are banner-labeled (Google / Bing / Meta / LinkedIn) laid out
+// side-by-side; the live layer reads them by label. NOTE: an earlier snapshot
+// had Meta and LinkedIn swapped — LinkedIn is the cheap, high-volume lead-gen
+// line ($19.75 CPL, 633 leads); Meta is the higher-CPL line ($127, 101 leads).
+// Corrected here to match the sheet's banner labels.
 export const COLUMBIA_CHANNELS: ChannelTotal[] = [
-  { channel: 'google',   spend: 100710, leads: 726, enrolls: 30, spendForecast: 84549, cplGoal: 175, cpeGoal: 2067 },
-  { channel: 'meta',     spend: 11806,  leads: 596, enrolls: 4,  spendForecast: 44183, cplGoal: 49,  cpeGoal: 2700 },
-  { channel: 'linkedin', spend: 11595,  leads: 91,  enrolls: 3,  spendForecast: 12546, cplGoal: 200, cpeGoal: 2556 },
-  { channel: 'bing',     spend: 1865,   leads: 19,  enrolls: 0,  spendForecast: 1091,  cplGoal: 83,  cpeGoal: 1350 },
+  { channel: 'google',   spend: 104698, leads: 762, enrolls: 41, spendForecast: 84549, cplGoal: 175, cpeGoal: 2067 },
+  { channel: 'meta',     spend: 12807,  leads: 101, enrolls: 4,  spendForecast: 12546, cplGoal: 200, cpeGoal: 2556 },
+  { channel: 'linkedin', spend: 12500,  leads: 633, enrolls: 6,  spendForecast: 44183, cplGoal: 49,  cpeGoal: 2700 },
+  { channel: 'bing',     spend: 1865,   leads: 19,  enrolls: 1,  spendForecast: 1091,  cplGoal: 83,  cpeGoal: 1350 },
 ];
 
 export const CHANNELS_BY_SCHOOL: Record<School, ChannelTotal[]> = {
@@ -331,7 +327,7 @@ export const COHORT_CONTEXT: Record<School, CohortContext> = {
     leadsRealTime: 17023,
     leadsGoal: 23261,
     totalPaidSpend: 960016,
-    paidEnrolls: 399,
+    paidEnrolls: 406,
   },
   columbia: {
     school: 'columbia',
@@ -342,8 +338,8 @@ export const COHORT_CONTEXT: Record<School, CohortContext> = {
     enrollsGoal: 468,
     leadsRealTime: 3150,
     leadsGoal: 4680,
-    totalPaidSpend: 125976,
-    paidEnrolls: 37,
+    totalPaidSpend: 131870,
+    paidEnrolls: 52,
   },
 };
 
@@ -376,7 +372,7 @@ export interface PaidData {
 
 // The curated snapshot, assembled from the constants above. Sourced 2026-06-13.
 export const STATIC_PAID_DATA: PaidData = {
-  asOf: '2026-06-15',
+  asOf: '2026-06-16',
   live: false,
   channelsBySchool: CHANNELS_BY_SCHOOL,
   whartonProgramChannel: WHARTON_PROGRAM_CHANNEL,
