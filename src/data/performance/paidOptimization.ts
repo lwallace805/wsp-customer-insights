@@ -1,7 +1,7 @@
 // Paid-channel optimization data — the cross-channel "source of truth" for the
 // Paid Optimization dashboard (/performance/paid-optimization).
 //
-// Sources (synced 2026-06-13 — re-sync by asking Claude to re-read the sheets):
+// Sources (synced 2026-06-15 — re-sync by asking Claude to re-read the sheets):
 //   • Wharton Performance Dashboard, Spring 2026 cohort (in progress)
 //       https://docs.google.com/spreadsheets/d/1o5lfRmA1nAe0BDnYtZ1OJOnU9eB8y4WeJdGNL0_BE_Y
 //   • Columbia (CBSEE) Performance Dashboard, Spring 2026 cohort (in progress)
@@ -284,9 +284,9 @@ export const COLUMBIA_WEEKLY: Record<'all' | 'google', PaidWeekPoint[]> = {
     { week: '5/5',  spend: 13864, leads: 338, enrolls: 21 },
     { week: '5/12', spend: 15774, leads: 328, enrolls: 15 },
     { week: '5/19', spend: 17153, leads: 317, enrolls: 25 },
-    { week: '5/26', spend: 17809, leads: 357, enrolls: 43 },
+    { week: '5/26', spend: 17809, leads: 357, enrolls: 44 },
     { week: '6/2',  spend: 11146, leads: 255, enrolls: 40 },
-    { week: '6/9',  spend: 4717,  leads: 223, enrolls: 30 },
+    { week: '6/9',  spend: 4717,  leads: 223, enrolls: 98 },
   ],
   google: [
     { week: '3/24', spend: 2280,  leads: 9,   enrolls: 1 },
@@ -325,8 +325,8 @@ export const COHORT_CONTEXT: Record<School, CohortContext> = {
     school: 'wharton',
     cohort: 'Spring 2026',
     dateRange: 'Feb 17 – Jun 15, 2026',
-    daysRemaining: 2,
-    enrollsRealTime: 969,
+    daysRemaining: 0,
+    enrollsRealTime: 983,
     enrollsGoal: 1225,
     leadsRealTime: 17023,
     leadsGoal: 23261,
@@ -337,8 +337,8 @@ export const COHORT_CONTEXT: Record<School, CohortContext> = {
     school: 'columbia',
     cohort: 'Spring 2026',
     dateRange: 'Mar 24 – Jul 20, 2026',
-    daysRemaining: 37,
-    enrollsRealTime: 215,
+    daysRemaining: 35,
+    enrollsRealTime: 284,
     enrollsGoal: 468,
     leadsRealTime: 3150,
     leadsGoal: 4680,

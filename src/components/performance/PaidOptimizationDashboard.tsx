@@ -20,7 +20,7 @@ import {
   CHART_COLORS, AXIS_PROPS, fmt, fmtDollar, fmtPct,
 } from './shared';
 
-const AS_OF = '2026-06-13';
+const AS_OF = '2026-06-15';
 
 const SCHOOL_LABEL: Record<School, string> = { wharton: 'Wharton', columbia: 'Columbia' };
 const SCHOOLS: School[] = ['wharton', 'columbia'];
