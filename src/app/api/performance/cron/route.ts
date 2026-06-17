@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidateTag } from 'next/cache';
 import { getCurrentSnapshot } from '@/lib/performance/live';
+import { getPaidPerformance } from '@/lib/performance/paidLive';
 import { getInsights } from '@/lib/performance/aiInsights';
 
 // Daily performance refresh — invoked by Vercel Cron (vercel.json) at
@@ -28,6 +29,10 @@ export async function GET(req: NextRequest) {
   // 2. Re-pull live cohort data (fresh fetch, repopulates cache)
   const snapshot = await getCurrentSnapshot();
 
+  // 2b. Re-pull live paid-channel data for the Paid Optimization dashboard
+  //     (parses the Wharton + Columbia sheets; falls back to snapshot).
+  const paid = await getPaidPerformance();
+
   // 3. Generate today's AI briefing (cached under today's Pacific date key)
   const insights = await getInsights(snapshot);
 
@@ -35,6 +40,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     tookMs: Date.now() - started,
     snapshot: { asOf: snapshot.asOf, live: snapshot.live },
+    paid: { asOf: paid.asOf, live: paid.live },
     insights: {
       source: insights.source,
       count: insights.insights.length,
