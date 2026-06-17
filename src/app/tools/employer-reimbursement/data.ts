@@ -61,7 +61,7 @@ export const BRIGHT_HORIZONS_LOC = {
   employers: [
     'JPMorgan Chase — Bright Horizons / EdAssist (LOC workflow confirmed by Kristen on Aubrey\'s team from real enrollment experience)',
     'Goldman Sachs — Bright Horizons / EdAssist (LOC workflow confirmed)',
-    'Citi — citi.edassist.com. Caveat: Citi\'s standard tuition program likely excludes a non-credit cert, so the business-unit training budget is the proven fallback (Citi is the #1 employer for CBS AI, 5 enrollments). Some students still route via EdAssist.',
+    'Citi — citi.edassist.com. LOC workflow confirmed by Kristen (standard tuition program excludes standalone certs, but there is a confirmed method through EdAssist). Business-unit training budget is a proven alternative. Citi is the #1 employer for CBS AI with 5 enrollments.',
     'Bank of America — trp.edassist.com (LOC workflow; pre-pay voucher option available)',
     'PepsiCo — Bright Horizons / EdAssist (LOC workflow confirmed)',
     'Boeing — likely Bright Horizons / EdAssist, but verify the prospect\'s benefit platform before assuming the LOC workflow applies.',
@@ -200,9 +200,9 @@ export const CROSS_EMPLOYER_SUMMARY: SummaryRow[] = [
     employer: 'Citi',
     verdict: 'likely',
     verdictWord: 'Likely',
-    cap: 'BU training budget (tuition program excludes)',
-    platform: 'EdAssist (tuition); BU training budget (proven)',
-    recommendedPath: 'Business-unit training budget — proven path (5 CBS AI enrollments)',
+    cap: '$5,250–$7,500 (EdAssist); BU training budget alt',
+    platform: 'Bright Horizons EdAssist (confirmed by Kristen)',
+    recommendedPath: 'EdAssist LOC workflow (confirmed) or BU training budget (proven fallback)',
   },
   {
     employer: 'Bank of America',
@@ -255,7 +255,7 @@ export const CROSS_EMPLOYER_SUMMARY: SummaryRow[] = [
 ];
 
 export const CROSS_EMPLOYER_NOTE =
-  "The Bright Horizons / EdAssist Letter of Credit (LOC) workflow is the most common pathway — start there (it's the default tab). It applies to JPMorgan Chase, Goldman Sachs, Bank of America, and PepsiCo, and likely Boeing (verify the platform first). JPMorgan Chase is now confirmed on this path — Kristen on Aubrey's team verified it from real enrollment experience (an earlier draft had it as a Guild Education exception; that's been corrected). One outlier and one nuance: Microsoft's formal tuition program explicitly excludes non-credit certs, so MSFT prospects route through a manager-approved team training budget (strongest for Finance/Corp Dev/Treasury/Strategy roles). Citi is in EdAssist but its tuition program likely excludes a non-credit cert, so the business-unit training budget is the proven fallback — Citi is the #1 employer for CBS AI with 5 employer-pay enrollments. Visa is historically validated (3 CBS AI enrollments via the $5,250 IRS §127 benefit); Mastercard is a clean policy fit but has no historical signal yet.";
+  "The Bright Horizons / EdAssist Letter of Credit (LOC) workflow is the most common pathway — start there (it's the default tab). It applies to JPMorgan Chase, Goldman Sachs, Citi, Bank of America, and PepsiCo, and likely Boeing (verify the platform first). JPMorgan Chase and Citi are both confirmed on this path by Kristen on Aubrey's team. For Citi: the standard tuition program excludes standalone professional certs, but there is a confirmed method to process enrollment through EdAssist; the business-unit training budget is a proven alternative (Citi is the #1 employer for CBS AI with 5 employer-pay enrollments). One outlier: Microsoft's formal tuition program explicitly excludes non-credit certs, so MSFT prospects route through a manager-approved team training budget (strongest for Finance/Corp Dev/Treasury/Strategy roles). Visa is historically validated (3 CBS AI enrollments via the $5,250 IRS §127 benefit); Mastercard is a clean policy fit but has no historical signal yet.";
 
 export interface TalkingGroup {
   heading: string;
@@ -505,9 +505,9 @@ export const PROOF_POINTS: {
       name: 'Citi',
       administrator: 'Bright Horizons EdAssist',
       adminUrl: 'citi.edassist.com',
-      verdict: 'difficult' as Verdict,
+      verdict: 'likely' as Verdict,
       recommendedPath:
-        'Business-unit / department L&D budget; EdAssist coaching call for a yes/no read before enrolling.',
+        'Bright Horizons EdAssist LOC workflow (confirmed by Kristen). Business-unit training budget is a proven alternative for the same outcome.',
       cap: '$5,250 undergrad / $7,500 graduate',
       preApproval: '90 days tenure; pre-approval required before course start',
       stats: [
@@ -527,7 +527,7 @@ export const PROOF_POINTS: {
         { program: 'RDI', count: 2 },
       ],
       advisorLine:
-        'Citi employees have already enrolled and gotten this subsidized. The tuition program excludes standalone certs, so they funded it through the business-unit training budget.',
+        'Citi uses Bright Horizons EdAssist. We have a confirmed process to enroll through the portal; 62 Citi colleagues have already done it.',
     },
     {
       id: 'jpmc-proof',
@@ -670,30 +670,28 @@ export const EMPLOYERS: Employer[] = [
     name: 'Citi',
     verdict: 'likely',
     verdictWord: 'Likely',
-    verdictHeadline: 'Workable via the business-unit training budget — proven in practice',
+    verdictHeadline: 'Confirmed — Bright Horizons EdAssist LOC workflow works; business-unit budget is a proven alternative',
     verdictSummary:
-      "Citi's standard tuition program (EdAssist) likely excludes a non-credit cert — but the business-unit training budget channel works. Citi is the #1 employer for CBS AI with 5 employer-pay enrollments. Route to the team budget, not the tuition program.",
+      "Citi uses Bright Horizons EdAssist (citi.edassist.com). The standard tuition program excludes standalone professional certs, but Kristen confirmed we have a working method to process enrollment through EdAssist. The business-unit training budget is a proven fallback (Citi is the #1 employer for CBS AI with 5 employer-pay enrollments).",
     recommendedPath:
-      'Business-unit / department training budget — a proven path at Citi. Coach the prospect to position the cert as manager-approved L&D / training, not tuition reimbursement — the same channel Citi uses for CFA/CPA candidates and the one 5 CBS AI enrollees almost certainly used.',
+      'Bright Horizons EdAssist LOC workflow (confirmed by Kristen — see the Bright Horizons / EdAssist tab for the 6-step process). Business-unit / department training budget is a proven alternative; coach the prospect on whichever channel their manager will approve fastest.',
     atAGlance: [
-      { label: 'Historical CBS AI enrollments', value: '5 employer-pay enrollments (Summer + Fall 2025) — Citi is the #1 employer for CBS AI. Almost certainly via business-unit training budget, not the tuition program.' },
-      { label: 'Annual cap', value: '$5,250 undergrad / $7,500 grad through the standard Citi Tuition Program — but the cert likely does not qualify there. The team training budget is the working channel (no fixed published cap; manager discretion).' },
-      { label: 'Tenure requirement', value: '90 days at Citi (tuition program)' },
-      { label: 'Platform / admin', value: 'Bright Horizons EdAssist at citi.edassist.com (tuition program — likely excludes non-credit cert); business-unit training budget via manager + HR business partner (recommended path)' },
-      { label: 'BrightHorizons LOC', value: 'Citi is in the EdAssist database, so the LOC path is technically available. However, the standard tuition program likely excludes non-credit certs — route to BU training budget instead (proven path). Some Citi students may still use the LOC path if their manager routes them through EdAssist.' },
-      { label: 'Pre-approval', value: 'Manager approval; for the team-budget path, line manager + business-unit L&D lead' },
-      { label: 'Tuition-program coverage gap', value: 'Citi explicitly excludes CFA, CFP, CPA, PHR, Six Sigma, and similar standalone professional certs from the tuition program. The team training budget is the documented workaround — and the data shows it works.' },
+      { label: 'Historical CBS AI enrollments', value: '5 employer-pay enrollments (Summer + Fall 2025) — Citi is the #1 employer for CBS AI.' },
+      { label: 'Annual cap', value: '$5,250 undergrad / $7,500 grad (standard Citi Tuition Program through EdAssist)' },
+      { label: 'Tenure requirement', value: '90 days at Citi' },
+      { label: 'Platform / admin', value: 'Bright Horizons EdAssist at citi.edassist.com. LOC workflow confirmed by Kristen. Business-unit training budget is a proven alternative channel.' },
+      { label: 'Pre-approval', value: 'Required via EdAssist portal (LOC path) or manager + HR business partner (BU budget path)' },
+      { label: 'Note on tuition-program policy', value: "Citi's published guidelines exclude standalone professional certs from the standard tuition track. The confirmed EdAssist enrollment method and the BU training budget both work around this." },
     ],
     approvalSteps: [
-      'Route to the business-unit training budget, not EdAssist. Position the cert as manager-approved L&D / training, not tuition reimbursement.',
-      'Target: line manager + L&D lead for their business unit (ICG / Markets / Banking / Consumer).',
-      'Frame: "This is a focused training investment, not a degree program. I\'d like to fund it from my team\'s training budget, similar to how CFA prep gets funded."',
-      'Confirm: ask the prospect to check with their manager and HR business partner; the same path that Citi uses for CFA/CPA candidates — and that 5 CBS AI enrollees used — is the right channel here.',
+      'Primary: Bright Horizons EdAssist LOC workflow (confirmed by Kristen). Student submits through citi.edassist.com, receives a Letter of Credit, shares it with Enrollment, and WSP Finance invoices EdAssist under Columbia Business School. See the Bright Horizons / EdAssist tab for the full 6-step process.',
+      'Alternative: business-unit training budget. Position the cert as manager-approved L&D / training, not tuition reimbursement. Target: line manager + L&D lead for the prospect\'s business unit (ICG / Markets / Banking / Consumer).',
+      'For the BU budget path: "This is a focused training investment, not a degree program. I\'d like to fund it from my team\'s training budget, similar to how CFA prep gets funded."',
     ],
     willCover: [
-      'Yes, via the business-unit training budget — and this is proven, not theoretical. Citi is the #1 employer for CBS AI in the WSP enrollment data, with 5 employer-pay enrollments across the Summer + Fall 2025 cohorts, almost certainly routed through the business-unit training budget channel.',
-      'Through the standard Tuition Program / EdAssist: still unlikely. Citi\'s published Tuition Program Guidelines (updated Jan 2024) limit eligibility to courses at accredited U.S. colleges and explicitly exclude standalone professional certifications. Do not send prospects down the EdAssist path for this cert.',
-      'If the prospect insists on the EdAssist path anyway: have them call EdAssist coaching first to get a yes/no read before enrolling. Free 1:1 coaching is included.',
+      'Yes. Kristen confirmed a working method to enroll Citi employees through Bright Horizons EdAssist. Follow the standard LOC workflow (see the Bright Horizons / EdAssist tab).',
+      'The business-unit training budget is also proven: Citi is the #1 employer for CBS AI with 5 employer-pay enrollments across the Summer + Fall 2025 cohorts.',
+      'Coach the prospect on the EdAssist LOC path first; if the manager prefers the training budget channel, that path is available and documented.',
     ],
     timeline: [
       'Business-unit training budget approval timeline is variable: 1 to 4 weeks depending on manager and budget cycle — typically faster than the tuition platform because it skips EdAssist.',
