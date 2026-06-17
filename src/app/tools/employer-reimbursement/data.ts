@@ -68,7 +68,7 @@ export const BRIGHT_HORIZONS_LOC = {
   ],
 
   studentFields: [
-    { field: 'Institution', value: '"Columbia Business School" — or "University of Pennsylvania Wharton School" for Wharton programs. Do NOT enter Wall Street Prep.' },
+    { field: 'Institution', value: '"Columbia Business School Executive Education" — write it out in full; do not abbreviate to CBSEE. For Wharton programs: "University of Pennsylvania Wharton School" — NOT "Wharton Online" (less exact match in the EdAssist system; could get flagged and prevent future LOC approval). Do NOT enter Wall Street Prep.' },
     { field: 'Course name', value: 'The exact program name WSP sends the student (e.g., AI for Business & Finance Certificate)' },
     { field: 'Course dates', value: 'Cohort start and end dates' },
     { field: 'Course code', value: 'Enter "NA" (most students do)' },
@@ -76,7 +76,7 @@ export const BRIGHT_HORIZONS_LOC = {
   ],
 
   invoiceRequirements: [
-    'Institution name: "Columbia Business School" (or "Wharton School, University of Pennsylvania" for Wharton programs) — NOT Wall Street Prep. If this is wrong, the LOC will be rejected.',
+    'Institution name: "Columbia Business School Executive Education" — write it out fully; do not use "CBSEE". For Wharton programs: "University of Pennsylvania Wharton School" — NOT "Wharton Online" (less exact match; could get flagged and prevent future LOC approval). NOT Wall Street Prep. If this is wrong, the LOC will be rejected.',
     'Student full name',
     'LOC identification number',
     'Course name',
@@ -86,23 +86,22 @@ export const BRIGHT_HORIZONS_LOC = {
   ],
 
   criticalFlags: [
-    'Invoices must come from Columbia or Wharton, NOT WSP. The invoice cannot show "Wall Street Prep" or "WSP" anywhere — it must be issued under Columbia Business School (or Wharton) as the institution. Finance and Chris M need to be aligned on this for every employer-reimbursement invoice. If this is wrong, the LOC will be rejected.',
+    'Invoices must come from Columbia or Wharton, NOT WSP. Institution name must be "Columbia Business School Executive Education" — write it out in full, not "CBSEE". For Wharton programs: "University of Pennsylvania Wharton School" — not "Wharton Online" (less exact match; could get flagged). EdAssist matches the institution name on the invoice to what the student entered in the portal, so the two must align. Finance and Chris M must use the exact names above for every employer-reimbursement invoice. If this is wrong, the LOC will be rejected.',
     'Credit hours must be listed, even though the program is non-credit. The EdAssist form expects credit hours and rejects "0". Most students enter "NA" for course code and credits. We do not yet know the defensible value to give for credit hours — flag this as an open question for Aubrey\'s team.',
     'Gray-area risk: the approval form indicates a college-credit course, but the WSP/Columbia program is non-credit Executive Education. Bright Horizons has not flagged any issues to date, but if their audit tightens we could be caught in non-alignment between the LOC approval and the actual course type. Worth tracking and worth a future conversation with Bright Horizons or Chris M if rejections start.',
   ],
 
   coachingLanguage: [
     '"Your employer uses Bright Horizons / EdAssist for tuition reimbursement. I\'ll walk you through the six-step Letter of Credit process so you know exactly what to enter, what we\'ll need from you, and what we handle on our end."',
-    '"When you submit the course in your EdAssist portal, enter Columbia Business School as the institution and the course name we\'ll send you. For credit hours, the field doesn\'t accept zero; most students enter NA. We\'ll send you the exact text to copy."',
+    '"When you submit the course in your EdAssist portal, enter Columbia Business School Executive Education as the institution — write it out in full. For Wharton programs, use University of Pennsylvania Wharton School, not Wharton Online. For credit hours, the field doesn\'t accept zero; most students enter NA. We\'ll send you the exact text to copy."',
     '"Once you have your signed Letter of Credit, forward it to us. We work with our Finance team to generate the invoice in the format EdAssist requires."',
-    '"The invoice will come from Columbia Business School, not from Wall Street Prep. That\'s important: EdAssist won\'t process invoices that show WSP as the institution."',
+    '"The invoice will come from Columbia Business School Executive Education, not from Wall Street Prep. EdAssist matches the institution name on the invoice to what you entered in the portal, so the wording has to match exactly."',
   ],
 
   openQuestions: [
     'What value do students put in the credit hours field if "0" isn\'t accepted? (Need a defensible default before the next cohort to avoid flagging risk.)',
-    'Are post-course follow-up steps required from the student (e.g., grade or completion confirmation back to EdAssist)?',
+    'Post-completion follow-up: Kristen is not aware of any steps required from the student after completing the program, but this has not been fully confirmed. Worth verifying once the first LOC-path cohort completes.',
     'Can students submit an LOC request after the course start date, or is pre-approval the only path?',
-    "What's the typical LOC turnaround time from each employer (submission to approval)?",
   ],
 
   workflow: [
@@ -111,14 +110,14 @@ export const BRIGHT_HORIZONS_LOC = {
       title: 'Student submits course for approval',
       actor: 'Student',
       details:
-        "Student submits the course for approval through their employer's benefit portal (linked to Bright Horizons / EdAssist). They include the institution (Columbia Business School), course name, course dates, course code (NA), and course credits (NA — \"0\" is not an accepted value).",
+        "Student submits the course for approval through their employer's benefit portal (linked to Bright Horizons / EdAssist). They include the institution (Columbia Business School Executive Education — write it out in full, not CBSEE; for Wharton programs: University of Pennsylvania Wharton School, not Wharton Online), course name, course dates, course code (NA), and course credits (NA — \"0\" is not an accepted value).",
     },
     {
       step: 2,
       title: 'Letter of Credit issued',
       actor: 'Bright Horizons / EdAssist',
       details:
-        'Student receives an approval notification and is issued a Letter of Credit. They review and sign the document.',
+        'Student receives an approval notification and is issued a Letter of Credit. They review and sign the document. Typical turnaround: two weeks from submission, though it can be faster. Students do not have visibility into the approval status during this window — they will be notified when the LOC is ready.',
     },
     {
       step: 3,
@@ -131,7 +130,7 @@ export const BRIGHT_HORIZONS_LOC = {
       title: 'Invoice generated per LOC instructions',
       actor: 'WSP Enrollment + Finance',
       details:
-        'Enrollment works with Finance to generate the invoice per the LOC instructions. The invoice must include: institution name (Columbia Business School — NOT WSP), student name and LOC identification number, course name, course dates, employer name, and an itemized breakdown of tuition and all fees.',
+        'Enrollment works with Finance to generate the invoice per the LOC instructions. The invoice must include: institution name ("Columbia Business School Executive Education" — write it out fully; for Wharton: "University of Pennsylvania Wharton School"; NOT WSP), student name and LOC identification number, course name, course dates, employer name, and an itemized breakdown of tuition and all fees.',
     },
     {
       step: 5,
