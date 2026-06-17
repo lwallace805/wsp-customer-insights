@@ -10,7 +10,7 @@ import {
 import {
   EMPLOYERS, PROGRAM_META, VERDICT_LEGEND, CROSS_EMPLOYER_SUMMARY,
   CROSS_EMPLOYER_NOTE, UNIVERSAL_TALKING_POINTS, TOP_QUESTIONS,
-  OBJECTIONS, SOURCES, BRIGHT_HORIZONS_LOC, type Verdict, type Employer,
+  OBJECTIONS, SOURCES, BRIGHT_HORIZONS_LOC, PROOF_POINTS, type Verdict, type Employer,
 } from './data';
 
 /* ── Verdict color system ──────────────────────────────────────── */
@@ -388,6 +388,164 @@ function BrightHorizonsLOC() {
             <li key={i} className="flex items-start gap-2.5">
               <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400 mt-2" />
               <p className="text-sm text-gray-600 leading-relaxed">{q}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Internal proof points */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <FileText size={16} className="text-gray-400" />
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Internal Proof Points (Citi &amp; JPMorgan Chase)
+          </h3>
+        </div>
+        <InternalProofPoints />
+      </div>
+    </div>
+  );
+}
+
+/* ── Internal Proof Points ───────────────────────────────────────── */
+function InternalProofPoints() {
+  return (
+    <div className="space-y-5">
+      {/* Source attribution */}
+      <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-2.5">
+        <p className="text-xs text-blue-700 leading-relaxed">
+          <span className="font-semibold">Source:</span> {PROOF_POINTS.source}
+        </p>
+      </div>
+
+      {/* Two-column employer cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {PROOF_POINTS.employers.map((emp) => {
+          const v = VERDICT_STYLES[emp.verdict];
+          const verdictLabel =
+            emp.verdict === 'clear' ? 'Clear' : emp.verdict === 'likely' ? 'Likely' : 'Difficult';
+          return (
+            <div key={emp.id} className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5 space-y-4">
+              {/* Card header */}
+              <div>
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className="text-base font-bold text-gray-900">{emp.name}</span>
+                  <span
+                    className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full ${v.badge}`}
+                  >
+                    {verdictLabel}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  <span className="font-medium">Administrator:</span>{' '}
+                  <span className="font-semibold text-gray-700">{emp.administrator}</span>
+                  <span className="text-gray-300 mx-1.5">&middot;</span>
+                  <span className="font-mono text-[11px] text-gray-400">{emp.adminUrl}</span>
+                </p>
+              </div>
+
+              {/* Stats */}
+              <dl className="divide-y divide-gray-100">
+                {emp.stats.map((s) => (
+                  <div
+                    key={s.label}
+                    className="flex items-center justify-between gap-3 py-1.5 first:pt-0 last:pb-0"
+                  >
+                    <dt className="text-xs text-gray-500 leading-tight">{s.label}</dt>
+                    <dd className="text-sm font-bold text-gray-900 tabular-nums shrink-0">
+                      {s.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              {/* Program mix */}
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                  Program mix
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {emp.programMix.map((pm) => (
+                    <span
+                      key={pm.program}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-600 text-[11px] px-2.5 py-1"
+                    >
+                      {pm.program}
+                      <span className="font-bold text-gray-900">{pm.count}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recommended path + terms */}
+              <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5 space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  Recommended path
+                </p>
+                <p className="text-xs text-gray-700 leading-relaxed">{emp.recommendedPath}</p>
+                <p className="text-[11px] text-gray-500">Cap: {emp.cap}</p>
+                <p className="text-[11px] text-gray-500">Pre-approval: {emp.preApproval}</p>
+              </div>
+
+              {/* Advisor line */}
+              <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-3 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2 flex-1">
+                  <MessageSquareQuote size={13} className="text-violet-500 shrink-0 mt-0.5" />
+                  <p className="text-sm text-gray-800 leading-relaxed">
+                    &ldquo;{emp.advisorLine}&rdquo;
+                  </p>
+                </div>
+                <CopyButton text={emp.advisorLine} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Combined callout */}
+      <div className="rounded-2xl border border-gray-200 bg-gray-50 px-6 py-5">
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-2xl font-bold text-gray-900">
+              {PROOF_POINTS.combinedCallout.totalLearners}
+            </div>
+            <div className="text-[11px] text-gray-500 uppercase tracking-wide mt-0.5">
+              combined learners
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-gray-900">
+              {PROOF_POINTS.combinedCallout.withSubsidy}
+            </div>
+            <div className="text-[11px] text-gray-500 uppercase tracking-wide mt-0.5">
+              employer subsidy on record
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-gray-900">
+              {PROOF_POINTS.combinedCallout.npsPromoters}
+            </div>
+            <div className="text-[11px] text-gray-500 uppercase tracking-wide mt-0.5">
+              NPS promoters
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 text-center mt-3 leading-relaxed">
+          137 combined learners across both firms, 53 with employer subsidy on record, 24 NPS
+          promoters as the warm list for sourcing testimonials.
+        </p>
+      </div>
+
+      {/* Caveats */}
+      <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-4">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2.5">
+          Data caveats
+        </p>
+        <ul className="space-y-1.5">
+          {PROOF_POINTS.caveats.map((c, i) => (
+            <li key={i} className="flex items-start gap-2.5">
+              <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-gray-300 mt-2" />
+              <p className="text-xs text-gray-600 leading-relaxed">{c}</p>
             </li>
           ))}
         </ul>

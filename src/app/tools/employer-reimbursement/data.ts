@@ -469,6 +469,110 @@ export const SOURCES: SourceGroup[] = [
   },
 ];
 
+/* ── Internal Proof Points (Citi & JPMorgan Chase) ──────────────── */
+
+export interface ProofPointStat {
+  label: string;
+  value: string;
+}
+
+export interface ProofPointEmployer {
+  id: string;
+  name: string;
+  administrator: string;
+  adminUrl: string;
+  verdict: Verdict;
+  recommendedPath: string;
+  cap: string;
+  preApproval: string;
+  stats: ProofPointStat[];
+  programMix: { program: string; count: number }[];
+  advisorLine: string;
+}
+
+export const PROOF_POINTS: {
+  source: string;
+  employers: ProofPointEmployer[];
+  combinedCallout: { totalLearners: number; withSubsidy: number; npsPromoters: number };
+  caveats: string[];
+} = {
+  source:
+    'HubSpot all-time purchaser exports (Wharton Online + Columbia / CBSEE), pulled June 15, 2026. Unique learners, deduped across both exports. Counts are a floor: company match is self-reported free text.',
+
+  employers: [
+    {
+      id: 'citi-proof',
+      name: 'Citi',
+      administrator: 'Bright Horizons EdAssist',
+      adminUrl: 'citi.edassist.com',
+      verdict: 'difficult' as Verdict,
+      recommendedPath:
+        'Business-unit / department L&D budget; EdAssist coaching call for a yes/no read before enrolling.',
+      cap: '$5,250 undergrad / $7,500 graduate',
+      preApproval: '90 days tenure; pre-approval required before course start',
+      stats: [
+        { label: 'Total WSP learners', value: '62' },
+        { label: 'AI for Business & Finance cert', value: '22' },
+        { label: 'Used employer reimbursement (self-reported)', value: '29' },
+        { label: 'Tuition assistance approved', value: '21' },
+        { label: 'NPS promoters (testimonial pool)', value: '14' },
+        { label: 'Explicit EdAssist remittance on file', value: '3' },
+      ],
+      programMix: [
+        { program: 'AI for Finance', count: 22 },
+        { program: 'Private Equity', count: 20 },
+        { program: 'Real Estate', count: 8 },
+        { program: 'FP&A', count: 8 },
+        { program: 'Applied Value / Buy-Side', count: 5 },
+        { program: 'RDI', count: 2 },
+      ],
+      advisorLine:
+        'Citi employees have already enrolled and gotten this subsidized. The tuition program excludes standalone certs, so they funded it through the business-unit training budget.',
+    },
+    {
+      id: 'jpmc-proof',
+      name: 'JPMorgan Chase',
+      administrator: 'Guild Education',
+      adminUrl: 'jpmc.guildeducation.com',
+      verdict: 'clear' as Verdict,
+      recommendedPath:
+        'Out-of-catalog Guild reimbursement track; expect multi-step follow-up vs. in-catalog direct-bill.',
+      cap: '$7,500/yr out-of-catalog certs ($5,250 undergrad; 100% in-catalog)',
+      preApproval: 'Required; pay upfront, submit receipts plus completion to reimburse',
+      stats: [
+        { label: 'Total WSP learners', value: '75' },
+        { label: 'AI for Business & Finance cert', value: '12' },
+        { label: 'Used employer reimbursement (self-reported)', value: '24' },
+        { label: 'Tuition assistance approved', value: '21' },
+        { label: 'NPS promoters (testimonial pool)', value: '10' },
+        { label: 'EdAssist references (uses Guild instead)', value: '0' },
+      ],
+      programMix: [
+        { program: 'Private Equity', count: 37 },
+        { program: 'AI for Finance', count: 12 },
+        { program: 'Real Estate', count: 11 },
+        { program: 'Applied Value / Buy-Side', count: 10 },
+        { program: 'FP&A', count: 9 },
+      ],
+      advisorLine:
+        'JPMorgan already covers Dalton CFP and Meldrum CFA through Guild. Peers have enrolled in WSP certs and gotten the out-of-catalog $7,500 track approved.',
+    },
+  ],
+
+  combinedCallout: {
+    totalLearners: 137,
+    withSubsidy: 53,
+    npsPromoters: 24,
+  },
+
+  caveats: [
+    '"Used employer reimbursement" comes from the enrollment-form tuition question; roughly a third of records left it blank, so real usage runs higher.',
+    '"Tuition assistance approved" is a separate TA-approved flag.',
+    'Company matching is self-reported free text; true headcount is higher than these floors.',
+    'JPMorgan is grouped with Citi for this comparison; its administrator is Guild Education, not Bright Horizons EdAssist.',
+  ],
+};
+
 export const EMPLOYERS: Employer[] = [
   {
     id: 'goldman-sachs',
