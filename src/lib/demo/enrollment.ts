@@ -1,7 +1,6 @@
 /**
- * Synthetic enrollment pacing for demo mode — same shape getPacingData()
- * returns. Deterministic. One active cohort runs ahead of forecast (Wharton),
- * one behind (CBSEE), so the dashboard tells a believable story.
+ * Synthetic enrollment pacing for demo mode — same shape getPacingData() returns.
+ * Deterministic. One active cohort runs ahead of forecast (Wharton), one behind (CBSEE).
  */
 import type {
   CohortSummary,
@@ -10,19 +9,27 @@ import type {
   ComparisonRow,
 } from "@/lib/sheets";
 
-const W_GOALS = { wSp24: 1058, wFa24: 1154, wWi25: 1191, wSp25: 1035, wFa25: 897, wWi26: 1021 };
-const C_GOALS = { cSu25: 415, cFa25: 468, cWi26: 485 };
-
-// Final % of goal each closed cohort landed at (fans the historical lines out)
-const W_FINAL = { wSp24: 0.99, wFa24: 1.02, wWi25: 0.97, wSp25: 1.01, wFa25: 1.05, wWi26: 0.98 };
-const C_FINAL = { cSu25: 1.02, cFa25: 0.99, cWi26: 1.03 };
+// Historical cohorts shown in demo (oldest → newest, matching column order in sheet)
+const W_HIST = [
+  { label: "Spring '24", goal: 1058, finalFrac: 0.99 },
+  { label: "Fall '24",   goal: 1154, finalFrac: 1.02 },
+  { label: "Winter '25", goal: 1191, finalFrac: 0.97 },
+  { label: "Spring '25", goal: 1035, finalFrac: 1.01 },
+  { label: "Fall '25",   goal:  897, finalFrac: 1.05 },
+  { label: "Winter '26", goal: 1021, finalFrac: 0.98 },
+];
+const C_HIST = [
+  { label: "Summer '25", goal: 415, finalFrac: 1.02 },
+  { label: "Fall '25",   goal: 468, finalFrac: 0.99 },
+  { label: "Winter '26", goal: 485, finalFrac: 1.03 },
+];
 
 const W_GOAL = 1225;
 const C_GOAL = 468;
 const W_CUR = 24; // days remaining for active Wharton cohort
 const C_CUR = 30; // days remaining for active CBSEE cohort
 const W_ACT = 1.04; // active Wharton pace (ahead of plan)
-const C_ACT = 0.9; // active CBSEE pace (behind plan)
+const C_ACT = 0.9;  // active CBSEE pace (behind plan)
 const W_NAME = "Wharton Spring '26";
 const C_NAME = "CBSEE Spring '26";
 
@@ -41,28 +48,35 @@ export function getDemoPacing(): {
   summary: CohortSummary[];
   pacing: PacingDataPoint[];
   comparison: { wharton: ComparisonPanel; cbsee: ComparisonPanel };
+  programs: string[];
 } {
   // ── Pacing series ──
   const pacing: PacingDataPoint[] = [];
   for (let day = 120; day >= 0; day--) {
     const f = fracAt(day);
-    const pt: PacingDataPoint = { day };
 
-    pt.wSp24Pct = r2(f * W_FINAL.wSp24 * 100);
-    pt.wFa24Pct = r2(f * W_FINAL.wFa24 * 100);
-    pt.wWi25Pct = r2(f * W_FINAL.wWi25 * 100);
-    pt.wSp25Pct = r2(f * W_FINAL.wSp25 * 100);
-    pt.wFa25Pct = r2(f * W_FINAL.wFa25 * 100);
-    pt.wWi26Pct = r2(f * W_FINAL.wWi26 * 100);
-    pt.wLast3Pct = r2((pt.wSp25Pct + pt.wFa25Pct + pt.wWi26Pct) / 3);
+    const wHistoricals = W_HIST.map(h => ({
+      label: h.label,
+      pct: r2(f * h.finalFrac * 100),
+    }));
+    const cHistoricals = C_HIST.map(h => ({
+      label: h.label,
+      pct: r2(f * h.finalFrac * 100),
+    }));
 
-    pt.cSu25Pct = r2(f * C_FINAL.cSu25 * 100);
-    pt.cFa25Pct = r2(f * C_FINAL.cFa25 * 100);
-    pt.cWi26Pct = r2(f * C_FINAL.cWi26 * 100);
-    pt.cLast3Pct = r2((pt.cSu25Pct + pt.cFa25Pct + pt.cWi26Pct) / 3);
+    const wLast3 = wHistoricals.slice(-3);
+    const cLast3 = cHistoricals.slice(-3);
 
-    pt.wForecast = Math.round(f * W_GOAL);
-    pt.cForecast = Math.round(f * C_GOAL);
+    const pt: PacingDataPoint = {
+      day,
+      wHistoricals,
+      cHistoricals,
+      wLast3Pct: r2(wLast3.reduce((s, h) => s + h.pct, 0) / 3),
+      cLast3Pct: r2(cLast3.reduce((s, h) => s + h.pct, 0) / 3),
+      wForecast: Math.round(f * W_GOAL),
+      cForecast: Math.round(f * C_GOAL),
+    };
+
     if (day >= W_CUR) {
       pt.wActualPct = r2(f * W_ACT * 100);
       pt.wActual = Math.round(f * W_ACT * W_GOAL);
@@ -80,10 +94,7 @@ export function getDemoPacing(): {
   const wEnrolled = Math.round(fw * W_ACT * W_GOAL);
   const wFc = Math.round(fw * W_GOAL);
   const wHistAvg = Math.round(
-    (fw * W_FINAL.wSp25 * W_GOALS.wSp25 +
-      fw * W_FINAL.wFa25 * W_GOALS.wFa25 +
-      fw * W_FINAL.wWi26 * W_GOALS.wWi26) /
-      3,
+    W_HIST.slice(-3).reduce((s, h) => s + fw * h.finalFrac * h.goal, 0) / 3
   );
   const wPct = r1((wEnrolled / W_GOAL) * 100).toFixed(1);
 
@@ -91,10 +102,7 @@ export function getDemoPacing(): {
   const cEnrolled = Math.round(fc * C_ACT * C_GOAL);
   const cFc = Math.round(fc * C_GOAL);
   const cHistAvg = Math.round(
-    (fc * C_FINAL.cSu25 * C_GOALS.cSu25 +
-      fc * C_FINAL.cFa25 * C_GOALS.cFa25 +
-      fc * C_FINAL.cWi26 * C_GOALS.cWi26) /
-      3,
+    C_HIST.reduce((s, h) => s + fc * h.finalFrac * h.goal, 0) / 3
   );
   const cPct = r1((cEnrolled / C_GOAL) * 100).toFixed(1);
 
@@ -122,48 +130,40 @@ export function getDemoPacing(): {
   ];
 
   // ── Comparison panels ──
-  const wClosed: { label: string; key: keyof typeof W_FINAL; goal: number }[] = [
-    { label: "Winter '26", key: "wWi26", goal: W_GOALS.wWi26 },
-    { label: "Fall '25", key: "wFa25", goal: W_GOALS.wFa25 },
-    { label: "Spring '25", key: "wSp25", goal: W_GOALS.wSp25 },
-    { label: "Winter '25", key: "wWi25", goal: W_GOALS.wWi25 },
-    { label: "Fall '24", key: "wFa24", goal: W_GOALS.wFa24 },
-    { label: "Spring '24", key: "wSp24", goal: W_GOALS.wSp24 },
-  ];
-  const wClosedRows: ComparisonRow[] = wClosed.map((c) => {
-    const enrolled = Math.round(fw * W_FINAL[c.key] * c.goal);
-    return { label: c.label, enrolled, goal: c.goal, pctDone: r1((enrolled / c.goal) * 100), isActive: false };
-  });
+  const atDayW = pacing.find(p => p.day === W_CUR) ?? pacing[0];
+  const atDayC = pacing.find(p => p.day === C_CUR) ?? pacing[0];
 
-  const cClosed: { label: string; key: keyof typeof C_FINAL; goal: number }[] = [
-    { label: "Winter '26", key: "cWi26", goal: C_GOALS.cWi26 },
-    { label: "Fall '25", key: "cFa25", goal: C_GOALS.cFa25 },
-    { label: "Summer '25", key: "cSu25", goal: C_GOALS.cSu25 },
-  ];
-  const cClosedRows: ComparisonRow[] = cClosed.map((c) => {
-    const enrolled = Math.round(fc * C_FINAL[c.key] * c.goal);
-    return { label: c.label, enrolled, goal: c.goal, pctDone: r1((enrolled / c.goal) * 100), isActive: false };
-  });
+  const buildClosedRows = (
+    historicals: Array<{ label: string; pct: number }>,
+    goals: Array<{ label: string; goal: number }>
+  ): ComparisonRow[] =>
+    [...historicals].reverse().map(h => {
+      const g = goals.find(x => x.label === h.label)?.goal ?? 0;
+      return { label: h.label, enrolled: Math.round(h.pct / 100 * g), goal: g, pctDone: r1(h.pct), isActive: false };
+    });
 
-  const wAvgGoal = Math.round((W_GOALS.wSp25 + W_GOALS.wFa25 + W_GOALS.wWi26) / 3);
-  const wAvgPct = r1((wClosedRows[0].pctDone + wClosedRows[1].pctDone + wClosedRows[2].pctDone) / 3);
-  const cAvgGoal = Math.round((C_GOALS.cSu25 + C_GOALS.cFa25 + C_GOALS.cWi26) / 3);
-  const cAvgPct = r1((cClosedRows[0].pctDone + cClosedRows[1].pctDone + cClosedRows[2].pctDone) / 3);
+  const last3W = atDayW.wHistoricals.slice(-3);
+  const last3WAvgPct = r1(last3W.reduce((s, h) => s + h.pct, 0) / 3);
+  const last3WGoalAvg = Math.round(W_HIST.slice(-3).reduce((s, h) => s + h.goal, 0) / 3);
+
+  const last3C = atDayC.cHistoricals.slice(-3);
+  const last3CAvgPct = r1(last3C.reduce((s, h) => s + h.pct, 0) / 3);
+  const last3CGoalAvg = Math.round(C_HIST.reduce((s, h) => s + h.goal, 0) / 3);
 
   const wharton: ComparisonPanel = {
     program: "Wharton Online",
     daysRemaining: W_CUR,
     activeRow: { label: W_NAME, enrolled: wEnrolled, goal: W_GOAL, pctDone: r1((wEnrolled / W_GOAL) * 100), isActive: true },
-    last3Avg: { enrolled: Math.round((wAvgPct / 100) * wAvgGoal), goal: wAvgGoal, pctDone: wAvgPct },
-    closedRows: wClosedRows,
+    last3Avg: { enrolled: Math.round((last3WAvgPct / 100) * last3WGoalAvg), goal: last3WGoalAvg, pctDone: last3WAvgPct },
+    closedRows: buildClosedRows(atDayW.wHistoricals, W_HIST),
   };
   const cbsee: ComparisonPanel = {
     program: "CBSEE",
     daysRemaining: C_CUR,
     activeRow: { label: C_NAME, enrolled: cEnrolled, goal: C_GOAL, pctDone: r1((cEnrolled / C_GOAL) * 100), isActive: true },
-    last3Avg: { enrolled: Math.round((cAvgPct / 100) * cAvgGoal), goal: cAvgGoal, pctDone: cAvgPct },
-    closedRows: cClosedRows,
+    last3Avg: { enrolled: Math.round((last3CAvgPct / 100) * last3CGoalAvg), goal: last3CGoalAvg, pctDone: last3CAvgPct },
+    closedRows: buildClosedRows(atDayC.cHistoricals, C_HIST),
   };
 
-  return { summary, pacing, comparison: { wharton, cbsee } };
+  return { summary, pacing, comparison: { wharton, cbsee }, programs: ['wharton', 'cbsee'] };
 }

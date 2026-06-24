@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine,
@@ -15,6 +15,11 @@ interface Props {
 
 type ZoomLevel = 30 | 60 | 90 | 120;
 const ZOOM_OPTIONS: ZoomLevel[] = [30, 60, 90, 120];
+
+// Blue gradient (oldest=darkest → newest=lightest) for Wharton historical lines
+const W_COLORS = ['#1e3a5f', '#1e4d8c', '#2563b0', '#3b82c4', '#60a5da', '#93c5f0'];
+// Green gradient for CBSEE historical lines
+const C_COLORS = ['#064e3b', '#065f46', '#10b981'];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: any) {
@@ -38,11 +43,36 @@ function CustomTooltip({ active, payload, label }: any) {
 export default function PacingChart({ data, program, daysRemaining }: Props) {
   const [zoom, setZoom] = useState<ZoomLevel>(120);
 
-  if (!data.length) return null;
+  // Extract unique historical labels from the first data point that has them
+  const wHistLabels = useMemo(() => {
+    const pt = data.find(d => d.wHistoricals.length > 0);
+    return pt?.wHistoricals.map(h => h.label) ?? [];
+  }, [data]);
+  const cHistLabels = useMemo(() => {
+    const pt = data.find(d => d.cHistoricals.length > 0);
+    return pt?.cHistoricals.map(h => h.label) ?? [];
+  }, [data]);
 
-  const chartData = [...data]
-    .filter(d => d.day <= zoom)
-    .sort((a, b) => b.day - a.day);
+  // Flatten wHistoricals/cHistoricals arrays into flat objects for Recharts
+  const chartData = useMemo(() => {
+    return [...data]
+      .filter(d => d.day <= zoom)
+      .sort((a, b) => b.day - a.day)
+      .map(pt => {
+        const flat: Record<string, unknown> = {
+          day: pt.day,
+          wActualPct: pt.wActualPct,
+          wLast3Pct: pt.wLast3Pct,
+          cActualPct: pt.cActualPct,
+          cLast3Pct: pt.cLast3Pct,
+        };
+        pt.wHistoricals.forEach(h => { flat[`w|${h.label}`] = h.pct; });
+        pt.cHistoricals.forEach(h => { flat[`c|${h.label}`] = h.pct; });
+        return flat;
+      });
+  }, [data, zoom]);
+
+  if (!data.length) return null;
 
   const axisProps = {
     tick: { fill: '#6b7280', fontSize: 11 },
@@ -53,7 +83,6 @@ export default function PacingChart({ data, program, daysRemaining }: Props) {
   const isCBSEE   = program === 'CBSEE'   || program === 'Both';
   const isAll     = program === 'Both';
 
-  // Only show "Today" marker if it falls within the current zoom window
   const todayVisible = daysRemaining !== undefined && daysRemaining <= zoom;
 
   return (
@@ -107,27 +136,44 @@ export default function PacingChart({ data, program, daysRemaining }: Props) {
           )}
 
           {/* Wharton historical lines — blue gradient, oldest darkest */}
+          {isWharton && wHistLabels.map((label, i) => (
+            <Line
+              key={`w|${label}`}
+              dataKey={`w|${label}`}
+              name={isAll ? `W: ${label}` : label}
+              stroke={W_COLORS[i] ?? '#93c5f0'}
+              strokeWidth={1.2 + i * 0.1}
+              dot={false}
+              connectNulls
+            />
+          ))}
+
+          {/* Wharton active + last-3 */}
           {isWharton && (
             <>
-              <Line dataKey="wSp24Pct" name={isAll ? "W: Spring '24" : "Spring '24"} stroke="#1e3a5f" strokeWidth={1.2} dot={false} connectNulls />
-              <Line dataKey="wFa24Pct" name={isAll ? "W: Fall '24"   : "Fall '24"}   stroke="#1e4d8c" strokeWidth={1.2} dot={false} connectNulls />
-              <Line dataKey="wWi25Pct" name={isAll ? "W: Winter '25" : "Winter '25"} stroke="#2563b0" strokeWidth={1.3} dot={false} connectNulls />
-              <Line dataKey="wSp25Pct" name={isAll ? "W: Spring '25" : "Spring '25"} stroke="#3b82c4" strokeWidth={1.4} dot={false} connectNulls />
-              <Line dataKey="wFa25Pct" name={isAll ? "W: Fall '25"   : "Fall '25"}   stroke="#60a5da" strokeWidth={1.5} dot={false} connectNulls />
-              <Line dataKey="wWi26Pct" name={isAll ? "W: Winter '26" : "Winter '26"} stroke="#93c5f0" strokeWidth={1.7} dot={false} connectNulls />
-              <Line dataKey="wActualPct"  name={isAll ? "W: Spring '26 (current)" : "Spring '26 (current)"} stroke="#f97316" strokeWidth={2.5} dot={false} connectNulls />
-              <Line dataKey="wLast3Pct"   name={isAll ? "W: Last 3 avg" : "Last 3 avg"} stroke="#e5e7eb" strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls />
+              <Line dataKey="wActualPct" name={isAll ? 'W: Current' : 'Current'} stroke="#f97316" strokeWidth={2.5} dot={false} connectNulls />
+              <Line dataKey="wLast3Pct"  name={isAll ? 'W: Last 3 avg' : 'Last 3 avg'} stroke="#e5e7eb" strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls />
             </>
           )}
 
           {/* CBSEE historical lines — green gradient */}
+          {isCBSEE && cHistLabels.map((label, i) => (
+            <Line
+              key={`c|${label}`}
+              dataKey={`c|${label}`}
+              name={isAll ? `C: ${label}` : label}
+              stroke={C_COLORS[i] ?? '#10b981'}
+              strokeWidth={1.2 + i * 0.25}
+              dot={false}
+              connectNulls
+            />
+          ))}
+
+          {/* CBSEE active + last-3 */}
           {isCBSEE && (
             <>
-              <Line dataKey="cSu25Pct" name={isAll ? "C: Summer '25" : "Summer '25"} stroke="#064e3b" strokeWidth={1.2} dot={false} connectNulls />
-              <Line dataKey="cFa25Pct" name={isAll ? "C: Fall '25"   : "Fall '25"}   stroke="#065f46" strokeWidth={1.4} dot={false} connectNulls />
-              <Line dataKey="cWi26Pct" name={isAll ? "C: Winter '26" : "Winter '26"} stroke="#10b981" strokeWidth={1.7} dot={false} connectNulls />
-              <Line dataKey="cActualPct"  name={isAll ? "C: Spring '26 (current)" : "Spring '26 (current)"} stroke="#f97316" strokeWidth={2.5} dot={false} connectNulls />
-              <Line dataKey="cLast3Pct"   name={isAll ? "C: Last 3 avg" : "Last 3 avg"} stroke="#d1fae5" strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls />
+              <Line dataKey="cActualPct" name={isAll ? 'C: Current' : 'Current'} stroke="#f97316" strokeWidth={2.5} dot={false} connectNulls />
+              <Line dataKey="cLast3Pct"  name={isAll ? 'C: Last 3 avg' : 'Last 3 avg'} stroke="#d1fae5" strokeWidth={1.5} strokeDasharray="6 3" dot={false} connectNulls />
             </>
           )}
         </LineChart>
