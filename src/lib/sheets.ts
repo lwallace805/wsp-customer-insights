@@ -344,3 +344,171 @@ export async function getPacingData(sheetId?: string): Promise<{
     programs,
   };
 }
+
+// ---------------------------------------------------------------------------
+// V2 reader — "Deadline Pacing Table V2" format
+// Rows count DOWN from the enrollment deadline (row = "Day before Deadline").
+// Compatible with the existing PacingChart because both use days-remaining as x.
+// ---------------------------------------------------------------------------
+
+const V2_TAB = 'Deadline Pacing Table V2';
+
+// Column indices (0-based) in each data row of the V2 table
+const V2 = {
+  date:             0,  // "Current Date" — "M/D/YYYY"
+  daysBeforeDeadline: 1, // "Day before Deadline"
+  totalEnrollments: 21, // "Total Enrollments" (running cumulative actual)
+  forecastEnrollments: 22, // "Forecast Enrollments"
+  // Secondary section (repeated at far right for cleaner charting)
+  goalCumulative:   28, // "Daily Goals" = cumulative goal by this day
+  plus10:           30, // "Plus 10%"
+  minus10:          31, // "Minus 10%"
+} as const;
+
+export async function getPacingDataV2(sheetId: string): Promise<{
+  summary: CohortSummary[];
+  pacing: PacingDataPoint[];
+  comparison: { wharton: ComparisonPanel; cbsee: ComparisonPanel | null };
+  programs: string[];
+}> {
+  if (isDemo()) return getDemoPacing();
+
+  const auth = getAuth();
+  const sheets = google.sheets({ version: 'v4', auth });
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `'${V2_TAB}'!A1:AF220`,
+  });
+  const rows = res.data.values ?? [];
+
+  // --- Find header + data rows ---
+  const hIdx = rows.findIndex(r => r[V2.daysBeforeDeadline] === 'Day before Deadline');
+  if (hIdx < 0) throw new Error(`"Day before Deadline" header not found in "${V2_TAB}"`);
+
+  const dataRows = rows
+    .slice(hIdx + 1)
+    .filter(r => r[V2.daysBeforeDeadline] !== undefined && r[V2.daysBeforeDeadline] !== '' && !isNaN(Number(r[V2.daysBeforeDeadline])));
+
+  // --- Final goal: cumulative goal at day 0 (the deadline row) ---
+  const deadlineRow = dataRows.find(r => N(r[V2.daysBeforeDeadline]) === 0);
+  const finalGoal = N(deadlineRow?.[V2.goalCumulative]) ?? 1225;
+
+  // --- Today's row: latest date in the sheet that is <= today ---
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const todayRow = dataRows.reduce<string[] | null>((best, r) => {
+    const raw = r[V2.date];
+    if (!raw) return best;
+    const rowMs = new Date(raw).setHours(0, 0, 0, 0);
+    if (isNaN(rowMs) || rowMs > todayMs) return best;
+    if (!best) return r;
+    const bestMs = new Date(best[V2.date]).setHours(0, 0, 0, 0);
+    return rowMs > bestMs ? r : best;
+  }, null);
+
+  const daysRemaining = N(todayRow?.[V2.daysBeforeDeadline]) ?? 0;
+  const currentEnrolled = N(todayRow?.[V2.totalEnrollments]) ?? 0;
+  const currentGoalAtDay = N(todayRow?.[V2.goalCumulative]) ?? 0;
+  const currentForecast = N(todayRow?.[V2.forecastEnrollments]) ?? 0;
+
+  // --- Historical cohort enrollments from the summary section (rows 0-5 of sheet) ---
+  const findSummaryVal = (keyword: string): number | null => {
+    const row = rows.find(r =>
+      r[0]?.toString().toLowerCase().includes(keyword.toLowerCase()) &&
+      r[1] && r[1].toString().trim() !== ''
+    );
+    return row ? N(row[1]) : null;
+  };
+  const fall25Final  = findSummaryVal('fall 2025') ?? 883;
+  const winter26Final = findSummaryVal('winter 2026') ?? 1020;
+  const spring26Final = findSummaryVal('spring') ?? 1003; // "Spring 206" typo in sheet
+
+  const histCohorts = [
+    { label: "Fall '25",   enrolled: fall25Final,   goal: W_GOALS["Fall '25"]   ?? 897  },
+    { label: "Winter '26", enrolled: winter26Final, goal: W_GOALS["Winter '26"] ?? 1021 },
+    { label: "Spring '26", enrolled: spring26Final, goal: W_GOALS["Spring '26"] ?? 1225 },
+  ];
+  const last3AvgEnrolled = Math.round(histCohorts.reduce((s, c) => s + c.enrolled, 0) / histCohorts.length);
+  const last3AvgGoal = Math.round(histCohorts.reduce((s, c) => s + c.goal, 0) / histCohorts.length);
+  const last3AvgPct = +(histCohorts.reduce((s, c) => s + (c.enrolled / c.goal * 100), 0) / histCohorts.length).toFixed(1);
+
+  // --- Summary ---
+  const pctDone = finalGoal > 0 ? (currentEnrolled / finalGoal * 100).toFixed(1) : '0.0';
+  const vsGoal = currentEnrolled - currentGoalAtDay;
+  const keyTakeaway = `Wharton Fall '26 has enrolled ${currentEnrolled.toLocaleString()} of ${finalGoal.toLocaleString()} students (${pctDone}%) with ${daysRemaining} days remaining.${
+    currentGoalAtDay > 0
+      ? ` Goal pace: ${currentGoalAtDay.toLocaleString()} expected by this point (${vsGoal >= 0 ? '+' : ''}${vsGoal} vs pace). Last 3-cohort final avg: ${last3AvgEnrolled.toLocaleString()}.`
+      : ''
+  }`;
+
+  const summary: CohortSummary[] = [{
+    cohort: "Fall '26",
+    program: 'Wharton',
+    goal: finalGoal,
+    enrolled: currentEnrolled,
+    forecast: currentForecast > 0 ? currentForecast : finalGoal,
+    daysRemaining,
+    histAvg: last3AvgEnrolled,
+    keyTakeaway,
+  }];
+
+  // --- Pacing data points ---
+  // day = daysBeforeDeadline (days remaining), same convention as old format
+  const pacing: PacingDataPoint[] = dataRows
+    .filter(r => N(r[V2.daysBeforeDeadline]) !== null)
+    .map(r => {
+      const day = N(r[V2.daysBeforeDeadline])!;
+      const actuals = N(r[V2.totalEnrollments]) ?? 0;
+      const forecast = N(r[V2.forecastEnrollments]);
+      const cumulGoal = N(r[V2.goalCumulative]) ?? 0;
+
+      const pt: PacingDataPoint = {
+        day,
+        // Goal trajectory stored as a single "historical" line so PacingChart renders it automatically
+        wHistoricals: cumulGoal > 0
+          ? [{ label: 'Goal Pace', pct: +(cumulGoal / finalGoal * 100).toFixed(2) }]
+          : [],
+        cHistoricals: [],
+      };
+
+      if (actuals > 0 && finalGoal > 0) {
+        pt.wActualPct = +(actuals / finalGoal * 100).toFixed(2);
+        pt.wActual = actuals;
+      }
+      if (forecast !== null && forecast > 0) pt.wForecast = forecast;
+
+      return pt;
+    });
+
+  // --- Comparison panel ---
+  const wComparison: ComparisonPanel = {
+    program: 'Wharton Online',
+    daysRemaining,
+    activeRow: {
+      label: "Fall '26",
+      enrolled: currentEnrolled,
+      goal: finalGoal,
+      pctDone: +(currentEnrolled / finalGoal * 100).toFixed(1),
+      isActive: true,
+    },
+    last3Avg: {
+      enrolled: last3AvgEnrolled,
+      goal: last3AvgGoal,
+      pctDone: last3AvgPct,
+    },
+    closedRows: [...histCohorts].reverse().map(c => ({
+      label: c.label,
+      enrolled: c.enrolled,
+      goal: c.goal,
+      pctDone: +(c.enrolled / c.goal * 100).toFixed(1),
+      isActive: false,
+    })),
+  };
+
+  return {
+    summary,
+    pacing,
+    comparison: { wharton: wComparison, cbsee: null },
+    programs: ['wharton'],
+  };
+}

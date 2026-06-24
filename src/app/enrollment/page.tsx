@@ -28,9 +28,10 @@ async function getData(cohort: string): Promise<PageData> {
     return { summary, pacing, comparison, programs, mock: false };
   }
 
-  const sheetId = cohort === 'spring26'
-    ? process.env.GOOGLE_PACING_SHEET_ID
-    : process.env.FALL26_PACING_SHEET_ID;
+  const isFall26 = cohort !== 'spring26';
+  const sheetId = isFall26
+    ? process.env.FALL26_PACING_SHEET_ID
+    : process.env.GOOGLE_PACING_SHEET_ID;
 
   const hasCredentials = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY && !!sheetId;
 
@@ -38,23 +39,29 @@ async function getData(cohort: string): Promise<PageData> {
     return {
       summary: [],
       pacing: [],
-      comparison: { wharton: EMPTY_PANEL, cbsee: EMPTY_PANEL },
-      programs: ['wharton', 'cbsee'],
+      comparison: { wharton: EMPTY_PANEL, cbsee: isFall26 ? null : EMPTY_PANEL },
+      programs: isFall26 ? ['wharton'] : ['wharton', 'cbsee'],
       mock: true,
     };
   }
 
   try {
-    const { getPacingData } = await import('@/lib/sheets');
-    const { summary, pacing, comparison, programs } = await getPacingData(sheetId);
-    return { summary, pacing, comparison, programs, mock: false };
+    if (isFall26) {
+      const { getPacingDataV2 } = await import('@/lib/sheets');
+      const { summary, pacing, comparison, programs } = await getPacingDataV2(sheetId!);
+      return { summary, pacing, comparison, programs, mock: false };
+    } else {
+      const { getPacingData } = await import('@/lib/sheets');
+      const { summary, pacing, comparison, programs } = await getPacingData(sheetId);
+      return { summary, pacing, comparison, programs, mock: false };
+    }
   } catch (err) {
     console.error('Enrollment data error:', err);
     return {
       summary: [],
       pacing: [],
-      comparison: { wharton: EMPTY_PANEL, cbsee: null },
-      programs: ['wharton'],
+      comparison: { wharton: EMPTY_PANEL, cbsee: isFall26 ? null : EMPTY_PANEL },
+      programs: isFall26 ? ['wharton'] : ['wharton', 'cbsee'],
       mock: true,
     };
   }
