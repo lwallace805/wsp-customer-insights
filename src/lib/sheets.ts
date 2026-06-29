@@ -27,7 +27,7 @@ export const W_GOALS: Record<string, number> = {
   "Spring '25": 1035, "Fall '25": 897,  "Winter '26": 1021, "Spring '26": 1225,
 };
 export const C_GOALS: Record<string, number> = {
-  "Summer '25": 415, "Fall '25": 468, "Winter '26": 485,
+  "Summer '25": 415, "Fall '25": 468, "Winter '26": 485, "Summer '26": 468,
 };
 
 // Strip leading program name prefix so "Wharton Spring '24" → "Spring '24"
@@ -89,11 +89,15 @@ export interface ComparisonPanel {
 // Column indices (0-based) in the "Overall Cohort - AN Summary" pacing table.
 // Positions are stable across cohort cycles — only the column headers change.
 const COL = {
-  day:      0,
-  wHist1:  17, wHist2: 18, wHist3: 19, wHist4: 20, wHist5: 21, wHist6: 22,
-  wActual: 23, wForecast: 24,
-  cHist1:  26, cHist2: 27, cHist3: 28,
-  cActual: 29, cForecast: 30,
+  day:       0,
+  // Historical Wharton cohorts (raw enrollment) — columns shifted as new cohorts were added
+  wHist1:   18, wHist2: 19, wHist3: 20, wHist4: 21, wHist5: 22, wHist6: 23,
+  // Active Wharton cohort: Spring '26 - actual (col 24); Fall '26 - actual (col 25, mostly empty)
+  wActual:  24, wForecast: 25,
+  // Historical CBSEE cohorts
+  cHist1:   28, cHist2: 29, cHist3: 30,
+  // Active CBSEE cohort: Summer '26 - actual (col 31) and forecast (col 32)
+  cActual:  31, cForecast: 32,
 } as const;
 
 const HIST_W_COLS = [COL.wHist1, COL.wHist2, COL.wHist3, COL.wHist4, COL.wHist5, COL.wHist6];
@@ -153,10 +157,10 @@ export async function getPacingData(sheetId?: string): Promise<{
   const programs = hasCBSEE ? ['wharton', 'cbsee'] : ['wharton'];
 
   // --- Goals for active cohorts ---
-  // wForecast at day 0 = final forecast = goal; cHist3 at day 0 = last CBSEE cohort's
-  // final enrollment ≈ goal for current CBSEE cohort (cForecast is blank near the start)
-  const wGoal = N(dataRows[0]?.[COL.wForecast]) ?? 1225;
-  const cGoal = hasCBSEE ? (N(dataRows[0]?.[COL.cHist3]) ?? 485) : 485;
+  // Prefer the W_GOALS/C_GOALS lookup (keyed by cohort name from header) so goals
+  // stay correct even when the forecast column is empty or carries a different cohort.
+  const wGoal = getWGoal(wCohortName) ?? N(dataRows[0]?.[COL.wForecast]) ?? 1225;
+  const cGoal = hasCBSEE ? (getCGoal(cCohortName) ?? N(dataRows[0]?.[COL.cForecast]) ?? 485) : 485;
 
   const wRow = wIdx >= 0 ? dataRows[wIdx] : null;
   const cRow = cIdx >= 0 ? dataRows[cIdx] : null;
