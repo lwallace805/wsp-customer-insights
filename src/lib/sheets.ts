@@ -414,8 +414,10 @@ export async function getPacingDataV2(sheetId: string): Promise<{
   const currentEnrolled = N(todayRow?.[V2.totalEnrollments]) ?? 0;
   const currentForecast = N(todayRow?.[V2.forecastEnrollments]) ?? 0;
 
-  // Enrollment counts reflect prior-day totals (data lag). Compare against yesterday's
-  // cumulative goal so we don't penalize for a gap that's purely a reporting lag.
+  // Enrollment counts reflect prior-day totals (1-day data lag). Compare against
+  // yesterday's Forecast Enrollments (col 22) — what the model predicted would be
+  // enrolled by end of that day — so the vs-pace delta is apples-to-apples.
+  // Col 28 (Daily Goals) is a separate cumulative plan used only for the pacing chart.
   const yesterdayMs = todayMs - 86400000;
   const yesterdayRow = dataRows.reduce<string[] | null>((best, r) => {
     const raw = r[V2.date];
@@ -425,7 +427,7 @@ export async function getPacingDataV2(sheetId: string): Promise<{
     if (!best) return r;
     return rowMs > new Date(best[V2.date]).setHours(0, 0, 0, 0) ? r : best;
   }, null);
-  const currentGoalAtDay = N(yesterdayRow?.[V2.goalCumulative]) ?? N(todayRow?.[V2.goalCumulative]) ?? 0;
+  const currentGoalAtDay = N(yesterdayRow?.[V2.forecastEnrollments]) ?? N(todayRow?.[V2.forecastEnrollments]) ?? 0;
 
   // --- Historical cohort enrollments from the summary section (rows 0-5 of sheet) ---
   const findSummaryVal = (keyword: string): number | null => {
