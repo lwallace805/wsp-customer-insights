@@ -19,13 +19,15 @@ export default function StatCard({ cohort }: Props) {
   const histColor = histPositive ? 'text-emerald-400' : 'text-red-400';
   const histSign = histPositive ? '+' : '';
 
-  // At-pace projection: only meaningful once enough enrollment has accumulated.
-  // At <5% of goal the extrapolation amplifies noise rather than signal.
+  // At-pace projection: only meaningful once ≥5% is enrolled and cohort is still active.
+  // Formula: goal + current surplus (assumes remaining enrollment follows the forecast plan,
+  // not that the current lead rate continues throughout — avoids compounding a small lead).
+  const isCompleted = cohort.daysRemaining === 0;
   const pctNum = cohort.goal > 0 ? cohort.enrolled / cohort.goal : 0;
-  const showProjection = pctNum >= 0.05 && cohort.forecast > 0;
-  const paceRatio = cohort.forecast > 0 ? cohort.enrolled / cohort.forecast : 1;
-  const projected = Math.round(paceRatio * cohort.goal);
-  const projVsGoal = projected - cohort.goal;
+  const showProjection = !isCompleted && pctNum >= 0.05 && cohort.forecast > 0;
+  const surplus = forecastDiff; // enrolled - forecast (can be negative)
+  const projected = cohort.goal + surplus;
+  const projVsGoal = surplus;
   const projPositive = projVsGoal >= 0;
   const projSign = projPositive ? '+' : '';
 
@@ -73,8 +75,18 @@ export default function StatCard({ cohort }: Props) {
         </div>
       </div>
 
-      {/* At-pace projection — only shown once ≥5% of goal is enrolled */}
-      {showProjection ? (
+      {isCompleted ? (
+        <div className="mt-4 rounded-lg bg-white/5 border border-white/10 px-4 py-3">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Cohort Complete</p>
+          <div className="flex items-baseline justify-between">
+            <span className="text-2xl font-bold text-white">{cohort.enrolled.toLocaleString()}</span>
+            <span className={`text-sm font-semibold ${forecastPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+              {forecastSign}{forecastDiff.toLocaleString()} vs goal
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{pct}% of {cohort.goal.toLocaleString()} goal</p>
+        </div>
+      ) : showProjection ? (
         <div className="mt-4 rounded-lg bg-white/5 border border-white/10 px-4 py-3">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-1.5">At-pace projection</p>
           <div className="flex items-baseline justify-between">
@@ -84,7 +96,7 @@ export default function StatCard({ cohort }: Props) {
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            {Math.abs(Number(variancePct))}% {forecastPositive ? 'ahead of' : 'behind'} pace · {paceRatio.toFixed(3)}× ratio applied to {cohort.goal.toLocaleString()} goal
+            {Math.abs(Number(variancePct))}% {forecastPositive ? 'ahead of' : 'behind'} pace · goal {cohort.goal.toLocaleString()} + {projPositive ? '+' : ''}{surplus.toLocaleString()} current surplus
           </p>
         </div>
       ) : (
