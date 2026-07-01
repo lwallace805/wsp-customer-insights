@@ -19,7 +19,10 @@ export default function StatCard({ cohort }: Props) {
   const histColor = histPositive ? 'text-emerald-400' : 'text-red-400';
   const histSign = histPositive ? '+' : '';
 
-  // At-pace projection: if today's % ahead/behind holds through end of cohort
+  // At-pace projection: only meaningful once enough enrollment has accumulated.
+  // At <5% of goal the extrapolation amplifies noise rather than signal.
+  const pctNum = cohort.goal > 0 ? cohort.enrolled / cohort.goal : 0;
+  const showProjection = pctNum >= 0.05 && cohort.forecast > 0;
   const paceRatio = cohort.forecast > 0 ? cohort.enrolled / cohort.forecast : 1;
   const projected = Math.round(paceRatio * cohort.goal);
   const projVsGoal = projected - cohort.goal;
@@ -51,7 +54,7 @@ export default function StatCard({ cohort }: Props) {
 
       <div className="space-y-0">
         <div className="flex items-center justify-between py-1.5 border-t border-white/10">
-          <span className="text-sm text-gray-400">vs. Forecast</span>
+          <span className="text-sm text-gray-400">vs. Goal Pace</span>
           <span className={`text-sm font-medium ${forecastColor}`}>
             {forecastSign}{forecastDiff} vs. {cohort.forecast.toLocaleString()}
           </span>
@@ -70,19 +73,26 @@ export default function StatCard({ cohort }: Props) {
         </div>
       </div>
 
-      {/* At-pace projection */}
-      <div className="mt-4 rounded-lg bg-white/5 border border-white/10 px-4 py-3">
-        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1.5">At-pace projection</p>
-        <div className="flex items-baseline justify-between">
-          <span className="text-2xl font-bold text-white">{projected.toLocaleString()}</span>
-          <span className={`text-sm font-semibold ${projPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-            {projSign}{projVsGoal.toLocaleString()} vs goal
-          </span>
+      {/* At-pace projection — only shown once ≥5% of goal is enrolled */}
+      {showProjection ? (
+        <div className="mt-4 rounded-lg bg-white/5 border border-white/10 px-4 py-3">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1.5">At-pace projection</p>
+          <div className="flex items-baseline justify-between">
+            <span className="text-2xl font-bold text-white">{projected.toLocaleString()}</span>
+            <span className={`text-sm font-semibold ${projPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+              {projSign}{projVsGoal.toLocaleString()} vs goal
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {Math.abs(Number(variancePct))}% {forecastPositive ? 'ahead of' : 'behind'} pace · {paceRatio.toFixed(3)}× ratio applied to {cohort.goal.toLocaleString()} goal
+          </p>
         </div>
-        <p className="text-xs text-gray-500 mt-1">
-          {Math.abs(Number(variancePct))}% {forecastPositive ? 'ahead of' : 'behind'} pace · {paceRatio.toFixed(3)}× ratio applied to {cohort.goal.toLocaleString()} goal
-        </p>
-      </div>
+      ) : (
+        <div className="mt-4 rounded-lg bg-white/5 border border-white/10 px-4 py-3">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">At-pace projection</p>
+          <p className="text-sm text-gray-500 mt-1">Available once ≥5% of goal is enrolled</p>
+        </div>
+      )}
     </div>
   );
 }
