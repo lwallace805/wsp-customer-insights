@@ -462,7 +462,10 @@ export async function getPacingDataV2(sheetId: string): Promise<{
     program: 'Wharton',
     goal: finalGoal,
     enrolled: currentEnrolled,
-    forecast: currentForecast > 0 ? currentForecast : finalGoal,
+    // Use the goal-pace value (cumulative goal trajectory) as the forecast baseline so
+    // "vs. Forecast" in the stat card reflects where the enrollment plan says we should be,
+    // not a statistical model projection from a different column.
+    forecast: currentGoalAtDay > 0 ? currentGoalAtDay : currentForecast > 0 ? currentForecast : finalGoal,
     daysRemaining,
     histAvg: last3AvgEnrolled,
     keyTakeaway,
