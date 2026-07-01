@@ -78,7 +78,7 @@ export default function CohortComparison({ comparison }: Props) {
         <Panel panel={comparison.cbsee} />
       ) : (
         <div className="flex-1 bg-[#161b22] border border-white/10 rounded-xl p-8 flex items-center justify-center min-w-0">
-          <p className="text-gray-500 text-sm">Columbia AI Fall &apos;26 cohort not yet started</p>
+          <p className="text-gray-500 text-sm">No CBSEE cohort data available for this period</p>
         </div>
       )}
     </div>

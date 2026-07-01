@@ -146,6 +146,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    if (cohort !== 'spring26') {
+      const { getPacingDataV2 } = await import('@/lib/sheets');
+      const { summary, pacing, comparison, programs } = await getPacingDataV2(sheetId!);
+      return NextResponse.json({ summary, pacing, comparison, programs, mock: false }, {
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
     const { getPacingData } = await import('@/lib/sheets');
     const { summary, pacing, comparison, programs } = await getPacingData(sheetId);
     return NextResponse.json({ summary, pacing, comparison, programs, mock: false }, {

@@ -87,7 +87,7 @@ export default function EnrollmentDashboard({ summary, pacing, comparison, progr
       {safeTab === 'Wharton Forecast'   && <WhartonForecast cohorts={summary} pacing={pacing} />}
       {safeTab === 'CBSEE Forecast'     && hasCBSEE && <CBSEEForecast cohorts={summary} pacing={pacing} />}
 
-      {!hasCBSEE && (
+      {!hasCBSEE && activeCohort === 'fall26' && (
         <p className="text-xs text-gray-600 mt-4 text-center">
           Columbia AI Fall &apos;26 cohort not yet started — switch to Spring &apos;26 to view CBSEE data
         </p>
