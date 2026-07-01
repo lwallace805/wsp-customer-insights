@@ -462,8 +462,6 @@ export async function getPacingDataV2(sheetId: string): Promise<{
     .filter(r => N(r[V2.daysBeforeDeadline]) !== null)
     .map(r => {
       const day = N(r[V2.daysBeforeDeadline])!;
-      const actuals = N(r[V2.totalEnrollments]) ?? 0;
-      const forecast = N(r[V2.forecastEnrollments]);
       const cumulGoal = N(r[V2.goalCumulative]) ?? 0;
 
       const pt: PacingDataPoint = {
@@ -475,11 +473,20 @@ export async function getPacingDataV2(sheetId: string): Promise<{
         cHistoricals: [],
       };
 
-      if (actuals > 0 && finalGoal > 0) {
-        pt.wActualPct = +(actuals / finalGoal * 100).toFixed(2);
-        pt.wActual = actuals;
+      // Col 21 carries the current running total forward into future rows — only plot
+      // actuals for dates that have already passed so the chart doesn't show a flat line
+      // extending all the way to the deadline.
+      const rowMs = new Date(r[V2.date]).setHours(0, 0, 0, 0);
+      const isPast = !isNaN(rowMs) && rowMs <= todayMs;
+      if (isPast) {
+        const actuals = N(r[V2.totalEnrollments]) ?? 0;
+        const forecast = N(r[V2.forecastEnrollments]);
+        if (actuals > 0 && finalGoal > 0) {
+          pt.wActualPct = +(actuals / finalGoal * 100).toFixed(2);
+          pt.wActual = actuals;
+        }
+        if (forecast !== null && forecast > 0) pt.wForecast = forecast;
       }
-      if (forecast !== null && forecast > 0) pt.wForecast = forecast;
 
       return pt;
     });
