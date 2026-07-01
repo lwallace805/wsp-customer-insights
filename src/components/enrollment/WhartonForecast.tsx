@@ -12,7 +12,7 @@ export default function WhartonForecast({ cohorts, pacing }: Props) {
   return (
     <div>
       <h2 className="text-base font-semibold text-white mb-4">
-        {cohort?.cohort ?? "Wharton Spring '26"} — Actual vs. Forecast
+        {cohort?.cohort ?? 'Wharton'} — Actual vs. Forecast
       </h2>
       <ForecastChart
         data={pacing}
