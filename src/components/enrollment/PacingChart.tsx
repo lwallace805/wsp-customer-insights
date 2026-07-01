@@ -135,18 +135,27 @@ export default function PacingChart({ data, program, daysRemaining }: Props) {
             />
           )}
 
-          {/* Wharton historical lines — blue gradient, oldest darkest */}
-          {isWharton && wHistLabels.map((label, i) => (
-            <Line
-              key={`w|${label}`}
-              dataKey={`w|${label}`}
-              name={isAll ? `W: ${label}` : label}
-              stroke={W_COLORS[i] ?? '#93c5f0'}
-              strokeWidth={1.2 + i * 0.1}
-              dot={false}
-              connectNulls
-            />
-          ))}
+          {/* Wharton historical lines — blue gradient (oldest darkest); Goal Pace gets gray dashed */}
+          {isWharton && (() => {
+            let ci = 0;
+            return wHistLabels.map(label => {
+              const isGoalPace = label === 'Goal Pace';
+              const colorIdx = ci;
+              if (!isGoalPace) ci++;
+              return (
+                <Line
+                  key={`w|${label}`}
+                  dataKey={`w|${label}`}
+                  name={isAll ? `W: ${label}` : label}
+                  stroke={isGoalPace ? '#9ca3af' : (W_COLORS[colorIdx] ?? '#93c5f0')}
+                  strokeWidth={isGoalPace ? 1.5 : 1.2 + colorIdx * 0.1}
+                  strokeDasharray={isGoalPace ? '5 3' : undefined}
+                  dot={false}
+                  connectNulls
+                />
+              );
+            });
+          })()}
 
           {/* Wharton active + last-3 */}
           {isWharton && (

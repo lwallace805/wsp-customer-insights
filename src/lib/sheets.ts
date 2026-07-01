@@ -137,6 +137,12 @@ export async function getPacingData(sheetId?: string): Promise<{
     (rows[headerIdx]?.[col] ?? '').toString().replace(/\s*-\s*actual\s*$/i, '').trim()
   );
 
+  // Verify the wForecast column is actually a forecast for the active Wharton cohort.
+  // After Fall '26 was added, col 25 became "Wharton Fall '26 - actual" — reading it as
+  // a forecast renders Fall '26 enrollment data as the Spring '26 forecast line.
+  const wForecastHeader = (rows[headerIdx]?.[COL.wForecast] ?? '').toString().toLowerCase();
+  const wForecastIsReal = wForecastHeader.includes('forecast') && !wForecastHeader.includes('actual');
+
   // --- Find first row with data for each program (rows are day-0-first, so first hit = most recent) ---
   let wIdx = -1;
   for (let i = 0; i < dataRows.length; i++) {
@@ -167,7 +173,7 @@ export async function getPacingData(sheetId?: string): Promise<{
 
   const wDays     = N(wRow?.[COL.day]) ?? 0;
   const wEnrolled = N(wRow?.[COL.wActual]) ?? 0;
-  const wFc       = N(wRow?.[COL.wForecast]) ?? 0;
+  const wFc       = wForecastIsReal ? (N(wRow?.[COL.wForecast]) ?? 0) : 0;
 
   const cDays     = N(cRow?.[COL.day]) ?? 0;
   const cEnrolled = N(cRow?.[COL.cActual]) ?? 0;
@@ -193,10 +199,14 @@ export async function getPacingData(sheetId?: string): Promise<{
       program: 'Wharton',
       goal: wGoal,
       enrolled: wEnrolled,
-      forecast: wFc,
+      // Completed cohorts (daysRemaining=0) use the final goal as forecast so "vs. Goal Pace"
+      // shows how far above/below goal the cohort actually finished.
+      forecast: wFc > 0 ? wFc : (wDays === 0 ? wGoal : 0),
       daysRemaining: wDays,
       histAvg: wHistAvg,
-      keyTakeaway: `${wCohortName} has enrolled ${wEnrolled.toLocaleString()} of ${wGoal.toLocaleString()} students (${wPct}%) with ${wDays} days remaining, ${wEnrolled < wFc ? `falling ${wFc - wEnrolled} short of forecast` : `running ${wEnrolled - wFc} ahead of forecast`} and ${wEnrolled > wHistAvg ? `+${wEnrolled - wHistAvg}` : `${wEnrolled - wHistAvg}`} vs. the last 3-cohort average of ${wHistAvg.toLocaleString()}.`,
+      keyTakeaway: wDays === 0
+        ? `${wCohortName} enrolled a final ${wEnrolled.toLocaleString()} of ${wGoal.toLocaleString()} students (${wPct}%)${wEnrolled >= wGoal ? `, exceeding goal by ${(wEnrolled - wGoal).toLocaleString()}` : `, finishing ${(wGoal - wEnrolled).toLocaleString()} short of goal`}. Last 3-cohort final avg: ${wHistAvg.toLocaleString()} (${wEnrolled > wHistAvg ? '+' : ''}${(wEnrolled - wHistAvg).toLocaleString()} vs avg).`
+        : `${wCohortName} has enrolled ${wEnrolled.toLocaleString()} of ${wGoal.toLocaleString()} students (${wPct}%) with ${wDays} days remaining, ${wEnrolled < wFc ? `falling ${wFc - wEnrolled} short of forecast` : `running ${wEnrolled - wFc} ahead of forecast`} and ${wEnrolled > wHistAvg ? `+${wEnrolled - wHistAvg}` : `${wEnrolled - wHistAvg}`} vs. the last 3-cohort average of ${wHistAvg.toLocaleString()}.`,
     },
     ...(hasCBSEE ? [{
       cohort: cCohortName,
@@ -242,8 +252,10 @@ export async function getPacingData(sheetId?: string): Promise<{
         pt.wActualPct = +(wa / wGoal * 100).toFixed(2);
         pt.wActual = wa;
       }
-      const wf = N(r[COL.wForecast]);
-      if (wf !== null) pt.wForecast = wf;
+      if (wForecastIsReal) {
+        const wf = N(r[COL.wForecast]);
+        if (wf !== null) pt.wForecast = wf;
+      }
 
       if (hasCBSEE) {
         const ca = N(r[COL.cActual]);
@@ -347,6 +359,53 @@ export async function getPacingData(sheetId?: string): Promise<{
     comparison: { wharton: wComparison, cbsee: cbseeComparison },
     programs,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Fetches historical Wharton cohort pacing from the V1 sheet (Overall Cohort - AN Summary)
+// and returns a Map<daysRemaining → [{label, pct}]>. Used by the V2 reader to populate
+// AllCohorts historical comparison lines without adding those columns to the V2 sheet.
+// ---------------------------------------------------------------------------
+async function fetchHistoricalWhartonMap(
+  sheetId: string
+): Promise<Map<number, Array<{ label: string; pct: number }>>> {
+  try {
+    const auth = getAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'Overall Cohort - AN Summary'!A1:AH200`,
+    });
+    const rows = res.data.values ?? [];
+    const hIdx = rows.findIndex(r => r[0]?.toString().trim() === 'Days');
+    if (hIdx < 0) return new Map();
+
+    const histCols = [18, 19, 20, 21, 22, 23] as const;
+    const labels = histCols.map(col =>
+      (rows[hIdx]?.[col] ?? '').toString().replace(/\s*-\s*actual\s*$/i, '').trim()
+    );
+
+    const map = new Map<number, Array<{ label: string; pct: number }>>();
+    for (const r of rows.slice(hIdx + 1)) {
+      const day = r[0] ? Number(r[0]) : NaN;
+      if (isNaN(day)) continue;
+      const entries = histCols
+        .map((col, i) => {
+          const label = labels[i];
+          if (!label) return null;
+          const v = N(r[col]);
+          if (v === null) return null;
+          const goal = getWGoal(label);
+          if (!goal) return null;
+          return { label, pct: +(v / goal * 100).toFixed(2) };
+        })
+        .filter((x): x is { label: string; pct: number } => x !== null);
+      if (entries.length > 0) map.set(day, entries);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -507,6 +566,27 @@ export async function getPacingDataV2(sheetId: string): Promise<{
 
       return pt;
     });
+
+  // --- Merge historical cohort lines from V1 sheet ---
+  // The V2 sheet only has Goal Pace; historical cohort curves live in the V1 sheet (cols 18-23).
+  // Both sheets use daysBeforeDeadline as the x-axis, so we can join them directly.
+  const historicalSheetId = process.env.GOOGLE_PACING_SHEET_ID;
+  if (historicalSheetId) {
+    const historicalMap = await fetchHistoricalWhartonMap(historicalSheetId);
+    for (const pt of pacing) {
+      const hist = historicalMap.get(pt.day);
+      if (hist && hist.length > 0) {
+        // Prepend historical cohort lines before "Goal Pace" so the legend order is oldest→newest→Goal Pace
+        pt.wHistoricals = [...hist, ...pt.wHistoricals];
+        // Recompute last-3 average using only cohort lines, not Goal Pace
+        const cohortLines = pt.wHistoricals.filter(h => h.label !== 'Goal Pace');
+        if (cohortLines.length >= 3) {
+          const last3 = cohortLines.slice(-3);
+          pt.wLast3Pct = +(last3.reduce((s, h) => s + h.pct, 0) / 3).toFixed(2);
+        }
+      }
+    }
+  }
 
   // --- Comparison panel ---
   const wComparison: ComparisonPanel = {
