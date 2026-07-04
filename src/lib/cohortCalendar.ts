@@ -47,29 +47,36 @@ function toMs(ymd: string): number {
   return new Date(y, m - 1, d).getTime();
 }
 
+/** "Now" in US Eastern time. The business day boundary is midnight ET
+ *  (deadlines are 11:59pm ET) — on UTC servers (Vercel) a plain `new Date()`
+ *  rolls to tomorrow at 8pm ET, which shifts every "today/yesterday" lookup. */
+export function nowET(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+}
+
 /** The cohort whose [opens, extEnds] window contains `date`. Windows tile
  *  exactly (each opens the day after the previous extEnds), so this is
  *  unambiguous. Returns null outside the transcribed range. */
-export function getActiveCohort(family: 'wharton' | 'columbia', date: Date = new Date()): CohortWindow | null {
+export function getActiveCohort(family: 'wharton' | 'columbia', date: Date = nowET()): CohortWindow | null {
   const d = new Date(date).setHours(0, 0, 0, 0);
   return COHORT_WINDOWS.find(w => w.family === family && d >= toMs(w.opens) && d <= toMs(w.extEnds)) ?? null;
 }
 
 /** The most recently completed cohort for a family as of `date`. */
-export function getPreviousCohort(family: 'wharton' | 'columbia', date: Date = new Date()): CohortWindow | null {
+export function getPreviousCohort(family: 'wharton' | 'columbia', date: Date = nowET()): CohortWindow | null {
   const d = new Date(date).setHours(0, 0, 0, 0);
   const past = COHORT_WINDOWS.filter(w => w.family === family && toMs(w.extEnds) < d);
   return past.length ? past[past.length - 1] : null;
 }
 
 /** 1-based marketing-cycle week number (Aubrey's "Wharton Week 2 / Columbia Week 15"). */
-export function getCohortWeek(w: CohortWindow, date: Date = new Date()): number {
+export function getCohortWeek(w: CohortWindow, date: Date = nowET()): number {
   const d = new Date(date).setHours(0, 0, 0, 0);
   return Math.max(1, Math.floor((d - toMs(w.opens)) / (7 * 86400000)) + 1);
 }
 
 /** Days until the true cutover (extended enrollment end). */
-export function daysUntilCutover(w: CohortWindow, date: Date = new Date()): number {
+export function daysUntilCutover(w: CohortWindow, date: Date = nowET()): number {
   const d = new Date(date).setHours(0, 0, 0, 0);
   return Math.max(0, Math.round((toMs(w.extEnds) - d) / 86400000));
 }
@@ -81,7 +88,7 @@ export function endgameLabel(w: CohortWindow): string {
 }
 
 /** Marketing phase per the phase model used in the sheets. */
-export function getPhase(w: CohortWindow, date: Date = new Date()): string {
+export function getPhase(w: CohortWindow, date: Date = nowET()): string {
   const d = new Date(date).setHours(0, 0, 0, 0);
   if (d <= toMs(w.eeEnds)) return 'Phase 2 · Early Enrollment';
   if (d <= toMs(w.termStart)) return 'Phase 3 · Enrollment Deadline';
