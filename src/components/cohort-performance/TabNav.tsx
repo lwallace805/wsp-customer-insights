@@ -2,9 +2,12 @@
 
 const TABS = [
   'Overview',
+  'Pacing',
+  'Full Funnel',
+  'Leads',
+  'Lower Funnel',
   'By Program',
   'By Channel',
-  'Pacing',
   'Paid Media',
 ] as const;
 

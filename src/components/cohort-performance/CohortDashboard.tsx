@@ -2,12 +2,32 @@
 
 import { useState } from 'react';
 import type { CohortData } from '@/data/cohortPerformance';
+import { getActiveCohort } from '@/lib/cohortCalendar';
+
+// Default to the calendar-resolved active cohort ("Fall '26" → "Fall 2026"),
+// falling back to the last active-flagged entry, then the newest.
+function defaultCohort(cohorts: CohortData[]): string {
+  const family = cohorts[0]?.family;
+  if (family) {
+    const win = getActiveCohort(family);
+    if (win) {
+      const expanded = win.label.replace(/'(\d\d)/, '20$1');
+      const match = cohorts.find(c => c.cohort === expanded);
+      if (match) return match.cohort;
+    }
+  }
+  const lastActive = [...cohorts].reverse().find(c => c.status === 'active');
+  return (lastActive ?? cohorts[cohorts.length - 1]).cohort;
+}
 import TabNav, { type Tab } from './TabNav';
 import OverviewTab from './OverviewTab';
 import ProgramTab from './ProgramTab';
 import ChannelTab from './ChannelTab';
 import PacingTab from './PacingTab';
 import PaidMediaTab from './PaidMediaTab';
+import FullFunnelTab from './FullFunnelTab';
+import LeadsTab from './LeadsTab';
+import LowerFunnelTab from './LowerFunnelTab';
 
 interface Props {
   cohorts: CohortData[];
@@ -17,7 +37,7 @@ interface Props {
 
 export default function CohortDashboard({ cohorts, title, subtitle }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('Overview');
-  const [activeCohort, setActiveCohort] = useState(cohorts[cohorts.length - 1].cohort);
+  const [activeCohort, setActiveCohort] = useState(() => defaultCohort(cohorts));
 
   const cohort = cohorts.find(c => c.cohort === activeCohort) ?? cohorts[cohorts.length - 1];
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -57,11 +77,14 @@ export default function CohortDashboard({ cohorts, title, subtitle }: Props) {
 
       <TabNav active={activeTab} onChange={setActiveTab} />
 
-      {activeTab === 'Overview'    && <OverviewTab cohort={cohort} allCohorts={cohorts} />}
-      {activeTab === 'By Program'  && <ProgramTab cohort={cohort} />}
-      {activeTab === 'By Channel'  && <ChannelTab cohort={cohort} />}
-      {activeTab === 'Pacing'      && <PacingTab cohort={cohort} allCohorts={cohorts} />}
-      {activeTab === 'Paid Media'  && <PaidMediaTab cohort={cohort} />}
+      {activeTab === 'Overview'     && <OverviewTab cohort={cohort} allCohorts={cohorts} />}
+      {activeTab === 'Pacing'       && <PacingTab cohort={cohort} allCohorts={cohorts} />}
+      {activeTab === 'Full Funnel'  && <FullFunnelTab family={cohort.family} />}
+      {activeTab === 'Leads'        && <LeadsTab family={cohort.family} />}
+      {activeTab === 'Lower Funnel' && <LowerFunnelTab family={cohort.family} />}
+      {activeTab === 'By Program'   && <ProgramTab cohort={cohort} />}
+      {activeTab === 'By Channel'   && <ChannelTab cohort={cohort} />}
+      {activeTab === 'Paid Media'   && <PaidMediaTab cohort={cohort} />}
     </div>
   );
 }
