@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getEnrollmentTeamData, getServiceAccountEmail, ENROLLMENT_TEAM_SHEET_ID } from '@/lib/enrollmentTeam';
-import { getActiveCohort, getCohortWeek } from '@/lib/cohortCalendar';
+import { getActiveCohort, getCohortWeek, nowET } from '@/lib/cohortCalendar';
 
 export async function GET() {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
     return NextResponse.json({ error: 'GOOGLE_SERVICE_ACCOUNT_KEY not configured' }, { status: 500 });
   }
 
-  const now = new Date();
+  const now = nowET();
   const w = getActiveCohort('wharton', now);
   const c = getActiveCohort('columbia', now);
   const context = {

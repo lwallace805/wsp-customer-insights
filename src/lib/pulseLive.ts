@@ -18,6 +18,7 @@ import {
   getCohortWeek,
   endgameLabel,
   getPhase,
+  nowET,
   type CohortWindow,
 } from '@/lib/cohortCalendar';
 
@@ -76,7 +77,8 @@ async function readDeadlineTable(sheetId: string, tab: string, cohortLabel: stri
     if (hIdx < 0) return null;
     const dataRows = rows.slice(hIdx + 1).filter(r => dayMs(r[0]) !== null);
 
-    const todayMs = new Date().setHours(0, 0, 0, 0);
+    // Business day boundary is midnight ET, not server-local (UTC on Vercel)
+    const todayMs = nowET().setHours(0, 0, 0, 0);
     const yesterdayMs = todayMs - 86400000;
     const rowAt = (ms: number) => dataRows.find(r => dayMs(r[0]) === ms) ?? null;
 
@@ -207,7 +209,7 @@ export interface PulseLive {
 }
 
 export async function getPulseLive(): Promise<PulseLive> {
-  const now = new Date();
+  const now = nowET();
   const asOf = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const wWindow = getActiveCohort('wharton', now);
