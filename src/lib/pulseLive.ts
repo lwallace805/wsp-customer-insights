@@ -1,0 +1,325 @@
+// ─── Pulse (L0) live data readers ─────────────────────────────────────────────
+//
+// The Pulse page always shows the CURRENT active cohort for each family, as
+// resolved by the cohort calendar (src/lib/cohortCalendar.ts). Today that is
+// Wharton Fall '26 (opened Jun 16) and CBS Spring '26 (term begins Jul 13,
+// extension through Jul 20 — the true cutover).
+//
+// Sources (Jon's intake tabs — manual-first, every reader fails soft):
+//  - Wharton active cohort: the Fall '26 cohort doc (FALL26_PACING_SHEET_ID):
+//    Deadline Pacing Table V2 (enrollments, daily goals) + Overall WoW (leads)
+//  - Columbia active cohort: the pacing sheet (enrollment summary) + the
+//    Columbia cohort doc (deadline table daily goals + Overall WoW leads)
+
+import { google } from 'googleapis';
+import { getPacingData, getPacingDataV2 } from '@/lib/sheets';
+import {
+  getActiveCohort,
+  getCohortWeek,
+  endgameLabel,
+  getPhase,
+  type CohortWindow,
+} from '@/lib/cohortCalendar';
+
+function getAuth() {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (!raw) throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY is not set');
+  return new google.auth.GoogleAuth({
+    credentials: JSON.parse(raw),
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+  });
+}
+
+function N(v: unknown): number | null {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  if (s === '' || s === '#DIV/0!' || s === '#REF!' || s === '#VALUE!' || s === '#NUM!') return null;
+  const n = parseFloat(s.replace(/[$,%]/g, '').replace(/,/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+function dayMs(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const ms = new Date(raw).setHours(0, 0, 0, 0);
+  return isNaN(ms) ? null : ms;
+}
+
+// Per-cohort sheet wiring. When a new cohort doc is created (e.g. CBS Fall '26),
+// share it with the service account and add its entry here.
+const COHORT_SHEETS: Record<string, { sheetId: () => string | undefined; deadlineTab: string } | undefined> = {
+  'w-fall-26': { sheetId: () => process.env.FALL26_PACING_SHEET_ID, deadlineTab: 'Deadline Pacing Table V2' },
+  'c-spring-26': { sheetId: () => '1EfNBwZYYObVU3XSiW1VPC_Fi13ZLaQdq_tZZyPxZy14', deadlineTab: 'Deadline Pacing Table' },
+};
+
+// ─── Deadline Pacing Table reader ─────────────────────────────────────────────
+// Columns: 0 Current Date · 3 Daily Goals (per-day) · 4 Total Daily Enrollments
+// Actuals (per-day) · 21 cumulative Total Enrollments (Wharton V2 only).
+
+export interface TodayCard {
+  cohortLabel: string;
+  todayGoal: number;
+  yesterdayGoal: number;
+  yesterdayActual: number | null;
+  cohortToDate: number | null;
+  updatedThrough: string | null;
+}
+
+async function readDeadlineTable(sheetId: string, tab: string, cohortLabel: string): Promise<TodayCard | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:AF250`,
+    });
+    const rows = res.data.values ?? [];
+    const hIdx = rows.findIndex(r => (r[0] ?? '').toString().trim() === 'Current Date');
+    if (hIdx < 0) return null;
+    const dataRows = rows.slice(hIdx + 1).filter(r => dayMs(r[0]) !== null);
+
+    const todayMs = new Date().setHours(0, 0, 0, 0);
+    const yesterdayMs = todayMs - 86400000;
+    const rowAt = (ms: number) => dataRows.find(r => dayMs(r[0]) === ms) ?? null;
+
+    const todayRow = rowAt(todayMs);
+    const yRow = rowAt(yesterdayMs);
+
+    let updatedThrough: string | null = null;
+    let updatedMs = -Infinity;
+    let cohortToDate: number | null = null;
+    for (const r of dataRows) {
+      const ms = dayMs(r[0])!;
+      if (ms > todayMs) continue;
+      if (N(r[4]) !== null && ms > updatedMs) {
+        updatedMs = ms;
+        updatedThrough = new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const cumulative = N(r[21]);
+        if (cumulative !== null) cohortToDate = cumulative;
+      }
+    }
+
+    return {
+      cohortLabel,
+      todayGoal: N(todayRow?.[3]) ?? 0,
+      yesterdayGoal: N(yRow?.[3]) ?? 0,
+      yesterdayActual: N(yRow?.[4]),
+      cohortToDate,
+      updatedThrough,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Overall WoW leads reader ─────────────────────────────────────────────────
+
+export interface LeadsWeekLive {
+  week: number;
+  dateRange: string;
+  leads: number;
+  leadsForecast: number | null;
+  enrolls: number | null;
+  enrollForecast: number | null;
+}
+
+export interface LeadsLive {
+  cohortLabel: string;
+  weeks: LeadsWeekLive[];
+  cohortLeads: number | null;
+  cohortLeadsForecast: number | null;
+  updatedThrough: string | null;
+}
+
+async function readWoWLeads(sheetId: string, cohortLabel: string): Promise<LeadsLive | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'Overall WoW Performance & Goals'!A1:R150`,
+    });
+    const rows = res.data.values ?? [];
+
+    let cohortLeads: number | null = null;
+    let cohortLeadsForecast: number | null = null;
+    const tIdx = rows.findIndex(r => (r[1] ?? '').toString().trim() === 'Program');
+    if (tIdx >= 0) {
+      const totalRow = rows.slice(tIdx + 1, tIdx + 4).find(r => (r[1] ?? '').toString().trim() === 'Total');
+      if (totalRow) {
+        cohortLeads = N(totalRow[4]);
+        cohortLeadsForecast = N(totalRow[5]);
+      }
+    }
+
+    const wIdx = rows.findIndex(r => (r[0] ?? '').toString().trim() === 'Week Start');
+    if (wIdx < 0) return null;
+    const weeks: LeadsWeekLive[] = [];
+    for (const r of rows.slice(wIdx + 1)) {
+      const weekNum = N(r[1]);
+      const range = (r[2] ?? '').toString().trim();
+      if (weekNum === null || !/\d+\/\d+\s*-\s*\d+\/\d+/.test(range)) continue;
+      weeks.push({
+        week: weekNum,
+        dateRange: range,
+        leads: N(r[5]) ?? 0,
+        leadsForecast: N(r[6]),
+        enrolls: N(r[7]),
+        enrollForecast: N(r[8]),
+      });
+    }
+    if (weeks.length === 0) return null;
+
+    const lastWithData = [...weeks].reverse().find(w => w.leads > 0);
+    return {
+      cohortLabel,
+      weeks,
+      cohortLeads,
+      cohortLeadsForecast,
+      updatedThrough: lastWithData?.dateRange ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Assembled Pulse payload ──────────────────────────────────────────────────
+
+export interface PulseFamilyLive {
+  family: 'wharton' | 'columbia';
+  cohort: {
+    key: string;
+    label: string;
+    week: number;          // marketing-cycle week (calendar-derived)
+    phase: string;
+    endgame: string;       // "Ends Jul 13 · ext through Jul 20"
+    enrolls: number;
+    goal: number;
+    forecastToDate: number;
+    daysRemaining: number;
+    wired: boolean;        // false when the cohort doc doesn't exist / isn't shared
+  };
+  today: TodayCard | null;
+  leads: LeadsLive | null;
+}
+
+export interface PulseLive {
+  asOf: string;
+  families: PulseFamilyLive[];
+  freshness: Array<{ source: string; updatedThrough: string; cadence: string; lagging: boolean }>;
+}
+
+export async function getPulseLive(): Promise<PulseLive> {
+  const now = new Date();
+  const asOf = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  const wWindow = getActiveCohort('wharton', now);
+  const cWindow = getActiveCohort('columbia', now);
+
+  const [wharton, columbia] = await Promise.all([
+    buildWharton(wWindow, now),
+    buildColumbia(cWindow, now),
+  ]);
+
+  const freshness = [
+    {
+      source: `Wharton deadline pacing table (${wharton.cohort.label})`,
+      updatedThrough: wharton.today?.updatedThrough ?? 'unavailable',
+      cadence: 'Daily · manual (Jon + Andrew)',
+      lagging: !wharton.today?.updatedThrough,
+    },
+    {
+      source: `Columbia deadline pacing table (${columbia.cohort.label})`,
+      updatedThrough: columbia.today?.updatedThrough ?? 'unavailable',
+      cadence: 'Daily · manual (Jon + Andrew)',
+      lagging: !columbia.today?.updatedThrough,
+    },
+    {
+      source: 'Overall WoW — leads actual vs forecast (both docs)',
+      updatedThrough: [wharton.leads?.updatedThrough, columbia.leads?.updatedThrough].filter(Boolean).map(w => `wk ${w}`).join(' · ') || 'unavailable',
+      cadence: 'Weekly · manual (Jon)',
+      lagging: !wharton.leads?.updatedThrough && !columbia.leads?.updatedThrough,
+    },
+    {
+      source: 'Enrollment team dashboard (L2 lower funnel)',
+      updatedThrough: 'needs sheet access',
+      cadence: 'Weekly · Aubrey',
+      lagging: true,
+    },
+  ];
+
+  return { asOf, families: [wharton, columbia], freshness };
+}
+
+async function buildWharton(w: CohortWindow | null, now: Date): Promise<PulseFamilyLive> {
+  const label = w ? `Wharton ${w.label}` : 'Wharton';
+  const wiring = w ? COHORT_SHEETS[w.key] : undefined;
+  const sheetId = wiring?.sheetId();
+
+  if (!w || !wiring || !sheetId) {
+    return {
+      family: 'wharton',
+      cohort: { key: w?.key ?? 'w-unknown', label, week: w ? getCohortWeek(w, now) : 0, phase: w ? getPhase(w, now) : '', endgame: w ? endgameLabel(w) : '', enrolls: 0, goal: 0, forecastToDate: 0, daysRemaining: 0, wired: false },
+      today: null,
+      leads: null,
+    };
+  }
+
+  const [{ summary }, today, leads] = await Promise.all([
+    getPacingDataV2(sheetId).catch(() => ({ summary: [] as Array<{ enrolled: number; goal: number; forecast: number; daysRemaining: number }> })),
+    readDeadlineTable(sheetId, wiring.deadlineTab, label),
+    readWoWLeads(sheetId, label),
+  ]);
+  const s = summary[0];
+
+  return {
+    family: 'wharton',
+    cohort: {
+      key: w.key,
+      label,
+      week: getCohortWeek(w, now),
+      phase: getPhase(w, now),
+      endgame: endgameLabel(w),
+      enrolls: s?.enrolled ?? 0,
+      goal: s?.goal ?? 0,
+      forecastToDate: s?.forecast ?? 0,
+      daysRemaining: s?.daysRemaining ?? 0,
+      wired: !!s,
+    },
+    today,
+    leads,
+  };
+}
+
+async function buildColumbia(c: CohortWindow | null, now: Date): Promise<PulseFamilyLive> {
+  const label = c ? `CBS ${c.label}` : 'CBS';
+  const wiring = c ? COHORT_SHEETS[c.key] : undefined;
+  const sheetId = wiring?.sheetId();
+
+  // Enrollment summary comes from the pacing sheet (AN Summary), which tracks
+  // the active Columbia cohort; daily goals + leads come from the cohort doc.
+  const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
+  const [pacing, today, leads] = await Promise.all([
+    getPacingData(pacingSheetId).catch(() => null),
+    sheetId ? readDeadlineTable(sheetId, wiring!.deadlineTab, label) : Promise.resolve(null),
+    sheetId ? readWoWLeads(sheetId, label) : Promise.resolve(null),
+  ]);
+  const s = pacing?.summary.find(x => x.program === 'CBSEE');
+
+  if (today && today.cohortToDate === null && s) today.cohortToDate = s.enrolled;
+
+  return {
+    family: 'columbia',
+    cohort: {
+      key: c?.key ?? 'c-unknown',
+      label,
+      week: c ? getCohortWeek(c, now) : 0,
+      phase: c ? getPhase(c, now) : '',
+      endgame: c ? endgameLabel(c) : '',
+      enrolls: s?.enrolled ?? 0,
+      goal: s?.goal ?? 0,
+      forecastToDate: s?.forecast ?? 0,
+      daysRemaining: s?.daysRemaining ?? 0,
+      wired: !!s || !!today,
+    },
+    today,
+    leads,
+  };
+}

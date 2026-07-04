@@ -20,6 +20,13 @@ const TOOLS = [
   { href: '/tools/webinar-repurposer',     label: 'Webinar Repurposer',           icon: Mic },
 ];
 
+const PERFORMANCE_V2 = [
+  { href: '/pulse',                       label: 'Pulse',                     icon: Gauge },
+  { href: '/cohort-performance/wharton',  label: 'Cohort Command — Wharton',  icon: GraduationCap },
+  { href: '/cohort-performance/columbia', label: 'Cohort Command — Columbia', icon: GraduationCap },
+  { href: '/enrollment-team',             label: 'Enrollment Team',           icon: Phone },
+];
+
 const PERFORMANCE_DASHBOARDS = [
   { href: '/enrollment',               label: 'Enrollment Pacing',       icon: TrendingUp },
   { href: '/performance/overview',     label: 'Executive Overview',      icon: Gauge },
@@ -130,6 +137,13 @@ export default function NavBar() {
           <DropdownMenu
             label="Customer Insights"
             items={CUSTOMER_INSIGHTS}
+            activePath={pathname}
+          />
+
+          {/* Performance 2.0 — the centralized dashboard build */}
+          <DropdownMenu
+            label="Performance 2.0"
+            items={PERFORMANCE_V2}
             activePath={pathname}
           />
 

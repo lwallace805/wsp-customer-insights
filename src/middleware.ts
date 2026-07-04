@@ -7,7 +7,11 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      // DISABLE_AUTH is a local-dev-only escape hatch (double-gated so it can
+      // never activate in a production build).
+      authorized: ({ token }) =>
+        !!token ||
+        (process.env.NODE_ENV !== 'production' && process.env.DISABLE_AUTH === '1'),
     },
     pages: {
       signIn: '/login',
