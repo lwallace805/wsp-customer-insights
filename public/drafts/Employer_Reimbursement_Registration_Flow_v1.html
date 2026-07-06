@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reserve Your Seat | AI for Business &amp; Finance Certificate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#1D4F91; --deep:#0A2240; --ink:#112436; --slate:#475569;
+    --line:#E2E8F0; --sky:#B9D9EB; --gold:#C9A961; --green:#1F7A4F;
+    --bg:#F7F9FC; --white:#fff;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;}
+
+  /* ---------- brand bar ---------- */
+  .brandbar{background:var(--white);border-bottom:1px solid var(--line);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;}
+  .lockups{display:flex;gap:14px;align-items:center;}
+  .lockup{border:1.5px dashed #B8C4D4;border-radius:6px;padding:6px 14px;font-size:11px;color:var(--slate);letter-spacing:.4px;text-transform:uppercase;}
+  .benefit-chip{display:flex;align-items:center;gap:8px;background:#EEF4FB;border:1px solid #D3E2F4;border-radius:99px;padding:6px 16px;font-size:12.5px;font-weight:600;color:var(--navy);}
+  .benefit-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+
+  /* ---------- progress rail ---------- */
+  .rail-wrap{background:var(--deep);padding:20px 24px 24px;}
+  .rail{max-width:860px;margin:0 auto;display:flex;align-items:flex-start;}
+  .rstep{flex:1;text-align:center;position:relative;}
+  .rstep .bubble{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.35);color:#fff;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;position:relative;z-index:2;transition:all .3s;}
+  .rstep .rlabel{font-size:11px;color:#8FA5BC;font-weight:600;letter-spacing:.2px;}
+  .rstep:not(:last-child)::after{content:'';position:absolute;top:15px;left:calc(50% + 18px);width:calc(100% - 36px);height:2px;background:rgba(255,255,255,.18);z-index:1;}
+  .rstep.done .bubble{background:var(--green);border-color:var(--green);}
+  .rstep.done .rlabel{color:#B7D4C5;}
+  .rstep.done:not(:last-child)::after{background:var(--green);}
+  .rstep.current .bubble{background:var(--gold);border-color:var(--gold);color:var(--deep);box-shadow:0 0 0 5px rgba(201,169,97,.25);}
+  .rstep.current .rlabel{color:#fff;}
+
+  /* ---------- layout ---------- */
+  .main{max-width:1060px;margin:0 auto;padding:44px 24px 80px;display:grid;grid-template-columns:1fr 320px;gap:36px;align-items:start;}
+  @media(max-width:900px){.main{grid-template-columns:1fr;}}
+
+  /* ---------- form card ---------- */
+  .formcard{background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:0 4px 24px rgba(10,34,64,.06);overflow:hidden;}
+  .formhead{padding:36px 40px 8px;}
+  .formhead .eyebrow{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
+  .formhead h1{font-family:'Playfair Display',serif;font-size:34px;font-weight:700;color:var(--deep);line-height:1.15;}
+  .formhead .sub{font-size:15.5px;color:var(--slate);margin-top:8px;}
+  .formbody{padding:28px 40px 40px;}
+
+  .fstep{display:none;animation:fadein .35s ease;}
+  .fstep.active{display:block;}
+  @keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  .q-label{font-size:17px;font-weight:700;color:var(--deep);margin-bottom:6px;}
+  .q-help{font-size:13.5px;color:var(--slate);margin-bottom:16px;}
+  input[type=text],input[type=email],input[type=tel],select{width:100%;padding:14px 16px;font-size:15.5px;font-family:'Inter',sans-serif;border:1.5px solid #CBD5E1;border-radius:8px;color:var(--ink);background:#fff;transition:border .2s;}
+  input:focus,select:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(29,79,145,.12);}
+
+  /* certificate preview */
+  .cert{margin-top:26px;background:linear-gradient(180deg,#FDFCFA,#F6F3EC);border:1px solid #E5DCC8;border-radius:10px;padding:30px 34px;text-align:center;position:relative;}
+  .cert::before{content:'';position:absolute;inset:8px;border:1.5px solid #D9CBA8;border-radius:6px;pointer-events:none;}
+  .cert .c-inst{font-size:10.5px;letter-spacing:2.4px;text-transform:uppercase;color:var(--slate);font-weight:600;}
+  .cert .c-title{font-family:'Playfair Display',serif;font-size:15px;color:var(--deep);margin-top:8px;font-weight:600;}
+  .cert .c-name{font-family:'Playfair Display',serif;font-style:italic;font-size:30px;color:var(--navy);margin:14px 0 6px;min-height:40px;border-bottom:1px solid #D9CBA8;display:inline-block;padding:0 22px 4px;}
+  .cert .c-line{font-size:11px;color:var(--slate);margin-top:6px;}
+  .cert .c-seal{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#E0C98A,var(--gold));margin:14px auto 0;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Playfair Display',serif;font-size:15px;box-shadow:0 2px 6px rgba(201,169,97,.45);}
+
+  /* option cards */
+  .optgrid{display:grid;gap:12px;}
+  .optcard{border:1.5px solid #CBD5E1;border-radius:10px;padding:16px 18px;cursor:pointer;display:flex;align-items:flex-start;gap:14px;background:#fff;transition:all .18s;}
+  .optcard:hover{border-color:var(--navy);}
+  .optcard.selected{border-color:var(--navy);background:#F2F7FD;box-shadow:0 0 0 1px var(--navy);}
+  .optcard .radio{width:20px;height:20px;border-radius:50%;border:2px solid #CBD5E1;flex:none;margin-top:2px;position:relative;}
+  .optcard.selected .radio{border-color:var(--navy);}
+  .optcard.selected .radio::after{content:'';position:absolute;inset:3.5px;border-radius:50%;background:var(--navy);}
+  .optcard .ot{font-size:15px;font-weight:600;color:var(--deep);}
+  .optcard .od{font-size:13px;color:var(--slate);margin-top:2px;}
+  .optcard .tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--green);background:#E7F2EC;border-radius:4px;padding:2px 8px;margin-left:8px;}
+
+  .fieldrow{margin-bottom:24px;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:640px){.two-col{grid-template-columns:1fr;}}
+
+  /* scheduler */
+  .slotgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  @media(max-width:640px){.slotgrid{grid-template-columns:1fr;}}
+  .slotday{border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center;background:#fff;}
+  .slotdate{font-size:13px;font-weight:700;color:var(--deep);margin-bottom:10px;}
+  .slot{display:block;width:100%;margin-bottom:8px;padding:10px;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;color:var(--navy);background:#fff;border:1.5px solid #CBD5E1;border-radius:7px;cursor:pointer;transition:all .15s;}
+  .slot:last-child{margin-bottom:0;}
+  .slot:hover{border-color:var(--navy);background:#F2F7FD;}
+  .slot.selected{background:var(--navy);border-color:var(--navy);color:#fff;}
+
+  /* advisor card */
+  .advisor{display:flex;gap:16px;align-items:center;background:#F2F7FD;border:1px solid #D3E2F4;border-radius:10px;padding:16px 18px;margin-bottom:24px;}
+  .advisor .avatar{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--sky));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex:none;}
+  .advisor .aname{font-size:14.5px;font-weight:700;color:var(--deep);}
+  .advisor .arole{font-size:12.5px;color:var(--slate);}
+
+  /* nav buttons */
+  .formnav{display:flex;justify-content:space-between;align-items:center;margin-top:32px;padding-top:24px;border-top:1px solid var(--line);}
+  .btn{font-family:'Inter',sans-serif;font-size:15.5px;font-weight:700;border:none;border-radius:8px;padding:15px 32px;cursor:pointer;transition:all .18s;}
+  .btn-primary{background:var(--navy);color:#fff;}
+  .btn-primary:hover{background:#16406F;}
+  .btn-primary:disabled{background:#B8C4D4;cursor:not-allowed;}
+  .btn-ghost{background:none;color:var(--slate);padding:15px 10px;font-weight:600;}
+  .btn-ghost:hover{color:var(--navy);}
+  .stepcount{font-size:12.5px;color:var(--slate);font-weight:600;}
+
+  /* ---------- side rail ---------- */
+  .side{position:sticky;top:24px;}
+  .seatcard{background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:0 4px 24px rgba(10,34,64,.06);overflow:hidden;}
+  .seatcard .sc-head{background:var(--deep);color:#fff;padding:18px 22px;}
+  .seatcard .sc-head .sct{font-family:'Playfair Display',serif;font-size:17px;font-weight:600;}
+  .seatcard .sc-head .scs{font-size:12px;color:var(--sky);margin-top:3px;}
+  .seatcard .sc-body{padding:20px 22px;}
+  .srow{display:flex;justify-content:space-between;font-size:13.5px;padding:9px 0;border-bottom:1px solid #EEF2F7;}
+  .srow:last-child{border-bottom:none;}
+  .srow .sk{color:var(--slate);}
+  .srow .sv{font-weight:600;color:var(--deep);text-align:right;}
+  .sv.pending{color:#A0AEC0;font-weight:500;font-style:italic;}
+  .seat-note{background:#FBF7EE;border-top:1px solid #EFE4CC;padding:14px 22px;font-size:12.5px;color:#7A6537;}
+  .seat-note strong{color:var(--deep);}
+  .trustline{margin-top:16px;font-size:12.5px;color:var(--slate);text-align:center;padding:0 10px;}
+  .trustline strong{color:var(--deep);}
+
+  /* ---------- confirmation ---------- */
+  .confirm{display:none;text-align:center;padding:52px 40px 56px;animation:fadein .4s ease;}
+  .confirm.active{display:block;}
+  .confirm .check{width:64px;height:64px;border-radius:50%;background:var(--green);color:#fff;font-size:30px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;}
+  .confirm h2{font-family:'Playfair Display',serif;font-size:32px;color:var(--deep);font-weight:700;}
+  .confirm .csub{font-size:15.5px;color:var(--slate);margin:10px auto 30px;max-width:460px;}
+  .nextsteps{max-width:460px;margin:0 auto 30px;text-align:left;}
+  .ns{display:flex;gap:14px;padding:13px 0;border-bottom:1px solid var(--line);}
+  .ns:last-child{border-bottom:none;}
+  .ns .nnum{width:26px;height:26px;border-radius:50%;background:#EEF4FB;color:var(--navy);font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px;}
+  .ns .nt{font-size:14px;font-weight:600;color:var(--deep);}
+  .ns .nd{font-size:13px;color:var(--slate);}
+
+  .disclaim{max-width:1060px;margin:0 auto;padding:0 24px 40px;font-size:11.5px;color:#8CA0B3;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<!-- Brand bar -->
+<div class="brandbar">
+  <div class="lockups">
+    <div class="lockup">Columbia Business School Exec Ed</div>
+    <div class="lockup">Wall Street Prep</div>
+  </div>
+  <div class="benefit-chip"><span class="dot"></span>Using your <span class="emp-name">JPMorgan Chase</span>&nbsp;education benefit</div>
+</div>
+
+<!-- Progress rail -->
+<div class="rail-wrap">
+  <div class="rail" id="rail">
+    <div class="rstep done"><div class="bubble">✓</div><div class="rlabel">Benefit discovery</div></div>
+    <div class="rstep current" data-rail="1"><div class="bubble">2</div><div class="rlabel">Your details</div></div>
+    <div class="rstep" data-rail="2"><div class="bubble">3</div><div class="rlabel">Benefit check</div></div>
+    <div class="rstep" data-rail="3"><div class="bubble">4</div><div class="rlabel">Reserve &amp; connect</div></div>
+    <div class="rstep" data-rail="4"><div class="bubble">5</div><div class="rlabel">Enrolled</div></div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- ============ FORM ============ -->
+  <div class="formcard">
+    <div class="formhead" id="formhead">
+      <div class="eyebrow">Seat Reservation</div>
+      <h1>We've saved you a seat.</h1>
+      <p class="sub">Now we just need a few details. Takes about two minutes.</p>
+    </div>
+
+    <div class="formbody" id="formbody">
+
+      <!-- STEP 1: certificate name -->
+      <div class="fstep active" data-step="1">
+        <div class="fieldrow">
+          <div class="q-label">What name should we put on your certificate?</div>
+          <div class="q-help">This is how your name will appear on the certificate you receive at completion.</div>
+          <input type="text" id="certname" placeholder="e.g. Jordan A. Whitfield" autocomplete="name">
+        </div>
+        <div class="cert">
+          <div class="c-inst">Columbia Business School Executive Education &middot; Wall Street Prep</div>
+          <div class="c-title">AI for Business &amp; Finance Certificate</div>
+          <div><span class="c-name" id="certpreview">Your Name</span></div>
+          <div class="c-line">has successfully completed the eight-week certificate program</div>
+          <div class="c-seal">C</div>
+        </div>
+      </div>
+
+      <!-- STEP 2: cohort + division -->
+      <div class="fstep" data-step="2">
+        <div class="fieldrow">
+          <div class="q-label">Which start date are you reserving?</div>
+          <div class="q-help">Seats are allocated per cohort. You can move to a later cohort if your approval takes longer than expected.</div>
+          <div class="optgrid" data-group="cohort">
+            <div class="optcard" data-value="September 14, 2026">
+              <div class="radio"></div>
+              <div><span class="ot">September 14, 2026</span><span class="tag">Recommended</span>
+              <div class="od">Aligns with typical benefit approval timelines from today.</div></div>
+            </div>
+            <div class="optcard" data-value="November 2, 2026">
+              <div class="radio"></div>
+              <div><span class="ot">November 2, 2026</span>
+              <div class="od">More runway if your budget cycle or approval needs it.</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="fieldrow">
+          <div class="q-label">Which division do you work in at <span class="emp-name">JPMorgan Chase</span>?</div>
+          <div class="q-help">We tailor the approval steps and paperwork to your part of the firm.</div>
+          <select id="division">
+            <option value="">Select your division</option>
+            <option>Asset &amp; Wealth Management</option>
+            <option>Commercial &amp; Investment Bank</option>
+            <option>Consumer &amp; Community Banking</option>
+            <option>Corporate Functions (Finance, Risk, HR)</option>
+            <option>Technology</option>
+            <option>Other / prefer not to say</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- STEP 3: benefit check -->
+      <div class="fstep" data-step="3">
+        <div class="fieldrow">
+          <div class="q-label">Who administers your education benefit?</div>
+          <div class="q-help">Not sure is a perfectly good answer. Your advisor will confirm it for you.</div>
+          <div class="optgrid" data-group="admin">
+            <div class="optcard" data-value="Guild"><div class="radio"></div><div><span class="ot">Guild</span><div class="od">Common at JPMorgan Chase, Walmart, and Disney.</div></div></div>
+            <div class="optcard" data-value="EdAssist"><div class="radio"></div><div><span class="ot">Bright Horizons EdAssist</span><div class="od">Common at Bank of America, Citi, and Microsoft.</div></div></div>
+            <div class="optcard" data-value="HR"><div class="radio"></div><div><span class="ot">Our HR / L&amp;D team directly</span><div class="od">Typical at midsize firms without a benefits platform.</div></div></div>
+            <div class="optcard" data-value="Not sure"><div class="radio"></div><div><span class="ot">Not sure</span><div class="od">No problem. This is the most common answer.</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4: payment path + advisor connect -->
+      <div class="fstep" data-step="4">
+        <div class="fieldrow">
+          <div class="q-label">How would you like to handle tuition?</div>
+          <div class="q-help">Whichever you pick, your seat stays reserved while it's sorted out.</div>
+          <div class="optgrid" data-group="payment">
+            <div class="optcard" data-value="Employer benefit"><div class="radio"></div><div><span class="ot">Use my employer benefit</span><span class="tag">Most common</span><div class="od">Your advisor walks you through the approval and paperwork.</div></div></div>
+            <div class="optcard" data-value="Pay and reimburse"><div class="radio"></div><div><span class="ot">Pay now, get reimbursed after</span><div class="od">Enroll immediately; we provide the documentation your employer needs.</div></div></div>
+            <div class="optcard" data-value="Not sure"><div class="radio"></div><div><span class="ot">Help me figure out the best route</span><div class="od">Your advisor compares the options against your benefit.</div></div></div>
+          </div>
+        </div>
+
+        <div class="advisor">
+          <div class="avatar">A</div>
+          <div>
+            <div class="aname">Aubrey — your enrollment advisor</div>
+            <div class="arole">Has guided employees at 100+ firms through their education benefit.</div>
+          </div>
+        </div>
+
+        <div class="fieldrow">
+          <div class="q-label">Schedule your 15-minute call to lock in your enrollment.</div>
+          <div class="q-help">Aubrey walks you through the exact approval steps at your firm and handles the paperwork with you. Pick a time that works:</div>
+          <div class="slotgrid" id="slotgrid">
+            <div class="slotday"><div class="slotdate">Tue, Jul 7</div>
+              <button type="button" class="slot" data-slot="Tue Jul 7, 10:00 AM ET">10:00 AM</button>
+              <button type="button" class="slot" data-slot="Tue Jul 7, 2:30 PM ET">2:30 PM</button>
+            </div>
+            <div class="slotday"><div class="slotdate">Wed, Jul 8</div>
+              <button type="button" class="slot" data-slot="Wed Jul 8, 9:30 AM ET">9:30 AM</button>
+              <button type="button" class="slot" data-slot="Wed Jul 8, 1:00 PM ET">1:00 PM</button>
+            </div>
+            <div class="slotday"><div class="slotdate">Thu, Jul 9</div>
+              <button type="button" class="slot" data-slot="Thu Jul 9, 11:00 AM ET">11:00 AM</button>
+              <button type="button" class="slot" data-slot="Thu Jul 9, 3:30 PM ET">3:30 PM</button>
+            </div>
+          </div>
+          <p class="q-help" style="margin-top:12px;margin-bottom:0;">In production this is the embedded Calendly widget with UTMs passed through. None of these times work? <a href="#" onclick="alert('Mockup: would open full Calendly view.');return false;" style="color:var(--navy);">See all available times.</a></p>
+        </div>
+      </div>
+
+      <!-- nav -->
+      <div class="formnav" id="formnav">
+        <button class="btn btn-ghost" id="backbtn" style="visibility:hidden;">&larr; Back</button>
+        <span class="stepcount" id="stepcount">Step 1 of 4</span>
+        <button class="btn btn-primary" id="nextbtn">Continue &rarr;</button>
+      </div>
+    </div>
+
+    <!-- confirmation -->
+    <div class="confirm" id="confirm">
+      <div class="check">✓</div>
+      <h2>Your seat is reserved<span id="confname"></span>.</h2>
+      <p class="csub">You're in the <strong id="confcohort">September 14, 2026</strong> cohort, and your advisor call is booked for <strong id="confslot"></strong>. Nothing else to do before then.</p>
+      <div class="nextsteps">
+        <div class="ns"><div class="nnum">1</div><div><div class="nt">Your call with Aubrey</div><div class="nd">15 minutes. She confirms your benefit details and the exact approval steps at your firm.</div></div></div>
+        <div class="ns"><div class="nnum">2</div><div><div class="nt">You submit the benefit request</div><div class="nd">She provides the manager email template, invoice, and any paperwork your employer needs.</div></div></div>
+        <div class="ns"><div class="nnum">3</div><div><div class="nt">Approval comes through, you're enrolled</div><div class="nd">Course access lands in your inbox. Your seat is held the whole time.</div></div></div>
+      </div>
+      <button class="btn btn-primary" onclick="alert('Mockup: would download a calendar invite.')">Add the call to your calendar</button>
+      <p class="csub" style="margin-top:14px;font-size:13px;">A confirmation email with the call link is on its way.</p>
+    </div>
+  </div>
+
+  <!-- ============ SIDE RAIL ============ -->
+  <div class="side">
+    <div class="seatcard">
+      <div class="sc-head">
+        <div class="sct">Your reserved seat</div>
+        <div class="scs">AI for Business &amp; Finance Certificate</div>
+      </div>
+      <div class="sc-body">
+        <div class="srow"><span class="sk">Name on certificate</span><span class="sv pending" id="s-name">Not added yet</span></div>
+        <div class="srow"><span class="sk">Cohort</span><span class="sv pending" id="s-cohort">Not selected</span></div>
+        <div class="srow"><span class="sk">Format</span><span class="sv">8 weeks, online</span></div>
+        <div class="srow"><span class="sk">Tuition</span><span class="sv">$4,800</span></div>
+        <div class="srow"><span class="sk">Eligible for</span><span class="sv">Employer education benefits</span></div>
+      </div>
+      <div class="seat-note"><strong>Your seat is held</strong> while your employer approval is processed. If timing slips, you can move to the next cohort at no cost.</div>
+    </div>
+    <p class="trustline">Employees from <strong>750+ employers</strong> have completed our certificate programs. <em style="font-size:11px;">[stat placeholder, pending verified count]</em></p>
+  </div>
+</div>
+
+<p class="disclaim">Mockup for internal review. Not affiliated with any specific employer; employer names referenced for identification only. Employees are responsible for verifying internal policies and obtaining approval for reimbursement. Benefit coverage varies by employer and plan; tuition amounts and dates are placeholders.</p>
+
+<script>
+(function(){
+  /* employer personalization via ?employer= param */
+  var params = new URLSearchParams(location.search);
+  var employer = params.get('employer') || 'JPMorgan Chase';
+  document.querySelectorAll('.emp-name').forEach(function(el){ el.textContent = employer; });
+
+  var step = 1, total = 4;
+  var answers = {};
+
+  /* certificate live preview + side rail */
+  var certInput = document.getElementById('certname');
+  certInput.addEventListener('input', function(){
+    var v = this.value.trim();
+    document.getElementById('certpreview').textContent = v || 'Your Name';
+    var s = document.getElementById('s-name');
+    s.textContent = v || 'Not added yet';
+    s.className = v ? 'sv' : 'sv pending';
+    validate();
+  });
+
+  /* option card selection */
+  document.querySelectorAll('.optgrid').forEach(function(grid){
+    grid.addEventListener('click', function(e){
+      var card = e.target.closest('.optcard');
+      if(!card) return;
+      grid.querySelectorAll('.optcard').forEach(function(c){ c.classList.remove('selected'); });
+      card.classList.add('selected');
+      answers[grid.dataset.group] = card.dataset.value;
+      if(grid.dataset.group === 'cohort'){
+        var sc = document.getElementById('s-cohort');
+        sc.textContent = card.dataset.value;
+        sc.className = 'sv';
+      }
+      validate();
+    });
+  });
+
+  document.getElementById('division').addEventListener('change', validate);
+
+  /* time slot selection */
+  document.getElementById('slotgrid').addEventListener('click', function(e){
+    var slot = e.target.closest('.slot');
+    if(!slot) return;
+    document.querySelectorAll('.slot').forEach(function(s){ s.classList.remove('selected'); });
+    slot.classList.add('selected');
+    answers.slot = slot.dataset.slot;
+    validate();
+  });
+
+  function stepValid(){
+    if(step===1) return certInput.value.trim().length > 1;
+    if(step===2) return !!answers.cohort && !!document.getElementById('division').value;
+    if(step===3) return !!answers.admin;
+    if(step===4) return !!answers.payment && !!answers.slot;
+    return false;
+  }
+  function validate(){ document.getElementById('nextbtn').disabled = !stepValid(); }
+
+  function render(){
+    document.querySelectorAll('.fstep').forEach(function(s){
+      s.classList.toggle('active', +s.dataset.step === step);
+    });
+    document.getElementById('stepcount').textContent = 'Step ' + step + ' of ' + total;
+    document.getElementById('backbtn').style.visibility = step > 1 ? 'visible' : 'hidden';
+    document.getElementById('nextbtn').textContent = step === total ? 'Lock in my enrollment ✓' : 'Continue →';
+    /* rail: step 1 done already; form steps map to rail positions 1-3 */
+    var railSteps = document.querySelectorAll('[data-rail]');
+    railSteps.forEach(function(r){
+      var idx = +r.dataset.rail;
+      r.classList.remove('current','done');
+      var railPos = Math.min(Math.ceil(step/1.34), 3); /* 4 form steps across rail slots 1-3 */
+      if(idx < railPos) r.classList.add('done');
+      if(idx === railPos) r.classList.add('current');
+    });
+    validate();
+  }
+
+  document.getElementById('nextbtn').addEventListener('click', function(){
+    if(!stepValid()) return;
+    if(step < total){ step++; render(); window.scrollTo({top:0,behavior:'smooth'}); }
+    else { finish(); }
+  });
+  document.getElementById('backbtn').addEventListener('click', function(){
+    if(step > 1){ step--; render(); }
+  });
+
+  function finish(){
+    document.getElementById('formhead').style.display = 'none';
+    document.getElementById('formbody').style.display = 'none';
+    document.getElementById('confirm').classList.add('active');
+    var name = certInput.value.trim().split(' ')[0];
+    if(name) document.getElementById('confname').textContent = ', ' + name;
+    if(answers.cohort) document.getElementById('confcohort').textContent = answers.cohort;
+    if(answers.slot) document.getElementById('confslot').textContent = answers.slot;
+    /* rail: everything through slot 3 done, "Enrolled" pending advisor */
+    document.querySelectorAll('[data-rail]').forEach(function(r){
+      r.classList.remove('current','done');
+      if(+r.dataset.rail <= 3) r.classList.add('done');
+      if(+r.dataset.rail === 4) r.classList.add('current');
+    });
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
