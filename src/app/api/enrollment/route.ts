@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { CohortSummary, PacingDataPoint, ComparisonPanel } from '@/lib/sheets';
+import type { CohortSummary, PacingDataPoint, ComparisonPanel, ComparisonRow } from '@/lib/sheets';
 import { getWGoal, getCGoal } from '@/lib/sheets';
 
 // Historical cohorts for mock data (oldest → newest)
@@ -53,8 +53,10 @@ function buildMockPacing(): PacingDataPoint[] {
 
   for (let day = 0; day <= 120; day++) {
     const f = sCurve(day);
-    const wHistoricals = W_HIST.map(h => ({ label: h.label, pct: parseFloat((f * h.finalFrac * 100).toFixed(2)) }));
-    const cHistoricals = C_HIST.map(h => ({ label: h.label, pct: parseFloat((f * h.finalFrac * 100).toFixed(2)) }));
+    // pct = % of this cohort's own eventual final (pacing shape); raw = its reconstructed
+    // enrollment count, scaled off the real target goal and how far over/under it finished.
+    const wHistoricals = W_HIST.map(h => ({ label: h.label, pct: parseFloat((f * 100).toFixed(2)), raw: Math.round(f * h.finalFrac * h.goal) }));
+    const cHistoricals = C_HIST.map(h => ({ label: h.label, pct: parseFloat((f * 100).toFixed(2)), raw: Math.round(f * h.finalFrac * h.goal) }));
     const wLast3 = wHistoricals.slice(-3);
     const cLast3 = cHistoricals.slice(-3);
 
@@ -96,21 +98,39 @@ function buildMockComparison(pacing: PacingDataPoint[]): { wharton: ComparisonPa
     activeLabel: string,
     enrolled: number,
     goal: number,
-    historicals: Array<{ label: string; pct: number }>,
+    historicals: Array<{ label: string; pct: number; raw?: number }>,
     goalFn: (label: string) => number | null
   ): ComparisonPanel => {
-    const last3 = historicals.slice(-3);
-    const last3AvgPct = parseFloat((last3.reduce((s, h) => s + h.pct, 0) / 3).toFixed(1));
-    const last3GoalAvg = Math.round(last3.reduce((s, h) => s + (goalFn(h.label) ?? 0), 0) / 3);
+    const rows: ComparisonRow[] = historicals.slice(-3).map(h => {
+      const raw = h.raw ?? 0;
+      const g = goalFn(h.label) ?? 0;
+      return {
+        label: h.label,
+        enrolled: raw,
+        goal: g,
+        pctOfGoal: g > 0 ? parseFloat((raw / g * 100).toFixed(1)) : 0,
+        pctComplete: parseFloat(h.pct.toFixed(1)),
+        isActive: false,
+      };
+    });
+    const avg = (fn: (r: ComparisonRow) => number) =>
+      rows.length > 0 ? rows.reduce((s, r) => s + fn(r), 0) / rows.length : 0;
     return {
       program,
       daysRemaining: daysRem,
-      activeRow: { label: activeLabel, enrolled, goal, pctDone: parseFloat((enrolled / goal * 100).toFixed(1)), isActive: true },
-      last3Avg: { enrolled: Math.round(last3AvgPct / 100 * last3GoalAvg), goal: last3GoalAvg, pctDone: last3AvgPct },
-      closedRows: [...historicals].reverse().map(h => {
-        const g = goalFn(h.label) ?? 0;
-        return { label: h.label, enrolled: Math.round(h.pct / 100 * g), goal: g, pctDone: parseFloat(h.pct.toFixed(1)), isActive: false };
-      }),
+      activeRow: {
+        label: activeLabel, enrolled, goal,
+        pctOfGoal: parseFloat((enrolled / goal * 100).toFixed(1)),
+        pctComplete: daysRem === 0 ? 100 : null,
+        isActive: true,
+      },
+      last3Avg: {
+        enrolled: Math.round(avg(r => r.enrolled)),
+        goal: Math.round(avg(r => r.goal)),
+        pctOfGoal: parseFloat(avg(r => r.pctOfGoal).toFixed(1)),
+        pctComplete: parseFloat(avg(r => r.pctComplete ?? 0).toFixed(1)),
+      },
+      closedRows: [...rows].reverse(),
     };
   };
 

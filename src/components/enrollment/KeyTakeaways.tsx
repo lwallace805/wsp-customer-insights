@@ -20,7 +20,9 @@ export default function KeyTakeaways({ cohorts }: Props) {
   const items = [
     wharton && { label: 'Wharton', color: PROGRAM_COLORS['Wharton'], text: wharton.keyTakeaway },
     cbsee && { label: 'CBSEE', color: PROGRAM_COLORS['CBSEE'], text: cbsee.keyTakeaway },
-    { label: 'Both', color: 'bg-gray-600', text: bothText },
+    // Only meaningful when both programs are actually present this cohort (e.g. not Fall '26,
+    // which has no CBSEE cohort yet) — otherwise it's just restating the single program's numbers.
+    wharton && cbsee && { label: 'Both', color: 'bg-gray-600', text: bothText },
   ].filter(Boolean) as { label: string; color: string; text: string }[];
 
   return (
