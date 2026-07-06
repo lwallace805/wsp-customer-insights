@@ -380,7 +380,12 @@ async function fetchHistoricalWhartonMap(
     const hIdx = rows.findIndex(r => r[0]?.toString().trim() === 'Days');
     if (hIdx < 0) return new Map();
 
-    const histCols = [18, 19, 20, 21, 22, 23] as const;
+    // Col 24 ("Spring '26 - actual") is still labeled as the active column in this sheet
+    // because it was never rotated after Fall '26 moved to its own V2 sheet — but Spring '26
+    // is closed now, and its full day-by-day curve lives there. Treat it as historical too
+    // so the V2/Fall '26 reader's "last 3 cohorts" includes Fall '25, Winter '26, AND Spring '26
+    // instead of stalling one cohort behind. Update this list again next time a cohort closes.
+    const histCols = [18, 19, 20, 21, 22, 23, 24] as const;
     const labels = histCols.map(col =>
       (rows[hIdx]?.[col] ?? '').toString().replace(/\s*-\s*actual\s*$/i, '').trim()
     );
@@ -488,7 +493,24 @@ export async function getPacingDataV2(sheetId: string): Promise<{
   }, null);
   const currentGoalAtDay = N(yesterdayRow?.[V2.forecastEnrollments]) ?? N(todayRow?.[V2.forecastEnrollments]) ?? 0;
 
-  // --- Historical cohort enrollments from the summary section (rows 0-5 of sheet) ---
+  // --- Historical cohort comparison, at the SAME days-remaining point Fall '26 is at now ---
+  // Pulled from the V1 sheet's per-day historical columns (see fetchHistoricalWhartonMap)
+  // so "Closed Cohorts" and "vs. Last 3 cohort avg" are apples-to-apples with Fall '26's
+  // current pace, not each cohort's fully-finished final total.
+  const historicalSheetId = process.env.GOOGLE_PACING_SHEET_ID;
+  const historicalMap = historicalSheetId ? await fetchHistoricalWhartonMap(historicalSheetId) : new Map<number, Array<{ label: string; pct: number }>>();
+
+  const findHistEntriesAtDay = (targetDay: number): Array<{ label: string; pct: number }> => {
+    let bestDay: number | null = null;
+    for (const day of historicalMap.keys()) {
+      if (bestDay === null || Math.abs(day - targetDay) < Math.abs(bestDay - targetDay)) bestDay = day;
+    }
+    return bestDay !== null ? historicalMap.get(bestDay)! : [];
+  };
+  const last3AtDay = findHistEntriesAtDay(daysRemaining).slice(-3);
+
+  // Fallback (V1 sheet unreachable, or fewer than 3 cohorts found there): use each
+  // cohort's fully-finished final total from the V2 sheet's summary block.
   const findSummaryVal = (keyword: string): number | null => {
     const row = rows.find(r =>
       r[0]?.toString().toLowerCase().includes(keyword.toLowerCase()) &&
@@ -496,15 +518,17 @@ export async function getPacingDataV2(sheetId: string): Promise<{
     );
     return row ? N(row[1]) : null;
   };
-  const fall25Final  = findSummaryVal('fall 2025') ?? 883;
-  const winter26Final = findSummaryVal('winter 2026') ?? 1020;
-  const spring26Final = findSummaryVal('spring') ?? 1003; // "Spring 206" typo in sheet
 
-  const histCohorts = [
-    { label: "Fall '25",   enrolled: fall25Final,   goal: W_GOALS["Fall '25"]   ?? 897  },
-    { label: "Winter '26", enrolled: winter26Final, goal: W_GOALS["Winter '26"] ?? 1021 },
-    { label: "Spring '26", enrolled: spring26Final, goal: W_GOALS["Spring '26"] ?? 1225 },
-  ];
+  const histCohorts = last3AtDay.length === 3
+    ? last3AtDay.map(h => {
+        const goal = getWGoal(h.label) ?? 0;
+        return { label: h.label, enrolled: Math.round(h.pct / 100 * goal), goal };
+      })
+    : [
+        { label: "Fall '25",   enrolled: findSummaryVal('fall 2025') ?? 883,    goal: W_GOALS["Fall '25"]   ?? 897  },
+        { label: "Winter '26", enrolled: findSummaryVal('winter 2026') ?? 1020, goal: W_GOALS["Winter '26"] ?? 1021 },
+        { label: "Spring '26", enrolled: findSummaryVal('spring') ?? 1003,      goal: W_GOALS["Spring '26"] ?? 1225 }, // "Spring 206" typo in sheet
+      ];
   const last3AvgEnrolled = Math.round(histCohorts.reduce((s, c) => s + c.enrolled, 0) / histCohorts.length);
   const last3AvgGoal = Math.round(histCohorts.reduce((s, c) => s + c.goal, 0) / histCohorts.length);
   const last3AvgPct = +(histCohorts.reduce((s, c) => s + (c.enrolled / c.goal * 100), 0) / histCohorts.length).toFixed(1);
@@ -514,7 +538,7 @@ export async function getPacingDataV2(sheetId: string): Promise<{
   const vsGoal = currentEnrolled - currentGoalAtDay;
   const keyTakeaway = `Wharton Fall '26 has enrolled ${currentEnrolled.toLocaleString()} of ${finalGoal.toLocaleString()} students (${pctDone}%) with ${daysRemaining} days remaining.${
     currentGoalAtDay > 0
-      ? ` Goal pace: ${currentGoalAtDay.toLocaleString()} expected by this point (${vsGoal >= 0 ? '+' : ''}${vsGoal} vs pace). Last 3-cohort final avg: ${last3AvgEnrolled.toLocaleString()}.`
+      ? ` Goal pace: ${currentGoalAtDay.toLocaleString()} expected by this point (${vsGoal >= 0 ? '+' : ''}${vsGoal} vs pace). Last 3-cohort avg at this point: ${last3AvgEnrolled.toLocaleString()}.`
       : ''
   }`;
 
@@ -568,11 +592,10 @@ export async function getPacingDataV2(sheetId: string): Promise<{
     });
 
   // --- Merge historical cohort lines from V1 sheet ---
-  // The V2 sheet only has Goal Pace; historical cohort curves live in the V1 sheet (cols 18-23).
+  // The V2 sheet only has Goal Pace; historical cohort curves live in the V1 sheet (cols 18-24).
   // Both sheets use daysBeforeDeadline as the x-axis, so we can join them directly.
-  const historicalSheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  if (historicalSheetId) {
-    const historicalMap = await fetchHistoricalWhartonMap(historicalSheetId);
+  // (historicalMap was already fetched above for the histCohorts comparison.)
+  if (historicalMap.size > 0) {
     for (const pt of pacing) {
       const hist = historicalMap.get(pt.day);
       if (hist && hist.length > 0) {
