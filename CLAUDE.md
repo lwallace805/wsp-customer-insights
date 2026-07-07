@@ -12,6 +12,15 @@ npm run lint     # ESLint
 
 There is no test runner configured in this project.
 
+## Quality Gates (mandatory)
+
+Two gates run on every task, without being asked:
+
+1. **Before declaring any task complete** ("done", "built", "fixed", "ready"), run the `qa-verification-loop` skill: restate the original ask and diff the result against it; verify by executing and observing (hit the API route, load the page, exercise filters/toggles — never hand off from the diff); re-derive at least one headline number by an independent path; do a human-sense pass on the literal output (labels, units, time boundaries, impossible values); then report **what was verified and how**, not just what changed. For bug fixes, reproduce the symptom first and confirm it's gone after.
+2. **Before presenting any analysis, diagnostic, or recommendation as final**, run the `critical-thinking-analysis-review` skill: define the metric (numerator/denominator/where/window), audit time-alignment and cohort maturity, sweep confounds before assigning a cause, state absolute counts behind percentages and check moves against historical variance, and steelman the "this is a measurement artifact" counter-conclusion.
+
+Both skills are user-global (`~/.claude/skills/`). If they're unavailable in this environment, follow the summaries above directly. Domain playbooks for this repo's recurring work live in `.claude/skills/` (`wsp-enrollment-pacing`, `wsp-airtable-integration`, `wsp-cert-program-launch`) — consult the relevant one before touching `src/lib/sheets.ts`, Airtable-backed routes, or `src/lib/certPrograms.ts`.
+
 ## Architecture
 
 **WSP Analytics Hub** is an internal Next.js 16 (App Router) dashboard for Wall Street Prep. It aggregates NPS survey data, enrollment pacing, and certificate program analytics in one place, restricted to `@wallstreetprep.com` Google accounts.
