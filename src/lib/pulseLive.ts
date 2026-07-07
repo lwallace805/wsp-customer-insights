@@ -123,11 +123,22 @@ export interface LeadsWeekLive {
   enrollForecast: number | null;
 }
 
+export interface WoWTotals {
+  spend: number | null;
+  leads: number | null;
+  enrolls: number | null;
+  cpl: number | null;
+  cpe: number | null;
+  roas: number | null;
+  cvr: number | null;   // %
+}
+
 export interface LeadsLive {
   cohortLabel: string;
   weeks: LeadsWeekLive[];
   cohortLeads: number | null;
   cohortLeadsForecast: number | null;
+  totals: WoWTotals | null;
   updatedThrough: string | null;
 }
 
@@ -140,14 +151,34 @@ async function readWoWLeads(sheetId: string, cohortLabel: string): Promise<Leads
     });
     const rows = res.data.values ?? [];
 
+    // Totals block: columns are looked up by header name because the two
+    // cohort docs (Wharton multi-program vs Columbia single-program) don't
+    // share exact column positions.
     let cohortLeads: number | null = null;
     let cohortLeadsForecast: number | null = null;
+    let totals: WoWTotals | null = null;
     const tIdx = rows.findIndex(r => (r[1] ?? '').toString().trim() === 'Program');
     if (tIdx >= 0) {
+      const header = rows[tIdx].map(c => String(c ?? '').trim().toLowerCase());
+      const col = (...needles: string[]) =>
+        header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
+      const at = (r: (string | undefined)[], i: number) => (i >= 0 ? N(r[i]) : null);
+
       const totalRow = rows.slice(tIdx + 1, tIdx + 4).find(r => (r[1] ?? '').toString().trim() === 'Total');
       if (totalRow) {
-        cohortLeads = N(totalRow[4]);
-        cohortLeadsForecast = N(totalRow[5]);
+        cohortLeads = at(totalRow, col('leads', 'actual'));
+        cohortLeadsForecast = at(totalRow, col('leads', 'forecast'));
+        const rawCvr = at(totalRow, col('cvr', 'actual'));
+        totals = {
+          spend: at(totalRow, col('spend')),
+          leads: cohortLeads,
+          enrolls: at(totalRow, col('enrollments', 'actual')),
+          cpl: at(totalRow, col('cpl', 'actual')),
+          cpe: at(totalRow, col('cpe', 'actual')),
+          roas: at(totalRow, col('roas', 'actual')),
+          // CVR is a percent — anything outside 0–100 is a mis-mapped column
+          cvr: rawCvr !== null && rawCvr >= 0 && rawCvr <= 100 ? rawCvr : null,
+        };
       }
     }
 
@@ -175,6 +206,7 @@ async function readWoWLeads(sheetId: string, cohortLabel: string): Promise<Leads
       weeks,
       cohortLeads,
       cohortLeadsForecast,
+      totals,
       updatedThrough: lastWithData?.dateRange ?? null,
     };
   } catch {
@@ -323,5 +355,88 @@ async function buildColumbia(c: CohortWindow | null, now: Date): Promise<PulseFa
     },
     today,
     leads,
+  };
+}
+
+// ─── Cohort Command live overview ────────────────────────────────────────────
+// Powers the active cohort's Overview on /cohort-performance/* so its headline
+// numbers come from the SAME sources as Pulse (deadline pacing table +
+// Overall WoW totals) instead of the pro forma demo data.
+
+export interface CommandHistoryRow {
+  label: string;
+  enrolled: number;
+  goal: number;
+  pctDone: number;
+  isActive: boolean;
+}
+
+export interface CommandLive {
+  family: 'wharton' | 'columbia';
+  label: string;            // active cohort label, e.g. "Fall '26"
+  enrolls: number;          // deadline-table cumulative (same as Pulse)
+  goal: number;
+  forecastToDate: number;
+  daysRemaining: number;
+  totals: WoWTotals | null; // spend / leads / CPL / CPE / ROAS / CVR (WoW basis)
+  keyedThrough: string | null;
+  history: CommandHistoryRow[];
+}
+
+export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Promise<CommandLive | null> {
+  const now = nowET();
+  const win = getActiveCohort(family, now);
+  const wiring = win ? COHORT_SHEETS[win.key] : undefined;
+  const sheetId = wiring?.sheetId();
+
+  if (family === 'wharton') {
+    if (!sheetId || !wiring) return null;
+    const [pacing, today, leads] = await Promise.all([
+      getPacingDataV2(sheetId).catch(() => null),
+      readDeadlineTable(sheetId, wiring.deadlineTab, win!.label),
+      readWoWLeads(sheetId, win!.label),
+    ]);
+    const s = pacing?.summary[0];
+    if (!s) return null;
+    const cmp = pacing!.comparison.wharton;
+    return {
+      family,
+      label: win!.label,
+      enrolls: today?.cohortToDate ?? s.enrolled,
+      goal: s.goal,
+      forecastToDate: s.forecast,
+      daysRemaining: s.daysRemaining,
+      totals: leads?.totals ?? null,
+      keyedThrough: today?.updatedThrough ?? null,
+      history: [
+        { label: win!.label, enrolled: today?.cohortToDate ?? s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +((today?.cohortToDate ?? s.enrolled) / s.goal * 100).toFixed(1) : 0, isActive: true },
+        ...cmp.closedRows,
+      ],
+    };
+  }
+
+  // Columbia: enrollment summary from the pacing sheet; WoW + daily from the doc
+  const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
+  const [pacing, today, leads] = await Promise.all([
+    getPacingData(pacingSheetId).catch(() => null),
+    sheetId && wiring ? readDeadlineTable(sheetId, wiring.deadlineTab, win?.label ?? 'CBS') : Promise.resolve(null),
+    sheetId ? readWoWLeads(sheetId, win?.label ?? 'CBS') : Promise.resolve(null),
+  ]);
+  const s = pacing?.summary.find(x => x.program === 'CBSEE');
+  if (!s || !win) return null;
+  const cmp = pacing!.comparison.cbsee;
+  return {
+    family,
+    label: win.label,
+    enrolls: s.enrolled,
+    goal: s.goal,
+    forecastToDate: s.forecast,
+    daysRemaining: s.daysRemaining,
+    totals: leads?.totals ?? null,
+    keyedThrough: today?.updatedThrough ?? null,
+    history: [
+      { label: win.label, enrolled: s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +(s.enrolled / s.goal * 100).toFixed(1) : 0, isActive: true },
+      ...(cmp?.closedRows ?? []),
+    ],
   };
 }
