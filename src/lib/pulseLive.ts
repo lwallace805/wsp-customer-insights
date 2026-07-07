@@ -247,9 +247,10 @@ export async function getPulseLive(): Promise<PulseLive> {
   const wWindow = getActiveCohort('wharton', now);
   const cWindow = getActiveCohort('columbia', now);
 
-  const [wharton, columbia] = await Promise.all([
+  const [wharton, columbia, teamPulled] = await Promise.all([
     buildWharton(wWindow, now),
     buildColumbia(cWindow, now),
+    import('@/lib/enrollmentTeam').then(m => m.getTeamDataPulledDate()).catch(() => null),
   ]);
 
   const freshness = [
@@ -273,9 +274,9 @@ export async function getPulseLive(): Promise<PulseLive> {
     },
     {
       source: 'Enrollment team dashboard (L2 lower funnel)',
-      updatedThrough: 'needs sheet access',
+      updatedThrough: teamPulled ? `pulled ${teamPulled}` : 'unavailable',
       cadence: 'Weekly · Aubrey',
-      lagging: true,
+      lagging: !teamPulled,
     },
   ];
 
