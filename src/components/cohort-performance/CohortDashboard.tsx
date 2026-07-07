@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CohortData } from '@/data/cohortPerformance';
+import type { CommandLive } from '@/lib/pulseLive';
 import { getActiveCohort } from '@/lib/cohortCalendar';
 
 // Default to the calendar-resolved active cohort ("Fall '26" → "Fall 2026"),
@@ -38,6 +39,20 @@ interface Props {
 export default function CohortDashboard({ cohorts, title, subtitle }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('Overview');
   const [activeCohort, setActiveCohort] = useState(() => defaultCohort(cohorts));
+  const [live, setLive] = useState<CommandLive | null>(null);
+
+  const family = cohorts[0]?.family ?? 'wharton';
+
+  // Live overview for the active cohort — same sources as Pulse, so the two
+  // pages can never disagree on the headline numbers.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/cohort-command?family=${family}`)
+      .then(r => r.json())
+      .then(json => { if (!cancelled && json.live) setLive(json.live); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [family]);
 
   const cohort = cohorts.find(c => c.cohort === activeCohort) ?? cohorts[cohorts.length - 1];
   const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -77,7 +92,7 @@ export default function CohortDashboard({ cohorts, title, subtitle }: Props) {
 
       <TabNav active={activeTab} onChange={setActiveTab} />
 
-      {activeTab === 'Overview'     && <OverviewTab cohort={cohort} allCohorts={cohorts} />}
+      {activeTab === 'Overview'     && <OverviewTab cohort={cohort} allCohorts={cohorts} live={cohort.status === 'active' ? live : null} />}
       {activeTab === 'Pacing'       && <PacingTab cohort={cohort} allCohorts={cohorts} />}
       {activeTab === 'Full Funnel'  && <FullFunnelTab family={cohort.family} />}
       {activeTab === 'Leads'        && <LeadsTab family={cohort.family} />}

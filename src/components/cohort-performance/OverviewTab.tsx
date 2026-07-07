@@ -1,6 +1,7 @@
 'use client';
 
 import type { CohortData } from '@/data/cohortPerformance';
+import type { CommandLive } from '@/lib/pulseLive';
 
 function fmt(n: number) { return n.toLocaleString(); }
 function fmtDollar(n: number) {
@@ -40,37 +41,107 @@ function KpiCard({ label, value, sub, positive }: KpiCardProps) {
 interface Props {
   cohort: CohortData;
   allCohorts: CohortData[];
+  live?: CommandLive | null;
 }
 
-export default function OverviewTab({ cohort, allCohorts }: Props) {
-  const enrollDelta = delta(cohort.totalEnrolls, cohort.totalGoal);
-  const pctToGoal = cohort.totalGoal > 0 ? (cohort.totalEnrolls / cohort.totalGoal) * 100 : 0;
+export default function OverviewTab({ cohort, allCohorts, live }: Props) {
+  // Live values (same sources as Pulse) override the pro forma data for the
+  // active cohort; closed cohorts keep the demo dataset.
+  const enrolls = live ? live.enrolls : cohort.totalEnrolls;
+  const goal = live ? live.goal : cohort.totalGoal;
+  const enrollDelta = delta(enrolls, goal);
+  const pctToGoal = goal > 0 ? (enrolls / goal) * 100 : 0;
+  const daysRemaining = live ? live.daysRemaining : cohort.daysRemaining;
+  const t = live?.totals ?? null;
 
   return (
     <div className="space-y-6">
+      {live && (
+        <p className="text-[11px] text-gray-500">
+          <span className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/30 mr-2">Live</span>
+          Enrollments from the deadline pacing table (keyed through {live.keyedThrough ?? '—'}); spend / leads / efficiency from Overall WoW totals — the same sources as Pulse.
+        </p>
+      )}
+
       {/* KPI row */}
       <div className="flex gap-4">
         <KpiCard
           label="Enrollments"
-          value={fmt(cohort.totalEnrolls)}
-          sub={`of ${fmt(cohort.totalGoal)} goal · ${enrollDelta.sign}${fmt(enrollDelta.d)}${enrollDelta.pct}`}
+          value={fmt(enrolls)}
+          sub={`of ${fmt(goal)} goal · ${enrollDelta.sign}${fmt(enrollDelta.d)}${enrollDelta.pct}`}
           positive={enrollDelta.positive}
         />
         <KpiCard
           label="% to Goal"
           value={fmtPct(pctToGoal)}
-          sub={cohort.status === 'active' ? `${cohort.daysRemaining} days remaining` : 'Final'}
+          sub={cohort.status === 'active' ? `${daysRemaining} days remaining` : 'Final'}
           positive={pctToGoal >= 100}
         />
-        <KpiCard label="Total Spend" value={fmtDollar(cohort.totalSpend)} />
-        <KpiCard label="ROAS" value={`${cohort.roas.toFixed(1)}x`} positive={cohort.roas >= 2.5} />
-        <KpiCard label="Cost / Enroll" value={`$${cohort.cpe.toFixed(0)}`} positive={cohort.cpe < 1000} />
-        <KpiCard label="Cost / Lead" value={`$${cohort.cpl.toFixed(2)}`} />
-        <KpiCard label="Lead → Enroll CVR" value={fmtPct(cohort.cvr)} positive={cohort.cvr >= 3} />
+        {live ? (
+          <>
+            <KpiCard label="Total Spend" value={t?.spend != null ? fmtDollar(t.spend) : '—'} />
+            <KpiCard label="ROAS" value={t?.roas != null ? `${t.roas.toFixed(1)}x` : '—'} positive={(t?.roas ?? 0) >= 2.5} />
+            <KpiCard label="Cost / Enroll" value={t?.cpe != null ? `$${t.cpe.toFixed(0)}` : '—'} positive={(t?.cpe ?? Infinity) < 1000} />
+            <KpiCard label="Cost / Lead" value={t?.cpl != null ? `$${t.cpl.toFixed(2)}` : '—'} />
+            <KpiCard label="Lead → Enroll CVR" value={t?.cvr != null ? fmtPct(t.cvr) : '—'} positive={(t?.cvr ?? 0) >= 3} />
+          </>
+        ) : (
+          <>
+            <KpiCard label="Total Spend" value={fmtDollar(cohort.totalSpend)} />
+            <KpiCard label="ROAS" value={`${cohort.roas.toFixed(1)}x`} positive={cohort.roas >= 2.5} />
+            <KpiCard label="Cost / Enroll" value={`$${cohort.cpe.toFixed(0)}`} positive={cohort.cpe < 1000} />
+            <KpiCard label="Cost / Lead" value={`$${cohort.cpl.toFixed(2)}`} />
+            <KpiCard label="Lead → Enroll CVR" value={fmtPct(cohort.cvr)} positive={cohort.cvr >= 3} />
+          </>
+        )}
       </div>
 
-      {/* Forecast vs goal callout (active only) */}
-      {cohort.status === 'active' && (
+      {/* Pacing vs forecast callout (active + live). Compares actual to the
+          forecast-to-date — where the plan says we should be TODAY — not the
+          end-of-cohort goal, which is meaningless early in the cycle. */}
+      {cohort.status === 'active' && live && (
+        <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Pacing vs. Forecast (to date)</p>
+          <div className="flex items-center gap-8">
+            <div>
+              <p className="text-xs text-gray-500 mb-0.5">Actual</p>
+              <p className="text-2xl font-bold text-white">{fmt(live.enrolls)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-0.5">Forecast to date</p>
+              <p className="text-2xl font-bold text-white">{fmt(live.forecastToDate)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-0.5">Δ vs pace</p>
+              {(() => {
+                const gap = live.enrolls - live.forecastToDate;
+                const pos = gap >= 0;
+                return (
+                  <p className={`text-2xl font-bold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {pos ? '+' : ''}{fmt(gap)}
+                  </p>
+                );
+              })()}
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-0.5">Goal</p>
+              <p className="text-2xl font-bold text-white">{fmt(live.goal)}</p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <div className="w-full bg-white/5 rounded-full h-2">
+              <div
+                className="bg-emerald-500 h-2 rounded-full transition-all"
+                style={{ width: `${Math.min(pctToGoal, 100)}%` }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{fmtPct(pctToGoal)} of goal</p>
+          </div>
+        </div>
+      )}
+
+      {/* Forecast vs goal callout (active, demo fallback) */}
+      {cohort.status === 'active' && !live && (
         <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Forecast vs. Goal</p>
           <div className="flex items-center gap-8">
@@ -128,7 +199,40 @@ export default function OverviewTab({ cohort, allCohorts }: Props) {
               </tr>
             </thead>
             <tbody>
-              {[...allCohorts].reverse().map((c, i) => {
+              {live && live.history.map((h, i) => {
+                const pct = h.pctDone;
+                return (
+                  <tr
+                    key={h.label}
+                    className={`border-b border-white/5 ${h.isActive ? 'bg-white/5' : i % 2 === 0 ? '' : 'bg-white/[0.02]'}`}
+                  >
+                    <td className="px-5 py-3 text-white font-medium">
+                      {h.label}
+                      {h.isActive && (
+                        <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-300">{fmt(h.goal)}</td>
+                    <td className="px-4 py-3 text-right text-gray-300">{fmt(h.enrolled)}</td>
+                    <td className={`px-4 py-3 text-right font-medium ${pct >= 100 ? 'text-emerald-400' : pct >= 85 ? 'text-yellow-400' : 'text-red-400'}`}>
+                      {fmtPct(pct)}
+                    </td>
+                    {h.isActive && t ? (
+                      <>
+                        <td className="px-4 py-3 text-right text-gray-300">{t.spend != null ? fmtDollar(t.spend) : '—'}</td>
+                        <td className="px-4 py-3 text-right text-gray-300">{t.roas != null ? `${t.roas.toFixed(1)}x` : '—'}</td>
+                        <td className="px-4 py-3 text-right text-gray-300">{t.cpe != null ? `$${t.cpe.toFixed(0)}` : '—'}</td>
+                        <td className="px-4 py-3 text-right text-gray-300">{t.cvr != null ? fmtPct(t.cvr) : '—'}</td>
+                      </>
+                    ) : (
+                      <td colSpan={4} className="px-4 py-3 text-right text-gray-600 text-xs italic">wires with historical economics</td>
+                    )}
+                  </tr>
+                );
+              })}
+              {!live && [...allCohorts].reverse().map((c, i) => {
                 const pct = c.totalGoal > 0 ? (c.totalEnrolls / c.totalGoal) * 100 : 0;
                 const isActive = c.cohort === cohort.cohort;
                 return (
