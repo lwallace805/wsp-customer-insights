@@ -24,7 +24,10 @@ export const CERT_PROGRAMS: CertProgram[] = [
   { id: 'wharton-3',            label: 'Wharton Cohort III',      pattern: /wharton cohort iii\b/i,    historicalLabel: '',                        color: 'text-teal-600',   hex: '#0d9488' },
 ];
 
-// Ordered cohort periods for trend charts (oldest → newest)
+// Ordered cohort periods for trend charts (oldest → newest).
+// A cohort label missing here is silently dropped from every trend chart while
+// still counting toward overall NPS — add each new cohort as soon as
+// dateToCohort() can emit it, not after someone notices the chart is truncated.
 export const COHORT_ORDER = [
   'Fall 2024',
   'Winter 2025',
@@ -32,6 +35,8 @@ export const COHORT_ORDER = [
   'Fall 2025',
   'Winter 2026',
   'Spring 2026',  // live Airtable data
+  'Summer 2026',
+  'Fall 2026',
 ];
 
 export function matchProgram(surveyName: string): CertProgram | null {
