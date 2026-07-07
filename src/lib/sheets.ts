@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { isDemo } from '@/lib/demo/flag';
 import { getDemoPacing } from '@/lib/demo/enrollment';
+import { nowET } from '@/lib/cohortCalendar';
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -492,7 +493,11 @@ export async function getPacingDataV2(sheetId: string): Promise<{
   const finalGoal = N(deadlineRow?.[V2.goalCumulative]) ?? 1225;
 
   // --- Today's row: latest date in the sheet that is <= today ---
-  const todayMs = new Date().setHours(0, 0, 0, 0);
+  // Business day boundary is Eastern time — on UTC servers, local midnight flips
+  // at 8pm ET, which advanced todayRow a day early every evening. nowET() carries
+  // the ET wall clock in local fields, so setHours(0,0,0,0) lands on the same ms
+  // basis as the row dates parsed by new Date("M/D/YYYY").
+  const todayMs = nowET().setHours(0, 0, 0, 0);
   const todayRow = dataRows.reduce<string[] | null>((best, r) => {
     const raw = r[V2.date];
     if (!raw) return best;
