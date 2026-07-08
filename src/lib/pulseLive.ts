@@ -459,6 +459,9 @@ export interface CommandLive {
   leadsDetail: LeadsLive | null; // weekly rows + per-program totals (WoW)
   keyedThrough: string | null;
   history: CommandHistoryRow[];
+  // What closed-cohort history rows represent: true finals (Wharton V2 doc
+  // summary) vs enrollment at the same day-out (Columbia AN-summary panel).
+  historyBasis: 'finals' | 'same-day-out';
 }
 
 export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Promise<CommandLive | null> {
@@ -487,6 +490,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
       totals: leads?.totals ?? null,
       leadsDetail: leads,
       keyedThrough: today?.updatedThrough ?? null,
+      historyBasis: 'finals',
       history: [
         { label: win!.label, enrolled: today?.cohortToDate ?? s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +((today?.cohortToDate ?? s.enrolled) / s.goal * 100).toFixed(1) : 0, isActive: true },
         ...cmp.closedRows.map(r => toHistoryRow(r)),
@@ -503,7 +507,15 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
   ]);
   const s = pacing?.summary.find(x => x.program === 'CBSEE');
   if (!s || !win) return null;
+
+  // Note: the AN-summary comparison panel's closedRows are SAME-DAY-OUT pace
+  // values (not finals), and C_GOALS backfills finals as goals for closed
+  // CBSEE cohorts — so true finals aren't reconstructable from this sheet.
+  // We pass the pace values through and label the basis honestly in the UI
+  // via historyBasis.
   const cmp = pacing!.comparison.cbsee;
+  const closedRows = (cmp?.closedRows ?? []).map(r => toHistoryRow(r));
+
   return {
     family,
     label: win.label,
@@ -514,9 +526,10 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
     totals: leads?.totals ?? null,
     leadsDetail: leads,
     keyedThrough: today?.updatedThrough ?? null,
+    historyBasis: 'same-day-out',
     history: [
       { label: win.label, enrolled: s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +(s.enrolled / s.goal * 100).toFixed(1) : 0, isActive: true },
-      ...(cmp?.closedRows ?? []).map(r => toHistoryRow(r)),
+      ...closedRows,
     ],
   };
 }

@@ -205,6 +205,13 @@ export default function OverviewTab({ cohort, allCohorts, live }: Props) {
               </tr>
             </thead>
             <tbody>
+              {live && live.historyBasis === 'same-day-out' && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-2 text-[11px] text-yellow-400/80 bg-yellow-500/5 border-b border-white/5">
+                    Closed-cohort rows show enrollment at the <b>same day-out</b> (pace comparison), not final totals — final-vs-target history wires with historical economics.
+                  </td>
+                </tr>
+              )}
               {live && live.history.map((h, i) => {
                 const pct = h.pctDone;
                 return (
