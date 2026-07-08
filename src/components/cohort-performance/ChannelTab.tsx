@@ -1,6 +1,7 @@
 'use client';
 
 import type { CohortData } from '@/data/cohortPerformance';
+import ProFormaBanner from './ProFormaBanner';
 
 function fmtDollar(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
@@ -45,6 +46,7 @@ export default function ChannelTab({ cohort }: Props) {
 
   return (
     <div className="space-y-6">
+      <ProFormaBanner />
       {/* Charts row */}
       <div className="grid grid-cols-2 gap-4">
         {/* Channel share — CSS-based bar breakdown */}

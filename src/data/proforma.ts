@@ -230,8 +230,7 @@ export const FULL_FUNNEL: Record<'wharton' | 'columbia', FullFunnelData> = {
         toDate: 46800, forecast: 44200,
         prior: { prior: 43100, sameSeason: 40900, avg3: 42300 },
         perProgram: [
-          { program: 'AI Finance', toDate: 29900, forecast: 28300, prior: 27600 },
-          { program: 'AI Accounting', toDate: 16900, forecast: 15900, prior: 15500 },
+          { program: 'AI F&B', toDate: 46800, forecast: 44200, prior: 43100 },
         ],
       },
       {
@@ -239,8 +238,7 @@ export const FULL_FUNNEL: Record<'wharton' | 'columbia', FullFunnelData> = {
         toDate: 37.70, forecast: 39.50,
         prior: { prior: 41.20, sameSeason: 38.90, avg3: 40.10 },
         perProgram: [
-          { program: 'AI Finance', toDate: 36.10, forecast: 37.80, prior: 39.60 },
-          { program: 'AI Accounting', toDate: 40.90, forecast: 42.70, prior: 44.30 },
+          { program: 'AI F&B', toDate: 37.70, forecast: 39.50, prior: 41.20 },
         ],
       },
       {
@@ -248,8 +246,7 @@ export const FULL_FUNNEL: Record<'wharton' | 'columbia', FullFunnelData> = {
         toDate: 1240, forecast: 1180,
         prior: { prior: 1046, sameSeason: 1052, avg3: 1055 },
         perProgram: [
-          { program: 'AI Finance', toDate: 828, forecast: 790, prior: 697 },
-          { program: 'AI Accounting', toDate: 412, forecast: 390, prior: 349 },
+          { program: 'AI F&B', toDate: 1240, forecast: 1180, prior: 1046 },
         ],
       },
       {
@@ -257,8 +254,7 @@ export const FULL_FUNNEL: Record<'wharton' | 'columbia', FullFunnelData> = {
         toDate: 4.9, forecast: 6.4,
         prior: { prior: 6.8, sameSeason: 6.2, avg3: 6.5 },
         perProgram: [
-          { program: 'AI Finance', toDate: 5.2, forecast: 6.7, prior: 7.1 },
-          { program: 'AI Accounting', toDate: 4.3, forecast: 5.8, prior: 6.1 },
+          { program: 'AI F&B', toDate: 4.9, forecast: 6.4, prior: 6.8 },
         ],
       },
       {
@@ -266,8 +262,7 @@ export const FULL_FUNNEL: Record<'wharton' | 'columbia', FullFunnelData> = {
         toDate: 61, forecast: 75,
         prior: { prior: 71, sameSeason: 65, avg3: 69 },
         perProgram: [
-          { program: 'AI Finance', toDate: 43, forecast: 53, prior: 49 },
-          { program: 'AI Accounting', toDate: 18, forecast: 22, prior: 22 },
+          { program: 'AI F&B', toDate: 61, forecast: 75, prior: 71 },
         ],
       },
       {
@@ -275,8 +270,7 @@ export const FULL_FUNNEL: Record<'wharton' | 'columbia', FullFunnelData> = {
         toDate: 767, forecast: 589,
         prior: { prior: 607, sameSeason: 629, avg3: 613 },
         perProgram: [
-          { program: 'AI Finance', toDate: 695, forecast: 534, prior: 563 },
-          { program: 'AI Accounting', toDate: 939, forecast: 723, prior: 705 },
+          { program: 'AI F&B', toDate: 767, forecast: 589, prior: 607 },
         ],
       },
     ],
@@ -339,8 +333,7 @@ export const LEADS: Record<'wharton' | 'columbia', LeadsData> = {
       { week: 5, dateRange: 'Jun 22 – Jun 28', total: 312, totalForecast: 310, google: 124, googleForecast: 122 },
     ],
     programs: [
-      { program: 'AI Finance', leadsToDate: 828, leadsForecast: 790, cvrNeeded: 6.2, cvrHistorical: 6.7 },
-      { program: 'AI Accounting', leadsToDate: 412, leadsForecast: 390, cvrNeeded: 6.9, cvrHistorical: 6.1 },
+      { program: 'AI F&B', leadsToDate: 1240, leadsForecast: 1180, cvrNeeded: 6.4, cvrHistorical: 6.5 },
     ],
   },
 };
@@ -403,12 +396,12 @@ export const LOWER_FUNNEL: Record<'wharton' | 'columbia', LowerFunnelData> = {
     baselineNote: 'Baseline = prior-cohort at same day-out.',
     updatedThrough: 'Jun 15, 2026',
     metrics: [
-      { metric: 'Info Session RSVPs', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI Finance', actual: 412, baseline: 349 }, { program: 'AI Accounting', actual: 250, baseline: 213 }] },
-      { metric: 'Info Session Attendees', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI Finance', actual: 176, baseline: 152 }, { program: 'AI Accounting', actual: 108, baseline: 94 }] },
-      { metric: 'Consults', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI Finance', actual: 54, baseline: 47 }, { program: 'AI Accounting', actual: 30, baseline: 25 }] },
-      { metric: 'Consult → Enroll CVR', format: 'pct', higherIsBetter: true, perProgram: [{ program: 'AI Finance', actual: 24, baseline: 21 }, { program: 'AI Accounting', actual: 20, baseline: 22 }] },
-      { metric: 'TA Applications', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI Finance', actual: 128, baseline: 111 }, { program: 'AI Accounting', actual: 71, baseline: 66 }] },
-      { metric: 'TA Enrollments', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI Finance', actual: 39, baseline: 34 }, { program: 'AI Accounting', actual: 21, baseline: 19 }] },
+      { metric: 'Info Session RSVPs', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI F&B', actual: 662, baseline: 562 }] },
+      { metric: 'Info Session Attendees', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI F&B', actual: 284, baseline: 246 }] },
+      { metric: 'Consults', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI F&B', actual: 91, baseline: 72 }] },
+      { metric: 'Consult → Enroll CVR', format: 'pct', higherIsBetter: true, perProgram: [{ program: 'AI F&B', actual: 23, baseline: 21 }] },
+      { metric: 'TA Applications', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI F&B', actual: 209, baseline: 177 }] },
+      { metric: 'TA Enrollments', format: 'int', higherIsBetter: true, perProgram: [{ program: 'AI F&B', actual: 73, baseline: 62 }] },
     ],
     advisors: [
       { advisor: 'Advisor 1', weeklyEmails: 212, closedEmails: 81, taskCompletion: 91, consultCvr: 34, noShowRate: 8, enrolls: 22, enrollTarget: 21 },

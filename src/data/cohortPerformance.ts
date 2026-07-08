@@ -1,6 +1,6 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ProgramKey = 'PE' | 'RE' | 'FP&A' | 'AVI' | 'RDI' | 'AI Finance' | 'AI Accounting';
+export type ProgramKey = 'PE' | 'RE' | 'FP&A' | 'AVI' | 'RDI' | 'AI F&B';
 
 export type ChannelKey =
   | 'Google Ads'
@@ -80,7 +80,7 @@ export interface CohortData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function makePacing(totalEnrolls: number, durationDays: number, progress = 1): DailyPacing[] {
+function makePacing(totalEnrolls: number, durationDays: number, progress = 1, currentTotal?: number): DailyPacing[] {
   const points: DailyPacing[] = [];
   let cumulative = 0;
   const activeDays = Math.round(durationDays * Math.min(Math.max(progress, 0), 1));
@@ -100,6 +100,19 @@ function makePacing(totalEnrolls: number, durationDays: number, progress = 1): D
     const forecast = Math.round(totalEnrolls * (day / durationDays));
     points.push({ day, enrolls: daily, cumulative, forecast });
   }
+  // Pin the curve to the known to-date total so the pace table can't
+  // contradict the headline enrollment figure.
+  if (currentTotal !== undefined && cumulative > 0 && cumulative !== currentTotal) {
+    const k = currentTotal / cumulative;
+    let running = 0;
+    for (const pt of points) {
+      pt.enrolls = Math.round(pt.enrolls * k);
+      running = Math.min(running + pt.enrolls, currentTotal);
+      pt.cumulative = pt.cumulative === 0 && pt.enrolls === 0 && running === 0 ? 0 : running;
+    }
+    points[activeDays > 0 ? Math.min(activeDays, points.length) - 1 : points.length - 1].cumulative = currentTotal;
+    for (let i = Math.min(activeDays, points.length); i < points.length; i++) points[i].cumulative = currentTotal;
+  }
   return points;
 }
 
@@ -109,9 +122,9 @@ const whartonFall2024: CohortData = {
   cohort: 'Fall 2024',
   family: 'wharton',
   status: 'closed',
-  totalGoal: 850,
-  totalEnrolls: 841,
-  totalForecast: 841,
+  totalGoal: 1154,
+  totalEnrolls: 1154,
+  totalForecast: 1154,
   totalSpend: 768200,
   roas: 2.8,
   cpl: 24.60,
@@ -156,9 +169,9 @@ const whartonWinter2025: CohortData = {
   cohort: 'Winter 2025',
   family: 'wharton',
   status: 'closed',
-  totalGoal: 880,
-  totalEnrolls: 863,
-  totalForecast: 863,
+  totalGoal: 1191,
+  totalEnrolls: 1191,
+  totalForecast: 1191,
   totalSpend: 791000,
   roas: 2.9,
   cpl: 25.82,
@@ -203,9 +216,9 @@ const whartonFall2025: CohortData = {
   cohort: 'Fall 2025',
   family: 'wharton',
   status: 'closed',
-  totalGoal: 900,
-  totalEnrolls: 897,
-  totalForecast: 897,
+  totalGoal: 897,
+  totalEnrolls: 883,
+  totalForecast: 883,
   totalSpend: 813444,
   roas: 3.0,
   cpl: 26.97,
@@ -250,9 +263,9 @@ const whartonSpring2026: CohortData = {
   cohort: 'Spring 2026',
   family: 'wharton',
   status: 'closed',
-  totalGoal: 1130,
-  totalEnrolls: 964,
-  totalForecast: 1225,
+  totalGoal: 1225,
+  totalEnrolls: 1002,
+  totalForecast: 1002,
   totalSpend: 643200,
   roas: 2.4,
   cpl: 28.14,
@@ -301,8 +314,8 @@ const whartonFall2026: CohortData = {
   family: 'wharton',
   status: 'active',
   totalGoal: 1225,
-  totalEnrolls: 26,
-  totalForecast: 24,
+  totalEnrolls: 17,
+  totalForecast: 23,
   totalSpend: 51200,
   roas: 0.7,
   cpl: 56.20,
@@ -334,7 +347,7 @@ const whartonFall2026: CohortData = {
     { week: 2, dateRange: 'Jun 23 – Jun 29', spend: 34400, spendForecast: 30000, leads: 483, leadsForecast: 304, enrolls: 6,  enrollForecast: 4,  cpl: 71.28, cpe: 5738.09, cvr: 1.24 },
     { week: 3, dateRange: 'Jun 30 – Jul 6',  spend: 14800, spendForecast: 16000, leads: 215, leadsForecast: 417, enrolls: 2,  enrollForecast: 17, cpl: 59.57, cpe: 6404.15, cvr: 0.93 },
   ],
-  pacing: makePacing(1180, 119, 0.14),
+  pacing: makePacing(1180, 119, 0.14, 17),
 };
 
 // ─── Columbia Cohorts ─────────────────────────────────────────────────────────
@@ -343,9 +356,9 @@ const columbiaSummer2025: CohortData = {
   cohort: 'Summer 2025',
   family: 'columbia',
   status: 'closed',
-  totalGoal: 500,
-  totalEnrolls: 487,
-  totalForecast: 487,
+  totalGoal: 415,
+  totalEnrolls: 223,
+  totalForecast: 223,
   totalSpend: 524000,
   roas: 2.5,
   cpl: 34.28,
@@ -366,8 +379,7 @@ const columbiaSummer2025: CohortData = {
     { channel: 'Offline / Direct',          enrolls: 0,   pct: 0.0,  leads: 0,     spend: 0,      roas: 0,   cpl: 0,      cpe: 0,       cvr: 0    },
   ],
   programs: [
-    { program: 'AI Finance',     enrolls: 312, goal: 320, forecast: 312, leads: 9200,  cvr: 3.39, cpl: 32.84, cpe: 968.59 },
-    { program: 'AI Accounting',  enrolls: 175, goal: 180, forecast: 175, leads: 6200,  cvr: 2.82, cpl: 36.77, cpe: 1303.43 },
+    { program: 'AI F&B',  enrolls: 223, goal: 415, forecast: 223, leads: 15400, cvr: 3.16, cpl: 34.42, cpe: 1090.13 },
   ],
   weekly: [
     { week: 1,  dateRange: 'Jun 9 – Jun 15',   spend: 24800,  spendForecast: 26000,  leads: 720,  leadsForecast: 760,  enrolls: 14,  enrollForecast: 16,  cpl: 34.44, cpe: 1771.43, cvr: 1.94 },
@@ -388,9 +400,9 @@ const columbiaFall2025: CohortData = {
   cohort: 'Fall 2025',
   family: 'columbia',
   status: 'closed',
-  totalGoal: 520,
-  totalEnrolls: 508,
-  totalForecast: 508,
+  totalGoal: 468,
+  totalEnrolls: 253,
+  totalForecast: 253,
   totalSpend: 548600,
   roas: 2.6,
   cpl: 33.52,
@@ -411,8 +423,7 @@ const columbiaFall2025: CohortData = {
     { channel: 'Offline / Direct',          enrolls: 0,   pct: 0.0,  leads: 0,     spend: 0,      roas: 0,   cpl: 0,      cpe: 0,       cvr: 0    },
   ],
   programs: [
-    { program: 'AI Finance',     enrolls: 324, goal: 332, forecast: 324, leads: 9600,  cvr: 3.38, cpl: 31.86, cpe: 942.59 },
-    { program: 'AI Accounting',  enrolls: 184, goal: 188, forecast: 184, leads: 6560,  cvr: 2.80, cpl: 36.28, cpe: 1295.65 },
+    { program: 'AI F&B',  enrolls: 253, goal: 468, forecast: 253, leads: 16160, cvr: 3.14, cpl: 33.65, cpe: 1085.77 },
   ],
   weekly: [
     { week: 1,  dateRange: 'Sep 1 – Sep 7',    spend: 26400,  spendForecast: 27200,  leads: 780,  leadsForecast: 810,  enrolls: 16,  enrollForecast: 17,  cpl: 33.85, cpe: 1650.00, cvr: 2.05 },
@@ -433,9 +444,9 @@ const columbiaWinter2026: CohortData = {
   cohort: 'Winter 2026',
   family: 'columbia',
   status: 'closed',
-  totalGoal: 560,
-  totalEnrolls: 284,
-  totalForecast: 520,
+  totalGoal: 485,
+  totalEnrolls: 264,
+  totalForecast: 264,
   totalSpend: 312400,
   roas: 1.8,
   cpl: 35.62,
@@ -456,8 +467,7 @@ const columbiaWinter2026: CohortData = {
     { channel: 'Offline / Direct',          enrolls: 0,   pct: 0.0,  leads: 0,     spend: 0,      roas: 0,   cpl: 0,      cpe: 0,       cvr: 0    },
   ],
   programs: [
-    { program: 'AI Finance',     enrolls: 180, goal: 355, forecast: 328, leads: 5420,  cvr: 3.32, cpl: 33.82, cpe: 1018.89 },
-    { program: 'AI Accounting',  enrolls: 104, goal: 205, forecast: 192, leads: 3440,  cvr: 3.02, cpl: 38.37, cpe: 1270.19 },
+    { program: 'AI F&B',  enrolls: 264, goal: 485, forecast: 264, leads: 8860,  cvr: 3.20, cpl: 35.59, cpe: 1112.88 },
   ],
   weekly: [
     { week: 1,  dateRange: 'Feb 2 – Feb 8',    spend: 28200,  spendForecast: 29000,  leads: 790,  leadsForecast: 820,  enrolls: 18,  enrollForecast: 20,  cpl: 35.70, cpe: 1566.67, cvr: 2.28 },
@@ -477,15 +487,15 @@ const columbiaSpring2026: CohortData = {
   family: 'columbia',
   status: 'active',
   totalGoal: 468,
-  totalEnrolls: 367,
-  totalForecast: 292,
+  totalEnrolls: 394,
+  totalForecast: 325,
   totalSpend: 180700,
   roas: 5.5,
   cpl: 43.46,
   cpe: 493.76,
   cvr: 8.9,
   daysTotal: 119,
-  daysRemaining: 18,
+  daysRemaining: 14,
   channels: [
     { channel: 'Google Ads',                enrolls: 62, pct: 16.9, leads: 1520, spend: 98400, roas: 1.6, cpl: 64.74, cpe: 1587.10, cvr: 4.08 },
     { channel: 'Facebook / Instagram Ads',  enrolls: 24, pct: 6.5,  leads: 980,  spend: 42600, roas: 1.4, cpl: 43.47, cpe: 1775.00, cvr: 2.45 },
@@ -499,8 +509,7 @@ const columbiaSpring2026: CohortData = {
     { channel: 'Offline / Direct',          enrolls: 58, pct: 15.8, leads: 430,  spend: 0,     roas: 0,   cpl: 0,      cpe: 0,       cvr: 13.49 },
   ],
   programs: [
-    { program: 'AI Finance',     enrolls: 246, goal: 310, forecast: 196, leads: 2810, cvr: 8.75, cpl: 41.20, cpe: 470.00 },
-    { program: 'AI Accounting',  enrolls: 121, goal: 158, forecast: 96,  leads: 1360, cvr: 8.90, cpl: 47.60, cpe: 540.00 },
+    { program: 'AI F&B',  enrolls: 394, goal: 468, forecast: 325, leads: 4379, cvr: 8.97, cpl: 52.73, cpe: 587.57 },
   ],
   weekly: [
     { week: 10, dateRange: 'May 25 – May 31', spend: 12400, spendForecast: 12000, leads: 264, leadsForecast: 250, enrolls: 14, enrollForecast: 12, cpl: 46.97, cpe: 885.71,  cvr: 5.30 },
@@ -509,7 +518,7 @@ const columbiaSpring2026: CohortData = {
     { week: 13, dateRange: 'Jun 15 – Jun 21', spend: 12900, spendForecast: 13800, leads: 279, leadsForecast: 300, enrolls: 34, enrollForecast: 38, cpl: 46.24, cpe: 379.41,  cvr: 12.19 },
     { week: 14, dateRange: 'Jun 22 – Jun 28', spend: 13600, spendForecast: 13400, leads: 415, leadsForecast: 309, enrolls: 43, enrollForecast: 40, cpl: 32.77, cpe: 316.28,  cvr: 10.36 },
   ],
-  pacing: makePacing(430, 119, 0.85),
+  pacing: makePacing(430, 119, 0.85, 394),
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

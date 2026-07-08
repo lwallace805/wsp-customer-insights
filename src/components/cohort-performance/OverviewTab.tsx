@@ -2,6 +2,7 @@
 
 import type { CohortData } from '@/data/cohortPerformance';
 import type { CommandLive } from '@/lib/pulseLive';
+import ProFormaBanner from './ProFormaBanner';
 
 function fmt(n: number) { return n.toLocaleString(); }
 function fmtDollar(n: number) {
@@ -56,6 +57,11 @@ export default function OverviewTab({ cohort, allCohorts, live }: Props) {
 
   return (
     <div className="space-y-6">
+      {!live && (
+        <ProFormaBanner note={cohort.status === 'active'
+          ? 'Live data is loading or unavailable — the numbers below are illustrative placeholders.'
+          : 'Closed-cohort economics (spend, ROAS, CPL, CPE, CVR) are illustrative until historical economics are wired; goals and enrollment totals are real.'} />
+      )}
       {live && (
         <p className="text-[11px] text-gray-500">
           <span className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/30 mr-2">Live</span>

@@ -93,9 +93,9 @@ export default function CohortDashboard({ cohorts, title, subtitle }: Props) {
       <TabNav active={activeTab} onChange={setActiveTab} />
 
       {activeTab === 'Overview'     && <OverviewTab cohort={cohort} allCohorts={cohorts} live={cohort.status === 'active' ? live : null} />}
-      {activeTab === 'Pacing'       && <PacingTab cohort={cohort} allCohorts={cohorts} />}
-      {activeTab === 'Full Funnel'  && <FullFunnelTab family={cohort.family} />}
-      {activeTab === 'Leads'        && <LeadsTab family={cohort.family} />}
+      {activeTab === 'Pacing'       && <PacingTab cohort={cohort} allCohorts={cohorts} live={cohort.status === 'active' ? live : null} />}
+      {activeTab === 'Full Funnel'  && <FullFunnelTab family={cohort.family} live={cohort.status === 'active' ? live : null} />}
+      {activeTab === 'Leads'        && <LeadsTab family={cohort.family} live={cohort.status === 'active' ? live : null} />}
       {activeTab === 'Lower Funnel' && <LowerFunnelTab family={cohort.family} />}
       {activeTab === 'By Program'   && <ProgramTab cohort={cohort} />}
       {activeTab === 'By Channel'   && <ChannelTab cohort={cohort} />}

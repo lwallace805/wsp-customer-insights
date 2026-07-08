@@ -4,6 +4,7 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import type { CohortData } from '@/data/cohortPerformance';
+import ProFormaBanner from './ProFormaBanner';
 
 function fmtDollar(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
@@ -40,6 +41,7 @@ export default function PaidMediaTab({ cohort }: Props) {
 
   return (
     <div className="space-y-6">
+      <ProFormaBanner />
       {/* Summary KPIs */}
       <div className="flex gap-4">
         <div className="bg-[#161b22] border border-white/10 rounded-xl p-5 flex-1">
