@@ -442,6 +442,12 @@ export interface CommandHistoryRow {
   isActive: boolean;
 }
 
+// Adapt sheets.ts ComparisonRow (pctOfGoal / pctComplete, post-split) to the
+// history-row shape: % of the true goal is the figure the history table shows.
+function toHistoryRow(r: { label: string; enrolled: number; goal: number; pctOfGoal: number }, isActive = false): CommandHistoryRow {
+  return { label: r.label, enrolled: r.enrolled, goal: r.goal, pctDone: r.pctOfGoal, isActive };
+}
+
 export interface CommandLive {
   family: 'wharton' | 'columbia';
   label: string;            // active cohort label, e.g. "Fall '26"
@@ -483,7 +489,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
       keyedThrough: today?.updatedThrough ?? null,
       history: [
         { label: win!.label, enrolled: today?.cohortToDate ?? s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +((today?.cohortToDate ?? s.enrolled) / s.goal * 100).toFixed(1) : 0, isActive: true },
-        ...cmp.closedRows,
+        ...cmp.closedRows.map(r => toHistoryRow(r)),
       ],
     };
   }
@@ -510,7 +516,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
     keyedThrough: today?.updatedThrough ?? null,
     history: [
       { label: win.label, enrolled: s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +(s.enrolled / s.goal * 100).toFixed(1) : 0, isActive: true },
-      ...(cmp?.closedRows ?? []),
+      ...(cmp?.closedRows ?? []).map(r => toHistoryRow(r)),
     ],
   };
 }
