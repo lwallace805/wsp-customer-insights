@@ -131,6 +131,28 @@ export interface WoWTotals {
   cpe: number | null;
   roas: number | null;
   cvr: number | null;   // %
+  // Forecast counterparts (same totals block)
+  spendF: number | null;
+  leadsF: number | null;
+  enrollsF: number | null;
+  cplF: number | null;
+  cpeF: number | null;
+  cvrF: number | null;
+}
+
+// Per-program row from the WoW totals block (PE / RE / FP&A / AVI / RDI for
+// Wharton; Columbia's doc has only the Total row — one program).
+export interface WoWProgramRow {
+  program: string;
+  spend: number | null;
+  leads: number | null;
+  leadsF: number | null;
+  enrolls: number | null;
+  enrollsF: number | null;
+  cpl: number | null;
+  cpe: number | null;
+  cvr: number | null;
+  cvrF: number | null;
 }
 
 export interface LeadsLive {
@@ -139,6 +161,7 @@ export interface LeadsLive {
   cohortLeads: number | null;
   cohortLeadsForecast: number | null;
   totals: WoWTotals | null;
+  programs: WoWProgramRow[];
   updatedThrough: string | null;
 }
 
@@ -157,28 +180,74 @@ async function readWoWLeads(sheetId: string, cohortLabel: string): Promise<Leads
     let cohortLeads: number | null = null;
     let cohortLeadsForecast: number | null = null;
     let totals: WoWTotals | null = null;
+    const programs: WoWProgramRow[] = [];
     const tIdx = rows.findIndex(r => (r[1] ?? '').toString().trim() === 'Program');
     if (tIdx >= 0) {
       const header = rows[tIdx].map(c => String(c ?? '').trim().toLowerCase());
       const col = (...needles: string[]) =>
         header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
       const at = (r: (string | undefined)[], i: number) => (i >= 0 ? N(r[i]) : null);
+      const pctAt = (r: (string | undefined)[], i: number) => {
+        const v = at(r, i);
+        return v !== null && v >= 0 && v <= 100 ? v : null;
+      };
+
+      const c = {
+        spend: col('spend', 'actual') >= 0 ? col('spend', 'actual') : col('spend'),
+        spendF: col('spend', 'forecast'),
+        leads: col('leads', 'actual'),
+        leadsF: col('leads', 'forecast'),
+        enrolls: col('enrollments', 'actual'),
+        enrollsF: col('enrollment', 'forecast'),
+        cpl: col('cpl', 'actual'),
+        cplF: col('cpl', 'forecast'),
+        cpe: col('cpe', 'actual'),
+        cpeF: col('cpe', 'forecast'),
+        roas: col('roas', 'actual'),
+        cvr: col('cvr', 'actual'),
+        cvrF: col('cvr', 'forecast'),
+      };
 
       const totalRow = rows.slice(tIdx + 1, tIdx + 4).find(r => (r[1] ?? '').toString().trim() === 'Total');
       if (totalRow) {
-        cohortLeads = at(totalRow, col('leads', 'actual'));
-        cohortLeadsForecast = at(totalRow, col('leads', 'forecast'));
-        const rawCvr = at(totalRow, col('cvr', 'actual'));
+        cohortLeads = at(totalRow, c.leads);
+        cohortLeadsForecast = at(totalRow, c.leadsF);
         totals = {
-          spend: at(totalRow, col('spend')),
+          spend: at(totalRow, c.spend),
           leads: cohortLeads,
-          enrolls: at(totalRow, col('enrollments', 'actual')),
-          cpl: at(totalRow, col('cpl', 'actual')),
-          cpe: at(totalRow, col('cpe', 'actual')),
-          roas: at(totalRow, col('roas', 'actual')),
+          enrolls: at(totalRow, c.enrolls),
+          cpl: at(totalRow, c.cpl),
+          cpe: at(totalRow, c.cpe),
+          roas: at(totalRow, c.roas),
           // CVR is a percent — anything outside 0–100 is a mis-mapped column
-          cvr: rawCvr !== null && rawCvr >= 0 && rawCvr <= 100 ? rawCvr : null,
+          cvr: pctAt(totalRow, c.cvr),
+          spendF: at(totalRow, c.spendF),
+          leadsF: cohortLeadsForecast,
+          enrollsF: at(totalRow, c.enrollsF),
+          cplF: at(totalRow, c.cplF),
+          cpeF: at(totalRow, c.cpeF),
+          cvrF: pctAt(totalRow, c.cvrF),
         };
+      }
+
+      // Per-program rows: everything between the header and the weekly section
+      // whose label isn't a Total/blank/footnote row.
+      for (const r of rows.slice(tIdx + 1, tIdx + 12)) {
+        const label = (r[1] ?? '').toString().trim();
+        if (!label) break;
+        if (/^total/i.test(label) || /^\*/.test(label) || label.length > 30) continue;
+        programs.push({
+          program: label,
+          spend: at(r, c.spend),
+          leads: at(r, c.leads),
+          leadsF: at(r, c.leadsF),
+          enrolls: at(r, c.enrolls),
+          enrollsF: at(r, c.enrollsF),
+          cpl: at(r, c.cpl),
+          cpe: at(r, c.cpe),
+          cvr: pctAt(r, c.cvr),
+          cvrF: pctAt(r, c.cvrF),
+        });
       }
     }
 
@@ -207,6 +276,7 @@ async function readWoWLeads(sheetId: string, cohortLabel: string): Promise<Leads
       cohortLeads,
       cohortLeadsForecast,
       totals,
+      programs,
       updatedThrough: lastWithData?.dateRange ?? null,
     };
   } catch {
@@ -380,6 +450,7 @@ export interface CommandLive {
   forecastToDate: number;
   daysRemaining: number;
   totals: WoWTotals | null; // spend / leads / CPL / CPE / ROAS / CVR (WoW basis)
+  leadsDetail: LeadsLive | null; // weekly rows + per-program totals (WoW)
   keyedThrough: string | null;
   history: CommandHistoryRow[];
 }
@@ -408,6 +479,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
       forecastToDate: s.forecast,
       daysRemaining: s.daysRemaining,
       totals: leads?.totals ?? null,
+      leadsDetail: leads,
       keyedThrough: today?.updatedThrough ?? null,
       history: [
         { label: win!.label, enrolled: today?.cohortToDate ?? s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +((today?.cohortToDate ?? s.enrolled) / s.goal * 100).toFixed(1) : 0, isActive: true },
@@ -434,6 +506,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
     forecastToDate: s.forecast,
     daysRemaining: s.daysRemaining,
     totals: leads?.totals ?? null,
+    leadsDetail: leads,
     keyedThrough: today?.updatedThrough ?? null,
     history: [
       { label: win.label, enrolled: s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +(s.enrolled / s.goal * 100).toFixed(1) : 0, isActive: true },

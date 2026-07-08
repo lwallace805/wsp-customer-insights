@@ -3,16 +3,20 @@
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
+import Link from 'next/link';
 import type { CohortData } from '@/data/cohortPerformance';
+import type { CommandLive } from '@/lib/pulseLive';
+import ProFormaBanner from './ProFormaBanner';
 
 interface Props {
   cohort: CohortData;
   allCohorts: CohortData[];
+  live?: CommandLive | null;
 }
 
 const SERIES_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#a78bfa'];
 
-export default function PacingTab({ cohort, allCohorts }: Props) {
+export default function PacingTab({ cohort, allCohorts, live }: Props) {
   // Pick prior 2 closed cohorts for comparison
   const closed = allCohorts.filter(c => c.status === 'closed' && c.cohort !== cohort.cohort);
   const prior = closed.slice(-2);
@@ -39,8 +43,53 @@ export default function PacingTab({ cohort, allCohorts }: Props) {
     ? cohort.pacing.filter(p => p.cumulative > 0).length
     : maxDays;
 
+  const enrolls = live ? live.enrolls : cohort.totalEnrolls;
+  const forecastToDate = live ? live.forecastToDate : cohort.totalForecast;
+  const daysRemaining = live ? live.daysRemaining : cohort.daysRemaining;
+
   return (
     <div className="space-y-6">
+      {/* Pacing summary cards — live for the active cohort */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-[#161b22] border border-white/10 rounded-xl p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+            Current Pace
+            {live && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/30 normal-case">Live</span>}
+          </p>
+          <p className="text-2xl font-bold text-white">{enrolls.toLocaleString()}</p>
+          <p className="text-xs text-gray-400 mt-1">enrolled to date{live?.keyedThrough ? ` · keyed through ${live.keyedThrough}` : ''}</p>
+        </div>
+        <div className="bg-[#161b22] border border-white/10 rounded-xl p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Absolute Pacing</p>
+          {(() => {
+            const gap = enrolls - forecastToDate;
+            const pos = gap >= 0;
+            return (
+              <>
+                <p className={`text-2xl font-bold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {pos ? '+' : ''}{gap.toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">vs. forecast to date</p>
+              </>
+            );
+          })()}
+        </div>
+        <div className="bg-[#161b22] border border-white/10 rounded-xl p-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Days Remaining</p>
+          <p className="text-2xl font-bold text-white">{daysRemaining}</p>
+          <p className="text-xs text-gray-400 mt-1">of {cohort.daysTotal} total days</p>
+        </div>
+      </div>
+
+      {live && (
+        <Link href="/enrollment" className="block bg-[#161b22] border border-white/10 rounded-xl p-4 hover:border-white/25 transition-colors">
+          <p className="text-sm font-semibold text-white">Full live pacing curves → Enrollment Pacing dashboard</p>
+          <p className="text-xs text-gray-500 mt-1">Day-out-aligned historical cohort curves, at-pace projection, and the deadline countdown — all live from the pacing sheets.</p>
+        </Link>
+      )}
+
+      <ProFormaBanner note="The chart and same-day comparison below are illustrative until the historical daily grain is wired. For real pacing curves use the Enrollment Pacing dashboard linked above." />
+
       {/* Pace chart */}
       <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
@@ -115,35 +164,6 @@ export default function PacingTab({ cohort, allCohorts }: Props) {
             )}
           </LineChart>
         </ResponsiveContainer>
-      </div>
-
-      {/* Pacing summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-[#161b22] border border-white/10 rounded-xl p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Current Pace</p>
-          <p className="text-2xl font-bold text-white">{cohort.totalEnrolls.toLocaleString()}</p>
-          <p className="text-xs text-gray-400 mt-1">enrolled to date</p>
-        </div>
-        <div className="bg-[#161b22] border border-white/10 rounded-xl p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Absolute Pacing</p>
-          {(() => {
-            const gap = cohort.totalEnrolls - cohort.totalForecast;
-            const pos = gap >= 0;
-            return (
-              <>
-                <p className={`text-2xl font-bold ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {pos ? '+' : ''}{gap.toLocaleString()}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">vs. forecast</p>
-              </>
-            );
-          })()}
-        </div>
-        <div className="bg-[#161b22] border border-white/10 rounded-xl p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Days Remaining</p>
-          <p className="text-2xl font-bold text-white">{cohort.daysRemaining}</p>
-          <p className="text-xs text-gray-400 mt-1">of {cohort.daysTotal} total days</p>
-        </div>
       </div>
 
       {/* Prior cohort comparison table */}

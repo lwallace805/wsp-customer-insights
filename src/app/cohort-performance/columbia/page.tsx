@@ -6,7 +6,7 @@ export default function ColumbiaCohortPage() {
     <CohortDashboard
       cohorts={getColumbiaCohorts()}
       title="Columbia / CBSEE"
-      subtitle="AI Finance · AI Accounting"
+      subtitle="AI for Business & Finance"
     />
   );
 }

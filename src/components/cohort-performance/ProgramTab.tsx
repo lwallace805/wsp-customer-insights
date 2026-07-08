@@ -4,6 +4,7 @@ import {
   ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import type { CohortData } from '@/data/cohortPerformance';
+import ProFormaBanner from './ProFormaBanner';
 
 function fmt(n: number) { return n.toLocaleString(); }
 function fmtPct(n: number) { return `${n.toFixed(1)}%`; }
@@ -29,6 +30,7 @@ export default function ProgramTab({ cohort }: Props) {
 
   return (
     <div className="space-y-6">
+      <ProFormaBanner />
       {/* Charts row */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-[#161b22] border border-white/10 rounded-xl p-5">
