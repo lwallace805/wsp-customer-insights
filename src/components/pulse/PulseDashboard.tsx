@@ -25,7 +25,8 @@ interface PulseFamilyLive {
   family: 'wharton' | 'columbia';
   cohort: {
     key: string; label: string; week: number; phase: string; endgame: string;
-    enrolls: number; goal: number; forecastToDate: number; daysRemaining: number; wired: boolean;
+    enrolls: number; goal: number; goalSource?: string; goalPlanTotal?: number;
+    forecastToDate: number; daysRemaining: number; wired: boolean;
   };
   today: TodayCardLive | null;
   leads: LeadsLive | null;
@@ -133,6 +134,12 @@ function FamilyRow({ f }: { f: PulseFamilyLive }) {
               <div className="mt-3 w-full bg-white/5 rounded-full h-1.5">
                 <div className={`h-1.5 rounded-full ${barColor}`} style={{ width: `${Math.min(pct, 100)}%` }} />
               </div>
+              <p className="text-[10px] text-gray-600 mt-3 leading-relaxed">
+                Goal source: {c.goalSource ?? '—'}.
+                {c.goalPlanTotal !== undefined && c.goalPlanTotal !== c.goal && (
+                  <> Daily-goal curve still sums to {fmt(c.goalPlanTotal)} — per-day goals are on the prior target.</>
+                )}
+              </p>
             </>
           ) : (
             <p className="text-sm text-gray-600 italic">Cohort doc not created / not shared with the service account yet.</p>

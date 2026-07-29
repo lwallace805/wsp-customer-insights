@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { isDemo } from '@/lib/demo/flag';
 import { getDemoPacing } from '@/lib/demo/enrollment';
-import { nowET } from '@/lib/cohortCalendar';
+import { nowET, getActiveCohort } from '@/lib/cohortCalendar';
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -42,6 +42,61 @@ export function getCGoal(label: string): number | null {
   return C_GOALS[normLabel(label)] ?? C_GOALS[label] ?? null;
 }
 
+// ─── Live goal read from the cohort performance doc ───────────────────────────
+// The W_GOALS / C_GOALS maps above are the historical record; the ACTIVE cohort's
+// goal is owned by its performance doc's goals tab, so it stays correct when
+// leadership re-sets the target mid-cycle (Fall '26 went 1,225 → 1,100 that way).
+// Layout is the same in both docs — a label in col A, the number in col B:
+//   Wharton "Overall Goals" A2: "Fall 2026 Goal"   B2: 1,100
+//   CBS     "Goals"         A3: "Spring 2026 Goal" B3: 468
+// Matched by label (season + year + the word "Goal"), never by fixed cell, so an
+// inserted row doesn't silently repoint us at the wrong number.
+
+export interface DocGoal {
+  goal: number;
+  /** Provenance for the UI, e.g. `Overall Goals!B2 ("Fall 2026 Goal")`. */
+  source: string;
+}
+
+/** Season+year matchers for a cohort — accepts the academic term name
+ *  ("Fall 2026") and the marketing label ("Fall '26") for the same cohort. */
+function goalLabelPatterns(labels: string[]): RegExp[] {
+  const pats: RegExp[] = [];
+  for (const l of labels) {
+    const m = l.match(/(winter|spring|summer|fall)\D*(\d{2,4})/i);
+    if (!m) continue;
+    pats.push(new RegExp(`${m[1].toLowerCase()}\\s*'?(?:20)?${m[2].slice(-2)}\\b`, 'i'));
+  }
+  return pats;
+}
+
+/** The active cohort's goal as recorded in its performance doc. Returns null on
+ *  any miss (tab absent, no matching row, non-numeric) so callers fall back. */
+export async function readDocGoal(sheetId: string, tab: string, labels: string[]): Promise<DocGoal | null> {
+  const pats = goalLabelPatterns(labels);
+  if (pats.length === 0) return null;
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:B40`,
+    });
+    const rows = res.data.values ?? [];
+    for (let i = 0; i < rows.length; i++) {
+      const label = (rows[i]?.[0] ?? '').toString().trim();
+      // Require the word "Goal" so historical reference rows in the same block
+      // ("Winter 2026 | 485") can't be mistaken for the active cohort's target.
+      if (!label || !/goal/i.test(label) || !pats.some(p => p.test(label))) continue;
+      const goal = N(rows[i]?.[1]);
+      if (goal === null || goal <= 0) continue;
+      return { goal, source: `${tab}!B${i + 1} ("${label}")` };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export interface CohortSummary {
   cohort: string;
   program: string;
@@ -51,6 +106,13 @@ export interface CohortSummary {
   daysRemaining: number;
   histAvg: number; // avg raw enrollment of last 3 completed cohorts at same days-remaining point
   keyTakeaway: string;
+  // Where `goal` came from (see readDocGoal) — surfaced in the UI so a goal change
+  // in the performance doc is traceable rather than an unexplained number move.
+  goalSource?: string;
+  // Total of the deadline table's cumulative daily-goal curve. Equals `goal` when
+  // the curve has been rebuilt for the current target; when it doesn't, the daily
+  // goals are still on the old plan and that's worth showing.
+  goalPlanTotal?: number;
 }
 
 export interface PacingDataPoint {
@@ -463,7 +525,10 @@ const V2 = {
   minus10:          31, // "Minus 10%"
 } as const;
 
-export async function getPacingDataV2(sheetId: string): Promise<{
+export async function getPacingDataV2(
+  sheetId: string,
+  opts: { goalsTab?: string; cohortLabels?: string[] } = {},
+): Promise<{
   summary: CohortSummary[];
   pacing: PacingDataPoint[];
   comparison: { wharton: ComparisonPanel; cbsee: ComparisonPanel | null };
@@ -488,9 +553,22 @@ export async function getPacingDataV2(sheetId: string): Promise<{
     .slice(hIdx + 1)
     .filter(r => r[V2.daysBeforeDeadline] !== undefined && r[V2.daysBeforeDeadline] !== '' && !isNaN(Number(r[V2.daysBeforeDeadline])));
 
-  // --- Final goal: cumulative goal at day 0 (the deadline row) ---
+  // --- Final goal ---
+  // Authoritative source is the doc's goals tab (leadership edits it there); the
+  // deadline table's cumulative daily-goal curve is the fallback, and it lags a
+  // re-set target because the per-day plan has to be rebuilt by hand.
   const deadlineRow = dataRows.find(r => N(r[V2.daysBeforeDeadline]) === 0);
-  const finalGoal = N(deadlineRow?.[V2.goalCumulative]) ?? 1225;
+  const goalPlanTotal = N(deadlineRow?.[V2.goalCumulative]);
+  const activeWharton = getActiveCohort('wharton');
+  const goalLabels = opts.cohortLabels
+    ?? (activeWharton ? [activeWharton.termLabel, activeWharton.label] : ["Fall '26", 'Fall 2026']);
+  const docGoal = await readDocGoal(sheetId, opts.goalsTab ?? 'Overall Goals', goalLabels);
+  const finalGoal = docGoal?.goal ?? goalPlanTotal ?? 1225;
+  const goalSource = docGoal
+    ? docGoal.source
+    : goalPlanTotal !== null
+      ? `${V2_TAB} — cumulative Daily Goals at the deadline row`
+      : 'built-in default (no goal found in the sheet)';
 
   // --- Today's row: latest date in the sheet that is <= today ---
   // Business day boundary is Eastern time — on UTC servers, local midnight flips
@@ -601,6 +679,8 @@ export async function getPacingDataV2(sheetId: string): Promise<{
     daysRemaining,
     histAvg: last3AvgEnrolled,
     keyTakeaway,
+    goalSource,
+    goalPlanTotal: goalPlanTotal ?? undefined,
   }];
 
   // --- Pacing data points ---
@@ -613,9 +693,12 @@ export async function getPacingDataV2(sheetId: string): Promise<{
 
       const pt: PacingDataPoint = {
         day,
-        // Goal trajectory stored as a single "historical" line so PacingChart renders it automatically
+        // Goal trajectory stored as a single "historical" line so PacingChart renders it automatically.
+        // Normalized by the curve's OWN total, not the goal — the useful signal is the plan's shape
+        // ("what share of target should be in by day N"), and dividing a curve built for an old
+        // target by the new goal would run the plan line past 100% at the deadline.
         wHistoricals: cumulGoal > 0
-          ? [{ label: 'Goal Pace', pct: +(cumulGoal / finalGoal * 100).toFixed(2) }]
+          ? [{ label: 'Goal Pace', pct: +(cumulGoal / (goalPlanTotal || finalGoal) * 100).toFixed(2) }]
           : [],
         cHistoricals: [],
       };

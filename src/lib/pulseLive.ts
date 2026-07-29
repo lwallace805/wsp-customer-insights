@@ -12,7 +12,7 @@
 //    Columbia cohort doc (deadline table daily goals + Overall WoW leads)
 
 import { google } from 'googleapis';
-import { getPacingData, getPacingDataV2 } from '@/lib/sheets';
+import { getPacingData, getPacingDataV2, readDocGoal, type CohortSummary } from '@/lib/sheets';
 import {
   getActiveCohort,
   getCohortWeek,
@@ -47,9 +47,12 @@ function dayMs(raw: string | undefined): number | null {
 
 // Per-cohort sheet wiring. When a new cohort doc is created (e.g. CBS Fall '26),
 // share it with the service account and add its entry here.
-const COHORT_SHEETS: Record<string, { sheetId: () => string | undefined; deadlineTab: string } | undefined> = {
-  'w-fall-26': { sheetId: () => process.env.FALL26_PACING_SHEET_ID, deadlineTab: 'Deadline Pacing Table V2' },
-  'c-spring-26': { sheetId: () => '1EfNBwZYYObVU3XSiW1VPC_Fi13ZLaQdq_tZZyPxZy14', deadlineTab: 'Deadline Pacing Table' },
+// `goalsTab` is the tab that holds the cohort's enrollment goal — the authoritative
+// target, read live so a change in the doc flows through every surface (see
+// readDocGoal in sheets.ts). Wharton calls it "Overall Goals", CBS calls it "Goals".
+const COHORT_SHEETS: Record<string, { sheetId: () => string | undefined; deadlineTab: string; goalsTab: string } | undefined> = {
+  'w-fall-26': { sheetId: () => process.env.FALL26_PACING_SHEET_ID, deadlineTab: 'Deadline Pacing Table V2', goalsTab: 'Overall Goals' },
+  'c-spring-26': { sheetId: () => '1EfNBwZYYObVU3XSiW1VPC_Fi13ZLaQdq_tZZyPxZy14', deadlineTab: 'Deadline Pacing Table', goalsTab: 'Goals' },
 };
 
 // ─── Deadline Pacing Table reader ─────────────────────────────────────────────
@@ -296,6 +299,8 @@ export interface PulseFamilyLive {
     endgame: string;       // "Ends Jul 13 · ext through Jul 20"
     enrolls: number;
     goal: number;
+    goalSource?: string;     // where `goal` was read from (cohort doc goals tab, or fallback)
+    goalPlanTotal?: number;  // total of the deadline table's daily-goal curve, when it differs
     forecastToDate: number;
     daysRemaining: number;
     wired: boolean;        // false when the cohort doc doesn't exist / isn't shared
@@ -368,7 +373,8 @@ async function buildWharton(w: CohortWindow | null, now: Date): Promise<PulseFam
   }
 
   const [{ summary }, today, leads] = await Promise.all([
-    getPacingDataV2(sheetId).catch(() => ({ summary: [] as Array<{ enrolled: number; goal: number; forecast: number; daysRemaining: number }> })),
+    getPacingDataV2(sheetId, { goalsTab: wiring.goalsTab, cohortLabels: [w.termLabel, w.label] })
+      .catch(() => ({ summary: [] as CohortSummary[] })),
     readDeadlineTable(sheetId, wiring.deadlineTab, label),
     readWoWLeads(sheetId, label),
   ]);
@@ -384,6 +390,8 @@ async function buildWharton(w: CohortWindow | null, now: Date): Promise<PulseFam
       endgame: endgameLabel(w),
       enrolls: s?.enrolled ?? 0,
       goal: s?.goal ?? 0,
+      goalSource: s?.goalSource,
+      goalPlanTotal: s?.goalPlanTotal,
       forecastToDate: s?.forecast ?? 0,
       daysRemaining: s?.daysRemaining ?? 0,
       wired: !!s,
@@ -401,10 +409,13 @@ async function buildColumbia(c: CohortWindow | null, now: Date): Promise<PulseFa
   // Enrollment summary comes from the pacing sheet (AN Summary), which tracks
   // the active Columbia cohort; daily goals + leads come from the cohort doc.
   const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const [pacing, today, leads] = await Promise.all([
+  const [pacing, today, leads, docGoal] = await Promise.all([
     getPacingData(pacingSheetId).catch(() => null),
     sheetId ? readDeadlineTable(sheetId, wiring!.deadlineTab, label) : Promise.resolve(null),
     sheetId ? readWoWLeads(sheetId, label) : Promise.resolve(null),
+    sheetId && wiring && c
+      ? readDocGoal(sheetId, wiring.goalsTab, [c.termLabel, c.label])
+      : Promise.resolve(null),
   ]);
   const s = pacing?.summary.find(x => x.program === 'CBSEE');
 
@@ -419,7 +430,8 @@ async function buildColumbia(c: CohortWindow | null, now: Date): Promise<PulseFa
       phase: c ? getPhase(c, now) : '',
       endgame: c ? endgameLabel(c) : '',
       enrolls: s?.enrolled ?? 0,
-      goal: s?.goal ?? 0,
+      goal: docGoal?.goal ?? s?.goal ?? 0,
+      goalSource: docGoal?.source ?? 'No cohort-doc goals tab wired — built-in CBSEE goal map',
       forecastToDate: s?.forecast ?? 0,
       daysRemaining: s?.daysRemaining ?? 0,
       wired: !!s || !!today,
@@ -473,7 +485,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
   if (family === 'wharton') {
     if (!sheetId || !wiring) return null;
     const [pacing, today, leads] = await Promise.all([
-      getPacingDataV2(sheetId).catch(() => null),
+      getPacingDataV2(sheetId, { goalsTab: wiring.goalsTab, cohortLabels: [win!.termLabel, win!.label] }).catch(() => null),
       readDeadlineTable(sheetId, wiring.deadlineTab, win!.label),
       readWoWLeads(sheetId, win!.label),
     ]);
@@ -500,13 +512,18 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
 
   // Columbia: enrollment summary from the pacing sheet; WoW + daily from the doc
   const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const [pacing, today, leads] = await Promise.all([
+  const [pacing, today, leads, docGoal] = await Promise.all([
     getPacingData(pacingSheetId).catch(() => null),
     sheetId && wiring ? readDeadlineTable(sheetId, wiring.deadlineTab, win?.label ?? 'CBS') : Promise.resolve(null),
     sheetId ? readWoWLeads(sheetId, win?.label ?? 'CBS') : Promise.resolve(null),
+    sheetId && wiring && win
+      ? readDocGoal(sheetId, wiring.goalsTab, [win.termLabel, win.label])
+      : Promise.resolve(null),
   ]);
   const s = pacing?.summary.find(x => x.program === 'CBSEE');
   if (!s || !win) return null;
+  // Cohort doc's goals tab wins over the built-in CBSEE goal map, same as Wharton.
+  const goal = docGoal?.goal ?? s.goal;
 
   // Note: the AN-summary comparison panel's closedRows are SAME-DAY-OUT pace
   // values (not finals), and C_GOALS backfills finals as goals for closed
@@ -520,7 +537,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
     family,
     label: win.label,
     enrolls: s.enrolled,
-    goal: s.goal,
+    goal,
     forecastToDate: s.forecast,
     daysRemaining: s.daysRemaining,
     totals: leads?.totals ?? null,
@@ -528,7 +545,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
     keyedThrough: today?.updatedThrough ?? null,
     historyBasis: 'same-day-out',
     history: [
-      { label: win.label, enrolled: s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +(s.enrolled / s.goal * 100).toFixed(1) : 0, isActive: true },
+      { label: win.label, enrolled: s.enrolled, goal, pctDone: goal > 0 ? +(s.enrolled / goal * 100).toFixed(1) : 0, isActive: true },
       ...closedRows,
     ],
   };

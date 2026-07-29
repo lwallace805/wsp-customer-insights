@@ -120,6 +120,7 @@ export function getDemoPacing(): {
       forecast: wFc,
       daysRemaining: W_CUR,
       histAvg: wHistAvg,
+      goalSource: 'Pro forma demo data — not read from a sheet',
       keyTakeaway: `${W_NAME} has enrolled ${wEnrolled.toLocaleString()} of ${W_GOAL.toLocaleString()} students (${wPct}%) with ${W_CUR} days remaining, ${wEnrolled < wFc ? `falling ${wFc - wEnrolled} short of forecast` : `running ${wEnrolled - wFc} ahead of forecast`} and ${wEnrolled > wHistAvg ? `+${wEnrolled - wHistAvg}` : `${wEnrolled - wHistAvg}`} vs. the last 3-cohort average of ${wHistAvg.toLocaleString()}.`,
     },
     {
@@ -130,6 +131,7 @@ export function getDemoPacing(): {
       forecast: cFc,
       daysRemaining: C_CUR,
       histAvg: cHistAvg,
+      goalSource: 'Pro forma demo data — not read from a sheet',
       keyTakeaway: `${C_NAME} has enrolled ${cEnrolled.toLocaleString()} of ${C_GOAL.toLocaleString()} students (${cPct}%) with ${C_CUR} days remaining, ${cEnrolled < cFc ? `falling ${cFc - cEnrolled} short of forecast` : `running ${cEnrolled - cFc} ahead of forecast`} and ${cEnrolled > cHistAvg ? `+${cEnrolled - cHistAvg}` : `${cEnrolled - cHistAvg}`} vs. the last 3-cohort average of ${cHistAvg.toLocaleString()}.`,
     },
   ];
