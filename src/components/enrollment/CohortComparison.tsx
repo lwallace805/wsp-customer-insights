@@ -14,6 +14,14 @@ function pctCompleteLabel(pct: number | null): string {
   return pct === null ? '—' : `${pct.toFixed(1)}%`;
 }
 
+// "Final" is the cohort's own eventual total, and it is what "% Complete" is
+// measured against — showing it next to Goal makes both percentages readable
+// without leaving the table (Spring '26: 91 enrolled at this point of an
+// eventual 997, against a 1,225 target). Blank for a cohort still enrolling.
+function finalLabel(total: number | null): string {
+  return total === null ? '—' : total.toLocaleString();
+}
+
 function Panel({ panel }: { panel: ComparisonPanel }) {
   return (
     <div className="flex-1 bg-[#161b22] border border-white/10 rounded-xl overflow-hidden min-w-0">
@@ -35,6 +43,7 @@ function Panel({ panel }: { panel: ComparisonPanel }) {
             <th className="text-right px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500">% Complete</th>
             <th className="text-right px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Enrolled</th>
             <th className="text-right px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Goal</th>
+            <th className="text-right px-4 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Final</th>
           </tr>
         </thead>
         <tbody>
@@ -50,6 +59,7 @@ function Panel({ panel }: { panel: ComparisonPanel }) {
             <td className="px-4 py-3 text-right text-gray-200 font-semibold">{pctCompleteLabel(panel.activeRow.pctComplete)}</td>
             <td className="px-4 py-3 text-right text-gray-200">{panel.activeRow.enrolled.toLocaleString()}</td>
             <td className="px-4 py-3 text-right text-gray-400">{panel.activeRow.goal.toLocaleString()}</td>
+            <td className="px-4 py-3 text-right text-gray-400">{finalLabel(panel.activeRow.finalTotal)}</td>
           </tr>
 
           {/* Last 3 avg row */}
@@ -59,11 +69,12 @@ function Panel({ panel }: { panel: ComparisonPanel }) {
             <td className="px-4 py-3 text-right italic text-gray-500">{pctCompleteLabel(panel.last3Avg.pctComplete)}</td>
             <td className="px-4 py-3 text-right italic text-gray-500">{panel.last3Avg.enrolled.toLocaleString()}</td>
             <td className="px-4 py-3 text-right italic text-gray-500">{panel.last3Avg.goal.toLocaleString()}</td>
+            <td className="px-4 py-3 text-right italic text-gray-500">{finalLabel(panel.last3Avg.finalTotal)}</td>
           </tr>
 
           {/* Closed cohorts section header */}
           <tr className="border-t border-white/10 bg-white/[0.02]">
-            <td colSpan={5} className="px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-600">
+            <td colSpan={6} className="px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-600">
               Closed Cohorts
             </td>
           </tr>
@@ -76,6 +87,7 @@ function Panel({ panel }: { panel: ComparisonPanel }) {
               <td className="px-4 py-3 text-right text-gray-400">{pctCompleteLabel(row.pctComplete)}</td>
               <td className="px-4 py-3 text-right text-gray-400">{row.enrolled.toLocaleString()}</td>
               <td className="px-4 py-3 text-right text-gray-500">{row.goal.toLocaleString()}</td>
+              <td className="px-4 py-3 text-right text-gray-300">{finalLabel(row.finalTotal)}</td>
             </tr>
           ))}
         </tbody>

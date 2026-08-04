@@ -43,15 +43,28 @@ function CustomTooltip({ active, payload, label }: any) {
 export default function PacingChart({ data, program, daysRemaining }: Props) {
   const [zoom, setZoom] = useState<ZoomLevel>(120);
 
-  // Extract unique historical labels from the first data point that has them
-  const wHistLabels = useMemo(() => {
-    const pt = data.find(d => d.wHistoricals.length > 0);
-    return pt?.wHistoricals.map(h => h.label) ?? [];
-  }, [data]);
-  const cHistLabels = useMemo(() => {
-    const pt = data.find(d => d.cHistoricals.length > 0);
-    return pt?.cHistoricals.map(h => h.label) ?? [];
-  }, [data]);
+  // Union of historical labels across EVERY point, not just the first one that
+  // has any. Cohorts have different enrollment-window lengths, so a single point
+  // only carries the cohorts that were already running at that days-out mark —
+  // reading labels off one point silently drops every shorter cohort (which are
+  // the most recent ones, the ones people actually want to compare against).
+  // The longest array is used as the base so legend order stays oldest→newest.
+  const labelUnion = (pick: (d: PacingDataPoint) => Array<{ label: string }>) => {
+    let base: string[] = [];
+    for (const d of data) {
+      const labels = pick(d).map(h => h.label);
+      if (labels.length > base.length) base = labels;
+    }
+    const seen = new Set(base);
+    for (const d of data) {
+      for (const h of pick(d)) {
+        if (!seen.has(h.label)) { seen.add(h.label); base = [...base, h.label]; }
+      }
+    }
+    return base;
+  };
+  const wHistLabels = useMemo(() => labelUnion(d => d.wHistoricals), [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cHistLabels = useMemo(() => labelUnion(d => d.cHistoricals), [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Flatten wHistoricals/cHistoricals arrays into flat objects for Recharts
   const chartData = useMemo(() => {

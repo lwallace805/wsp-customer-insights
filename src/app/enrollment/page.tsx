@@ -17,8 +17,8 @@ interface PageData {
 const EMPTY_PANEL: ComparisonPanel = {
   program: '',
   daysRemaining: 0,
-  activeRow: { label: '', enrolled: 0, goal: 0, pctOfGoal: 0, pctComplete: null, isActive: true },
-  last3Avg: { enrolled: 0, goal: 0, pctOfGoal: 0, pctComplete: null },
+  activeRow: { label: '', enrolled: 0, goal: 0, pctOfGoal: 0, pctComplete: null, finalTotal: null, isActive: true },
+  last3Avg: { enrolled: 0, goal: 0, pctOfGoal: 0, pctComplete: null, finalTotal: null },
   closedRows: [],
   basis: 'same-day-out',
 };

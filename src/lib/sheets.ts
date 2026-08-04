@@ -126,8 +126,11 @@ export interface PacingDataPoint {
   // pct = % of that cohort's OWN eventual final total (pacing shape, not target progress) —
   // raw is the actual enrollment count that pct was derived from. "Goal Pace" entries
   // (V2 reader) aren't a real cohort and carry no raw.
-  wHistoricals: Array<{ label: string; pct: number; raw?: number }>;
-  cHistoricals: Array<{ label: string; pct: number; raw?: number }>;
+  // `final` is that cohort's own eventual total (the day-0 value) — the denominator
+  // pct was computed against. Carried through so the comparison table can show what
+  // each closed cohort actually finished at next to what it was aiming for.
+  wHistoricals: Array<{ label: string; pct: number; raw?: number; final?: number }>;
+  cHistoricals: Array<{ label: string; pct: number; raw?: number; final?: number }>;
   // Active cohort computed fields
   wActualPct?: number;
   wLast3Pct?: number;
@@ -151,6 +154,9 @@ export interface ComparisonRow {
   // always apples-to-apples across cohorts regardless of whether they hit their target.
   // Null for an in-progress active cohort, since its own eventual final isn't known yet.
   pctComplete: number | null;
+  // What this cohort actually finished at. Null while a cohort is still enrolling —
+  // `enrolled` is its count so far, and its final total isn't knowable yet.
+  finalTotal: number | null;
   isActive: boolean;
 }
 
@@ -158,7 +164,7 @@ export interface ComparisonPanel {
   program: string;
   daysRemaining: number;
   activeRow: ComparisonRow;
-  last3Avg: { enrolled: number; goal: number; pctOfGoal: number; pctComplete: number | null };
+  last3Avg: { enrolled: number; goal: number; pctOfGoal: number; pctComplete: number | null; finalTotal: number | null };
   closedRows: ComparisonRow[];
   /** What `closedRows[].enrolled` represents: each cohort's enrollment at the same
    *  days-out as the active cohort ('same-day-out' — the pace comparison), or its
@@ -419,8 +425,8 @@ export async function getPacingData(sheetId?: string, opts: {
           if (v === null) return null;
           const ownFinal = wOwnFinals[i];
           if (!ownFinal) return null;
-          return { label, pct: +(v / ownFinal * 100).toFixed(2), raw: v };
-        }).filter((x): x is { label: string; pct: number; raw: number } => x !== null),
+          return { label, pct: +(v / ownFinal * 100).toFixed(2), raw: v, final: ownFinal };
+        }).filter((x): x is { label: string; pct: number; raw: number; final: number } => x !== null),
         cHistoricals: hasCBSEE ? HIST_C_COLS.map((col, i) => {
           const label = cHistLabels[i];
           if (!label) return null;
@@ -428,8 +434,8 @@ export async function getPacingData(sheetId?: string, opts: {
           if (v === null) return null;
           const ownFinal = cOwnFinals[i];
           if (!ownFinal) return null;
-          return { label, pct: +(v / ownFinal * 100).toFixed(2), raw: v };
-        }).filter((x): x is { label: string; pct: number; raw: number } => x !== null) : [],
+          return { label, pct: +(v / ownFinal * 100).toFixed(2), raw: v, final: ownFinal };
+        }).filter((x): x is { label: string; pct: number; raw: number; final: number } => x !== null) : [],
       };
 
       // Active cohort fields
@@ -489,7 +495,7 @@ export async function getPacingData(sheetId?: string, opts: {
     activeLabel: string,
     enrolled: number,
     goal: number,
-    historicals: Array<{ label: string; pct: number; raw?: number }>,
+    historicals: Array<{ label: string; pct: number; raw?: number; final?: number }>,
     goalFn: (label: string) => number | null
   ): ComparisonPanel => {
     // historicals[].pct is already "% of own eventual final" (pacing); goalFn gives the
@@ -503,7 +509,10 @@ export async function getPacingData(sheetId?: string, opts: {
         enrolled: raw,
         goal: g,
         pctOfGoal: g > 0 ? +(raw / g * 100).toFixed(1) : 0,
-        pctComplete: +h.pct.toFixed(1),
+        // Rounded once from the raw ratio. Re-rounding the already-2dp `pct`
+        // double-rounds (4/468 = 0.8547 -> 0.85 -> 0.8, when it should read 0.9).
+        pctComplete: h.final ? +(raw / h.final * 100).toFixed(1) : +h.pct.toFixed(1),
+        finalTotal: h.final ?? null,
         isActive: false,
       };
     });
@@ -520,6 +529,7 @@ export async function getPacingData(sheetId?: string, opts: {
         pctOfGoal: goal > 0 ? +(enrolled / goal * 100).toFixed(1) : 0,
         // Own eventual final is only knowable once the cohort has actually closed.
         pctComplete: daysRem === 0 ? 100 : null,
+        finalTotal: daysRem === 0 ? enrolled : null,
         isActive: true,
       },
       last3Avg: {
@@ -527,6 +537,7 @@ export async function getPacingData(sheetId?: string, opts: {
         goal: Math.round(avg(r => r.goal)),
         pctOfGoal: +avg(r => r.pctOfGoal).toFixed(1),
         pctComplete: +avg(r => r.pctComplete ?? 0).toFixed(1),
+        finalTotal: Math.round(avg(r => r.finalTotal ?? 0)) || null,
       },
       closedRows: [...rows].reverse(),
       // Rows are read at the active cohort's days-out point; when that point is
@@ -676,7 +687,7 @@ export async function readDeadlineTable(
 // ---------------------------------------------------------------------------
 async function fetchHistoricalWhartonMap(
   sheetId: string
-): Promise<Map<number, Array<{ label: string; pct: number; raw: number }>>> {
+): Promise<Map<number, Array<{ label: string; pct: number; raw: number; final: number }>>> {
   try {
     const auth = getAuth();
     const sheets = google.sheets({ version: 'v4', auth });
@@ -704,7 +715,7 @@ async function fetchHistoricalWhartonMap(
     const zeroRow = dataRows.find(r => Number(r[0]) === 0);
     const ownFinals = histCols.map(col => (zeroRow ? N(zeroRow[col]) : null));
 
-    const map = new Map<number, Array<{ label: string; pct: number; raw: number }>>();
+    const map = new Map<number, Array<{ label: string; pct: number; raw: number; final: number }>>();
     for (const r of dataRows) {
       const day = r[0] ? Number(r[0]) : NaN;
       if (isNaN(day)) continue;
@@ -716,9 +727,9 @@ async function fetchHistoricalWhartonMap(
           if (v === null) return null;
           const ownFinal = ownFinals[i];
           if (!ownFinal) return null;
-          return { label, pct: +(v / ownFinal * 100).toFixed(2), raw: v };
+          return { label, pct: +(v / ownFinal * 100).toFixed(2), raw: v, final: ownFinal };
         })
-        .filter((x): x is { label: string; pct: number; raw: number } => x !== null);
+        .filter((x): x is { label: string; pct: number; raw: number; final: number } => x !== null);
       if (entries.length > 0) map.set(day, entries);
     }
     return map;
@@ -832,9 +843,9 @@ export async function getPacingDataV2(
   // so "Closed Cohorts" and "vs. Last 3 cohort avg" are apples-to-apples with Fall '26's
   // current pace, not each cohort's fully-finished final total.
   const historicalSheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const historicalMap = historicalSheetId ? await fetchHistoricalWhartonMap(historicalSheetId) : new Map<number, Array<{ label: string; pct: number; raw: number }>>();
+  const historicalMap = historicalSheetId ? await fetchHistoricalWhartonMap(historicalSheetId) : new Map<number, Array<{ label: string; pct: number; raw: number; final: number }>>();
 
-  const findHistEntriesAtDay = (targetDay: number): Array<{ label: string; pct: number; raw: number }> => {
+  const findHistEntriesAtDay = (targetDay: number): Array<{ label: string; pct: number; raw: number; final: number }> => {
     let bestDay: number | null = null;
     for (const day of historicalMap.keys()) {
       if (bestDay === null || Math.abs(day - targetDay) < Math.abs(bestDay - targetDay)) bestDay = day;
@@ -855,7 +866,7 @@ export async function getPacingDataV2(
     return row ? N(row[1]) : null;
   };
 
-  const histCohorts: Array<{ label: string; enrolled: number; goal: number; pctOfGoal: number; pctComplete: number }> =
+  const histCohorts: Array<{ label: string; enrolled: number; goal: number; pctOfGoal: number; pctComplete: number; finalTotal: number | null }> =
     last3AtDay.length === 3
       ? last3AtDay.map(h => {
           const goal = getWGoal(h.label) ?? 0;
@@ -864,14 +875,15 @@ export async function getPacingDataV2(
             enrolled: h.raw,
             goal,
             pctOfGoal: goal > 0 ? +(h.raw / goal * 100).toFixed(1) : 0,
-            pctComplete: +h.pct.toFixed(1),
+            pctComplete: h.final ? +(h.raw / h.final * 100).toFixed(1) : +h.pct.toFixed(1),
+            finalTotal: h.final ?? null,
           };
         })
       : ([
           { label: "Fall '25",   enrolled: findSummaryVal('fall 2025') ?? 883,    goal: W_GOALS["Fall '25"]   ?? 897  },
           { label: "Winter '26", enrolled: findSummaryVal('winter 2026') ?? 1020, goal: W_GOALS["Winter '26"] ?? 1021 },
           { label: "Spring '26", enrolled: findSummaryVal('spring') ?? 1003,      goal: W_GOALS["Spring '26"] ?? 1225 }, // "Spring 206" typo in sheet
-        ]).map(c => ({ ...c, pctOfGoal: c.goal > 0 ? +(c.enrolled / c.goal * 100).toFixed(1) : 0, pctComplete: 100 }));
+        ]).map(c => ({ ...c, pctOfGoal: c.goal > 0 ? +(c.enrolled / c.goal * 100).toFixed(1) : 0, pctComplete: 100, finalTotal: c.enrolled }));
 
   const avgHist = (fn: (c: (typeof histCohorts)[number]) => number) =>
     histCohorts.length > 0 ? histCohorts.reduce((s, c) => s + fn(c), 0) / histCohorts.length : 0;
@@ -974,6 +986,7 @@ export async function getPacingDataV2(
       pctOfGoal: +(currentEnrolled / finalGoal * 100).toFixed(1),
       // Fall '26 is still in progress — its own eventual final isn't known yet.
       pctComplete: daysRemaining === 0 ? 100 : null,
+      finalTotal: daysRemaining === 0 ? currentEnrolled : null,
       isActive: true,
     },
     last3Avg: {
@@ -981,6 +994,7 @@ export async function getPacingDataV2(
       goal: last3AvgGoal,
       pctOfGoal: last3AvgPctOfGoal,
       pctComplete: last3AvgPctComplete,
+      finalTotal: Math.round(avgHist(c => c.finalTotal ?? 0)) || null,
     },
     closedRows: [...histCohorts].reverse().map(c => ({
       label: c.label,
@@ -988,6 +1002,7 @@ export async function getPacingDataV2(
       goal: c.goal,
       pctOfGoal: c.pctOfGoal,
       pctComplete: c.pctComplete,
+      finalTotal: c.finalTotal,
       isActive: false,
     })),
     // The day-aligned path (last3AtDay) yields same-day-out pace values; only the
@@ -1107,7 +1122,10 @@ export async function getPacingDataCurrent(
       });
     }
   }
-  const pacing = [...byDay.values()].sort((a, b) => b.day - a.day);
+  // Ascending by day (day 0 first), matching what both underlying readers emit —
+  // consumers that walk the series in order shouldn't see a different convention
+  // just because the two sources were merged.
+  const pacing = [...byDay.values()].sort((a, b) => a.day - b.day);
 
   return {
     summary: [...wharton.summary, cbseeSummary],

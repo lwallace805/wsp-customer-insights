@@ -98,7 +98,7 @@ function buildMockComparison(pacing: PacingDataPoint[]): { wharton: ComparisonPa
     activeLabel: string,
     enrolled: number,
     goal: number,
-    historicals: Array<{ label: string; pct: number; raw?: number }>,
+    historicals: Array<{ label: string; pct: number; raw?: number; final?: number }>,
     goalFn: (label: string) => number | null
   ): ComparisonPanel => {
     const rows: ComparisonRow[] = historicals.slice(-3).map(h => {
@@ -110,6 +110,7 @@ function buildMockComparison(pacing: PacingDataPoint[]): { wharton: ComparisonPa
         goal: g,
         pctOfGoal: g > 0 ? parseFloat((raw / g * 100).toFixed(1)) : 0,
         pctComplete: parseFloat(h.pct.toFixed(1)),
+        finalTotal: h.final ?? null,
         isActive: false,
       };
     });
@@ -122,6 +123,7 @@ function buildMockComparison(pacing: PacingDataPoint[]): { wharton: ComparisonPa
         label: activeLabel, enrolled, goal,
         pctOfGoal: parseFloat((enrolled / goal * 100).toFixed(1)),
         pctComplete: daysRem === 0 ? 100 : null,
+        finalTotal: daysRem === 0 ? enrolled : null,
         isActive: true,
       },
       last3Avg: {
@@ -129,6 +131,7 @@ function buildMockComparison(pacing: PacingDataPoint[]): { wharton: ComparisonPa
         goal: Math.round(avg(r => r.goal)),
         pctOfGoal: parseFloat(avg(r => r.pctOfGoal).toFixed(1)),
         pctComplete: parseFloat(avg(r => r.pctComplete ?? 0).toFixed(1)),
+        finalTotal: Math.round(avg(r => r.finalTotal ?? 0)) || null,
       },
       closedRows: [...rows].reverse(),
       basis: daysRem === 0 ? 'finals' : 'same-day-out',

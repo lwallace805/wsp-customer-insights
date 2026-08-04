@@ -62,11 +62,15 @@ export function getDemoPacing(): {
       label: h.label,
       pct: r2(f * 100),
       raw: Math.round(f * h.finalFrac * h.goal),
+      // Own eventual final — the denominator `pct` is a fraction of, and what the
+      // comparison table's "Final" column shows.
+      final: Math.round(h.finalFrac * h.goal),
     }));
     const cHistoricals = C_HIST.map(h => ({
       label: h.label,
       pct: r2(f * 100),
       raw: Math.round(f * h.finalFrac * h.goal),
+      final: Math.round(h.finalFrac * h.goal),
     }));
 
     const wLast3 = wHistoricals.slice(-3);
@@ -141,7 +145,7 @@ export function getDemoPacing(): {
   const atDayC = pacing.find(p => p.day === C_CUR) ?? pacing[0];
 
   const buildRows = (
-    historicals: Array<{ label: string; pct: number; raw?: number }>,
+    historicals: Array<{ label: string; pct: number; raw?: number; final?: number }>,
     goals: Array<{ label: string; goal: number }>
   ): ComparisonRow[] =>
     historicals.map(h => {
@@ -153,6 +157,7 @@ export function getDemoPacing(): {
         goal: g,
         pctOfGoal: g > 0 ? r1((raw / g) * 100) : 0,
         pctComplete: r1(h.pct),
+        finalTotal: h.final ?? null,
         isActive: false,
       };
     });
@@ -169,6 +174,7 @@ export function getDemoPacing(): {
       label: W_NAME, enrolled: wEnrolled, goal: W_GOAL,
       pctOfGoal: r1((wEnrolled / W_GOAL) * 100),
       pctComplete: W_CUR === 0 ? 100 : null,
+      finalTotal: W_CUR === 0 ? wEnrolled : null,
       isActive: true,
     },
     last3Avg: {
@@ -176,6 +182,7 @@ export function getDemoPacing(): {
       goal: Math.round(avgRows(last3WRows, r => r.goal)),
       pctOfGoal: r1(avgRows(last3WRows, r => r.pctOfGoal)),
       pctComplete: r1(avgRows(last3WRows, r => r.pctComplete ?? 0)),
+      finalTotal: Math.round(avgRows(last3WRows, r => r.finalTotal ?? 0)) || null,
     },
     closedRows: [...last3WRows].reverse(),
     basis: W_CUR === 0 ? 'finals' : 'same-day-out',
@@ -187,6 +194,7 @@ export function getDemoPacing(): {
       label: C_NAME, enrolled: cEnrolled, goal: C_GOAL,
       pctOfGoal: r1((cEnrolled / C_GOAL) * 100),
       pctComplete: C_CUR === 0 ? 100 : null,
+      finalTotal: C_CUR === 0 ? cEnrolled : null,
       isActive: true,
     },
     last3Avg: {
@@ -194,6 +202,7 @@ export function getDemoPacing(): {
       goal: Math.round(avgRows(last3CRows, r => r.goal)),
       pctOfGoal: r1(avgRows(last3CRows, r => r.pctOfGoal)),
       pctComplete: r1(avgRows(last3CRows, r => r.pctComplete ?? 0)),
+      finalTotal: Math.round(avgRows(last3CRows, r => r.finalTotal ?? 0)) || null,
     },
     closedRows: [...last3CRows].reverse(),
     basis: C_CUR === 0 ? 'finals' : 'same-day-out',
