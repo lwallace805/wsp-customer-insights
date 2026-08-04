@@ -18,15 +18,18 @@ interface Props {
   comparison: { wharton: ComparisonPanel; cbsee: ComparisonPanel | null };
   programs: string[];
   activeCohort: string;
+  /** Selector options, derived from the cohort calendar by the server. */
+  cohortOptions?: Array<{ id: string; label: string }>;
   mock: boolean;
 }
 
-const COHORT_OPTIONS = [
-  { id: 'fall26',   label: "Fall '26" },
-  { id: 'spring26', label: "Spring '26" },
+const FALLBACK_OPTIONS = [
+  { id: 'current',  label: 'Current' },
+  { id: 'previous', label: 'Previous' },
 ];
 
-export default function EnrollmentDashboard({ summary, pacing, comparison, programs, activeCohort, mock }: Props) {
+export default function EnrollmentDashboard({ summary, pacing, comparison, programs, activeCohort, cohortOptions, mock }: Props) {
+  const options = cohortOptions?.length ? cohortOptions : FALLBACK_OPTIONS;
   const hasCBSEE = programs.includes('cbsee');
 
   // Reset to Executive Summary if the active tab is CBSEE-only and this cohort lacks CBSEE
@@ -54,7 +57,7 @@ export default function EnrollmentDashboard({ summary, pacing, comparison, progr
         <div className="flex items-center gap-3">
           {/* Cohort selector */}
           <div className="flex items-center bg-white/5 border border-white/10 rounded-lg p-0.5 gap-0.5">
-            {COHORT_OPTIONS.map(opt => (
+            {options.map(opt => (
               <Link
                 key={opt.id}
                 href={`?cohort=${opt.id}`}
@@ -87,9 +90,9 @@ export default function EnrollmentDashboard({ summary, pacing, comparison, progr
       {safeTab === 'Wharton Forecast'   && <WhartonForecast cohorts={summary} pacing={pacing} />}
       {safeTab === 'CBSEE Forecast'     && hasCBSEE && <CBSEEForecast cohorts={summary} pacing={pacing} />}
 
-      {!hasCBSEE && activeCohort === 'fall26' && (
+      {!hasCBSEE && (
         <p className="text-xs text-gray-600 mt-4 text-center">
-          Columbia AI Fall &apos;26 cohort not yet started — switch to Spring &apos;26 to view CBSEE data
+          No CBSEE data for this cohort — the Columbia pacing columns are empty in the source sheet.
         </p>
       )}
     </div>

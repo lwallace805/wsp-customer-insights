@@ -38,14 +38,17 @@ export default function PacingTab({ cohort, allCohorts, live }: Props) {
 
   const series = [cohort, ...prior];
 
-  // Where active cohort data ends (last day with actual enrolls)
-  const lastActualDay = cohort.status === 'active'
-    ? cohort.pacing.filter(p => p.cumulative > 0).length
-    : maxDays;
-
   const enrolls = live ? live.enrolls : cohort.totalEnrolls;
   const forecastToDate = live ? live.forecastToDate : cohort.totalForecast;
   const daysRemaining = live ? live.daysRemaining : cohort.daysRemaining;
+
+  // How far into the cohort we are, derived from the countdown rather than from
+  // the pacing curve: the curve carries the current total forward into future
+  // days for chart continuity, so counting non-zero points returns the FULL
+  // duration and would label a two-week-old cohort "Day 118".
+  const lastActualDay = cohort.status === 'active'
+    ? Math.min(maxDays, Math.max(1, cohort.daysTotal - daysRemaining))
+    : maxDays;
 
   return (
     <div className="space-y-6">

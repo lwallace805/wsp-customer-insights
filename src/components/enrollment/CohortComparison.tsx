@@ -21,7 +21,10 @@ function Panel({ panel }: { panel: ComparisonPanel }) {
         <span className="text-sm font-bold uppercase tracking-wider text-white">
           {panel.program}
         </span>
-        <span className="text-xs text-gray-400">At {panel.daysRemaining} days remaining</span>
+        {/* "Days out", not the countdown: this is the point on each cohort's curve
+            the rows are read at. It can trail the headline days-remaining by a day
+            when enrollment counts are keyed a day behind (prior-day totals). */}
+        <span className="text-xs text-gray-400">Compared at {panel.daysRemaining} days out</span>
       </div>
 
       <table className="w-full text-sm">

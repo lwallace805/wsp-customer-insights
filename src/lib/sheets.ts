@@ -29,6 +29,10 @@ export const W_GOALS: Record<string, number> = {
 };
 export const C_GOALS: Record<string, number> = {
   "Summer '25": 415, "Fall '25": 468, "Winter '26": 485, "Summer '26": 468,
+  // CBS Fall '26 (academic Fall 2026 term) — "Overall Goals"!B2 of the Fall 2026
+  // cohort performance doc. Still the ACTIVE cohort; kept here only as the
+  // fallback for readers that can't reach that doc.
+  "Fall '26": 560,
 };
 
 // Strip leading program name prefix so "Wharton Spring '24" → "Spring '24"
@@ -156,26 +160,128 @@ export interface ComparisonPanel {
   activeRow: ComparisonRow;
   last3Avg: { enrolled: number; goal: number; pctOfGoal: number; pctComplete: number | null };
   closedRows: ComparisonRow[];
+  /** What `closedRows[].enrolled` represents: each cohort's enrollment at the same
+   *  days-out as the active cohort ('same-day-out' — the pace comparison), or its
+   *  final total ('finals'). These differ by an order of magnitude early in a
+   *  cycle, so any UI showing these rows must say which it is. */
+  basis: 'same-day-out' | 'finals';
 }
 
-// Column indices (0-based) in the "Overall Cohort - AN Summary" pacing table.
-// Positions are stable across cohort cycles — only the column headers change.
-const COL = {
-  day:       0,
-  // Historical Wharton cohorts (raw enrollment) — columns shifted as new cohorts were added
-  wHist1:   18, wHist2: 19, wHist3: 20, wHist4: 21, wHist5: 22, wHist6: 23,
-  // Active Wharton cohort: Spring '26 - actual (col 24); Fall '26 - actual (col 25, mostly empty)
-  wActual:  24, wForecast: 25,
-  // Historical CBSEE cohorts
-  cHist1:   28, cHist2: 29, cHist3: 30,
-  // Active CBSEE cohort: Summer '26 - actual (col 31) and forecast (col 32)
-  cActual:  31, cForecast: 32,
-} as const;
+// ─── "Overall Cohort - AN Summary" column resolution ──────────────────────────
+//
+// This table used to be read through hardcoded 0-based indices. That is exactly
+// backwards: the sheet's owner inserts a column on every cohort rotation, so the
+// POSITIONS shift while the HEADERS stay semantically stable. A shifted index
+// doesn't throw — it silently returns the adjacent cohort's smooth cumulative
+// curve, which is type-correct, unit-correct, and wrong. (It did: as of Aug 2026
+// every index below was one column short, so "active Wharton" was reading closed
+// Winter '26 and "active CBSEE" was reading closed Winter '26.)
+//
+// So: resolve everything from the header text, every read, and throw when the
+// shape isn't what we expect rather than defaulting to a plausible number.
+//
+// Layout, for reference (row indices are found, never assumed):
+//   banner row  … "Wharton Cohort # Enrollment Distribution" … "CBSEE Cohort # …"
+//   "Days" row  … "Wharton Spring '24" … "Wharton Fall '26 - actual" | "… - forecast"
+// The "%" blocks carry the same cohort names, so the banner match keys on the "#".
 
-const HIST_W_COLS = [COL.wHist1, COL.wHist2, COL.wHist3, COL.wHist4, COL.wHist5, COL.wHist6];
-const HIST_C_COLS = [COL.cHist1, COL.cHist2, COL.cHist3];
+const COL_DAY = 0;
+const ACTUAL_RE = /\s*-\s*actual\s*$/i;
+const FORECAST_RE = /\s*-\s*forecast\s*$/i;
 
-export async function getPacingData(sheetId?: string): Promise<{
+/** "Wharton Fall '26 - actual" → "Wharton Fall '26" */
+function stripSeriesSuffix(s: string): string {
+  return s.replace(ACTUAL_RE, '').replace(FORECAST_RE, '').trim();
+}
+
+export interface CohortBlock {
+  /** Closed cohorts, oldest → newest (everything left of the active column). */
+  hist: Array<{ col: number; label: string }>;
+  /** The in-progress cohort's running-actual column. */
+  activeCol: number | null;
+  activeLabel: string | null;
+  /** The active cohort's forecast / goal-pace column, when the sheet has one. */
+  forecastCol: number | null;
+}
+
+/** Columns of one program's "# Enrollment Distribution" block.
+ *  `pin` selects a specific cohort as the active one (by normalized label, e.g.
+ *  "Spring '26") so a closed-cohort view can be rendered from the same table;
+ *  without it the newest "- actual" column wins. */
+function resolveBlock(
+  headerRow: string[],
+  start: number,
+  end: number,
+  pin?: string,
+): CohortBlock {
+  const cols: Array<{ col: number; label: string }> = [];
+  for (let c = start; c < end; c++) {
+    const label = String(headerRow[c] ?? '').trim();
+    if (label) cols.push({ col: c, label });
+  }
+
+  const active = pin
+    ? cols.find(c => normLabel(stripSeriesSuffix(c.label)) === pin && !FORECAST_RE.test(c.label)) ?? null
+    : [...cols].reverse().find(c => ACTUAL_RE.test(c.label)) ?? null;
+
+  if (!active) return { hist: cols.map(c => ({ col: c.col, label: stripSeriesSuffix(c.label) })), activeCol: null, activeLabel: null, forecastCol: null };
+
+  // The forecast column is the active cohort's own — matched by label, not by
+  // "the next column over", so a rotation can't repoint it at another cohort.
+  const activeName = stripSeriesSuffix(active.label);
+  const forecast = cols.find(c => c.col > active.col && FORECAST_RE.test(c.label) && stripSeriesSuffix(c.label) === activeName) ?? null;
+
+  return {
+    // Anything to the RIGHT of the active column belongs to a later cohort, not
+    // to history — dropping it is what makes `pin` render a closed cohort cleanly.
+    hist: cols.filter(c => c.col < active.col).map(c => ({ col: c.col, label: stripSeriesSuffix(c.label) })),
+    activeCol: active.col,
+    activeLabel: activeName,
+    forecastCol: forecast?.col ?? null,
+  };
+}
+
+/** Both program blocks of the AN Summary table, resolved from the banner row. */
+function resolveSummaryBlocks(
+  rows: string[][],
+  headerIdx: number,
+  pins: { wharton?: string; cbsee?: string } = {},
+): { wharton: CohortBlock; cbsee: CohortBlock | null } {
+  const headerRow = (rows[headerIdx] ?? []).map(c => String(c ?? ''));
+
+  let banners: Array<{ col: number; text: string }> = [];
+  for (let i = headerIdx - 1; i >= Math.max(0, headerIdx - 6); i--) {
+    const hits = (rows[i] ?? [])
+      .map((c, col) => ({ col, text: String(c ?? '') }))
+      .filter(x => /#\s*enrollment/i.test(x.text));
+    if (hits.length) { banners = hits; break; }
+  }
+  const wBanner = banners.find(b => /wharton/i.test(b.text));
+  if (!wBanner) {
+    throw new Error(
+      'AN Summary: no "Wharton Cohort # Enrollment Distribution" banner found above the "Days" header — ' +
+      'the sheet layout changed. Refusing to guess column positions.'
+    );
+  }
+  const cBanner = banners.find(b => /cbsee|columbia|cbs/i.test(b.text));
+
+  const starts = banners.map(b => b.col).sort((a, b) => a - b);
+  const endOf = (start: number) => starts.find(c => c > start) ?? headerRow.length;
+
+  const wharton = resolveBlock(headerRow, wBanner.col, endOf(wBanner.col), pins.wharton);
+  if (wharton.activeCol === null) {
+    throw new Error('AN Summary: Wharton block has no "- actual" column' + (pins.wharton ? ` matching "${pins.wharton}"` : ''));
+  }
+  const cbsee = cBanner ? resolveBlock(headerRow, cBanner.col, endOf(cBanner.col), pins.cbsee) : null;
+
+  return { wharton, cbsee: cbsee?.activeCol !== null ? cbsee : null };
+}
+
+export async function getPacingData(sheetId?: string, opts: {
+  /** Render a closed cohort instead of the newest one (normalized labels,
+   *  e.g. `{ wharton: "Spring '26", cbsee: "Summer '26" }`). */
+  pins?: { wharton?: string; cbsee?: string };
+} = {}): Promise<{
   summary: CohortSummary[];
   pacing: PacingDataPoint[];
   comparison: { wharton: ComparisonPanel; cbsee: ComparisonPanel | null };
@@ -201,72 +307,69 @@ export async function getPacingData(sheetId?: string): Promise<{
   if (headerIdx < 0) throw new Error(`"Days" header row not found in tab "${tab}"`);
   const dataRows = rows.slice(headerIdx + 1);
 
-  // --- Read historical cohort labels from column headers ---
-  const wHistLabels = HIST_W_COLS.map(col =>
-    (rows[headerIdx]?.[col] ?? '').toString().replace(/\s*-\s*actual\s*$/i, '').trim()
-  );
-  const cHistLabels = HIST_C_COLS.map(col =>
-    (rows[headerIdx]?.[col] ?? '').toString().replace(/\s*-\s*actual\s*$/i, '').trim()
-  );
+  // --- Resolve each program's columns from the header text (never by position) ---
+  const blocks = resolveSummaryBlocks(rows, headerIdx, opts.pins);
+  const wBlock = blocks.wharton;
+  const cBlock = blocks.cbsee;
+  const HIST_W_COLS = wBlock.hist.map(h => h.col);
+  const HIST_C_COLS = cBlock?.hist.map(h => h.col) ?? [];
+  const wHistLabels = wBlock.hist.map(h => h.label);
+  const cHistLabels = cBlock?.hist.map(h => h.label) ?? [];
 
-  // Each historical column's own eventual final total (the day=0 row) — used as the
-  // denominator for "% complete" (pacing), independent of whatever W_GOALS/C_GOALS record
-  // as the target. Keeps pacing comparisons correct even when goal != actual final.
-  const wOwnFinals = HIST_W_COLS.map(col => N(dataRows[0]?.[col]));
-  const cOwnFinals = HIST_C_COLS.map(col => N(dataRows[0]?.[col]));
-
-  // Verify the wForecast column is actually a forecast for the active Wharton cohort.
-  // After Fall '26 was added, col 25 became "Wharton Fall '26 - actual" — reading it as
-  // a forecast renders Fall '26 enrollment data as the Spring '26 forecast line.
-  const wForecastHeader = (rows[headerIdx]?.[COL.wForecast] ?? '').toString().toLowerCase();
-  const wForecastIsReal = wForecastHeader.includes('forecast') && !wForecastHeader.includes('actual');
+  // Each historical column's own eventual final total — used as the denominator for
+  // "% complete" (pacing), independent of whatever W_GOALS/C_GOALS record as the target.
+  // Read from the day=0 row by lookup, not dataRows[0]: a spacer row under the header
+  // would make that a mid-cohort snapshot and push every % complete over 100.
+  const zeroRow = dataRows.find(r => Number(r[COL_DAY]) === 0);
+  if (!zeroRow) throw new Error(`"${tab}": no day-0 row found — cannot compute % complete`);
+  const wOwnFinals = HIST_W_COLS.map(col => N(zeroRow[col]));
+  const cOwnFinals = HIST_C_COLS.map(col => N(zeroRow[col]));
 
   // --- Find first row with data for each program (rows are day-0-first, so first hit = most recent) ---
-  let wIdx = -1;
-  for (let i = 0; i < dataRows.length; i++) {
-    if (N(dataRows[i]?.[COL.wActual]) !== null) { wIdx = i; break; }
-  }
-  let cIdx = -1;
-  for (let i = 0; i < dataRows.length; i++) {
-    if (N(dataRows[i]?.[COL.cActual]) !== null) { cIdx = i; break; }
-  }
+  const firstWithData = (col: number | null) => {
+    if (col === null) return -1;
+    for (let i = 0; i < dataRows.length; i++) {
+      if (N(dataRows[i]?.[col]) !== null) return i;
+    }
+    return -1;
+  };
+  const wIdx = firstWithData(wBlock.activeCol);
+  const cIdx = firstWithData(cBlock?.activeCol ?? null);
 
-  // --- Active cohort names from column headers ---
-  const wCohortName = (rows[headerIdx]?.[COL.wActual] ?? '')
-    .toString().replace(/\s*-\s*actual\s*$/i, '').trim() || "Wharton Fall '26";
-  const cCohortName = (rows[headerIdx]?.[COL.cActual] ?? '')
-    .toString().replace(/\s*-\s*actual\s*$/i, '').trim() || "CBSEE Spring '26";
+  const wCohortName = wBlock.activeLabel!;
+  const cCohortName = cBlock?.activeLabel ?? '';
 
-  const hasCBSEE = cIdx >= 0;
+  const hasCBSEE = !!cBlock && cIdx >= 0;
   const programs = hasCBSEE ? ['wharton', 'cbsee'] : ['wharton'];
 
   // --- Goals for active cohorts ---
   // Prefer the W_GOALS/C_GOALS lookup (keyed by cohort name from header) so goals
   // stay correct even when the forecast column is empty or carries a different cohort.
-  const wGoal = getWGoal(wCohortName) ?? N(dataRows[0]?.[COL.wForecast]) ?? 1225;
-  const cGoal = hasCBSEE ? (getCGoal(cCohortName) ?? N(dataRows[0]?.[COL.cForecast]) ?? 485) : 485;
+  const wFcCol = wBlock.forecastCol;
+  const cFcCol = cBlock?.forecastCol ?? null;
+  const wGoal = getWGoal(wCohortName) ?? (wFcCol !== null ? N(zeroRow[wFcCol]) : null) ?? 1225;
+  const cGoal = hasCBSEE ? (getCGoal(cCohortName) ?? (cFcCol !== null ? N(zeroRow[cFcCol]) : null) ?? 485) : 485;
 
   const wRow = wIdx >= 0 ? dataRows[wIdx] : null;
   const cRow = cIdx >= 0 ? dataRows[cIdx] : null;
 
-  const wDays     = N(wRow?.[COL.day]) ?? 0;
-  const wEnrolled = N(wRow?.[COL.wActual]) ?? 0;
-  const wFc       = wForecastIsReal ? (N(wRow?.[COL.wForecast]) ?? 0) : 0;
+  const wDays     = N(wRow?.[COL_DAY]) ?? 0;
+  const wEnrolled = N(wRow?.[wBlock.activeCol!]) ?? 0;
+  const wFc       = wFcCol !== null ? (N(wRow?.[wFcCol]) ?? 0) : 0;
 
-  const cDays     = N(cRow?.[COL.day]) ?? 0;
-  const cEnrolled = N(cRow?.[COL.cActual]) ?? 0;
-  const cFc       = N(cRow?.[COL.cForecast]) ?? 0;
+  const cDays     = N(cRow?.[COL_DAY]) ?? 0;
+  const cEnrolled = cBlock?.activeCol != null ? (N(cRow?.[cBlock.activeCol]) ?? 0) : 0;
+  const cFc       = cFcCol !== null ? (N(cRow?.[cFcCol]) ?? 0) : 0;
 
   // histAvg: average raw enrollment of last 3 historical cohorts at current days remaining
-  const wHistAvg = (() => {
-    const last3Cols = HIST_W_COLS.slice(-3);
-    const vals = last3Cols.map(col => N(wRow?.[col]) ?? 0);
-    return Math.round(vals.reduce((s, v) => s + v, 0) / 3);
-  })();
-  const cHistAvg = hasCBSEE ? (() => {
-    const vals = HIST_C_COLS.map(col => N(cRow?.[col]) ?? 0);
-    return Math.round(vals.reduce((s, v) => s + v, 0) / 3);
-  })() : 0;
+  const avgAtRow = (row: string[] | null, cols: number[]) => {
+    const last3 = cols.slice(-3);
+    if (last3.length === 0) return 0;
+    const vals = last3.map(col => N(row?.[col]) ?? 0);
+    return Math.round(vals.reduce((s, v) => s + v, 0) / last3.length);
+  };
+  const wHistAvg = avgAtRow(wRow, HIST_W_COLS);
+  const cHistAvg = hasCBSEE ? avgAtRow(cRow, HIST_C_COLS) : 0;
 
   const wPct = wGoal > 0 ? (wEnrolled / wGoal * 100).toFixed(1) : '0.0';
   const cPct = cGoal > 0 ? (cEnrolled / cGoal * 100).toFixed(1) : '0.0';
@@ -291,19 +394,24 @@ export async function getPacingData(sheetId?: string): Promise<{
       program: 'CBSEE',
       goal: cGoal,
       enrolled: cEnrolled,
-      forecast: cFc,
+      // Same rule as Wharton above: a completed CBSEE cohort has no remaining
+      // goal-pace row, so compare its final against the goal itself rather than
+      // against a missing-column zero (which rendered "+535 vs. 0").
+      forecast: cFc > 0 ? cFc : (cDays === 0 ? cGoal : 0),
       daysRemaining: cDays,
       histAvg: cHistAvg,
-      keyTakeaway: `${cCohortName} has enrolled ${cEnrolled.toLocaleString()} of ${cGoal.toLocaleString()} students (${cPct}%) with ${cDays} days remaining, ${cEnrolled < cFc ? `falling ${cFc - cEnrolled} short of forecast` : `running ${cEnrolled - cFc} ahead of forecast`} and ${cEnrolled > cHistAvg ? `+${cEnrolled - cHistAvg}` : `${cEnrolled - cHistAvg}`} vs. the last 3-cohort average of ${cHistAvg.toLocaleString()}.`,
+      keyTakeaway: cDays === 0
+        ? `${cCohortName} enrolled a final ${cEnrolled.toLocaleString()} of ${cGoal.toLocaleString()} students (${cPct}%)${cEnrolled >= cGoal ? `, exceeding goal by ${(cEnrolled - cGoal).toLocaleString()}` : `, finishing ${(cGoal - cEnrolled).toLocaleString()} short of goal`}. Last 3-cohort final avg: ${cHistAvg.toLocaleString()} (${cEnrolled > cHistAvg ? '+' : ''}${(cEnrolled - cHistAvg).toLocaleString()} vs avg).`
+        : `${cCohortName} has enrolled ${cEnrolled.toLocaleString()} of ${cGoal.toLocaleString()} students (${cPct}%) with ${cDays} days remaining, ${cEnrolled < cFc ? `falling ${cFc - cEnrolled} short of forecast` : `running ${cEnrolled - cFc} ahead of forecast`} and ${cEnrolled > cHistAvg ? `+${cEnrolled - cHistAvg}` : `${cEnrolled - cHistAvg}`} vs. the last 3-cohort average of ${cHistAvg.toLocaleString()}.`,
     }] : []),
   ];
 
   // --- Build pacing series ---
   const pacing: PacingDataPoint[] = dataRows
-    .filter(r => r[COL.day] !== undefined && r[COL.day] !== '')
+    .filter(r => r[COL_DAY] !== undefined && r[COL_DAY] !== '')
     .map(r => {
       const pt: PacingDataPoint = {
-        day: N(r[COL.day]) ?? 0,
+        day: N(r[COL_DAY]) ?? 0,
         wHistoricals: HIST_W_COLS.map((col, i) => {
           const label = wHistLabels[i];
           if (!label) return null;
@@ -325,24 +433,26 @@ export async function getPacingData(sheetId?: string): Promise<{
       };
 
       // Active cohort fields
-      const wa = N(r[COL.wActual]);
+      const wa = N(r[wBlock.activeCol!]);
       if (wa !== null && wGoal > 0) {
         pt.wActualPct = +(wa / wGoal * 100).toFixed(2);
         pt.wActual = wa;
       }
-      if (wForecastIsReal) {
-        const wf = N(r[COL.wForecast]);
+      if (wFcCol !== null) {
+        const wf = N(r[wFcCol]);
         if (wf !== null) pt.wForecast = wf;
       }
 
       if (hasCBSEE) {
-        const ca = N(r[COL.cActual]);
+        const ca = N(r[cBlock!.activeCol!]);
         if (ca !== null && cGoal > 0) {
           pt.cActualPct = +(ca / cGoal * 100).toFixed(2);
           pt.cActual = ca;
         }
-        const cf = N(r[COL.cForecast]);
-        if (cf !== null) pt.cForecast = cf;
+        if (cFcCol !== null) {
+          const cf = N(r[cFcCol]);
+          if (cf !== null) pt.cForecast = cf;
+        }
       }
 
       // Last 3 avg — most recent 3 historical cohorts
@@ -419,6 +529,9 @@ export async function getPacingData(sheetId?: string): Promise<{
         pctComplete: +avg(r => r.pctComplete ?? 0).toFixed(1),
       },
       closedRows: [...rows].reverse(),
+      // Rows are read at the active cohort's days-out point; when that point is
+      // the deadline itself (a completed cohort), they ARE the finals.
+      basis: daysRem === 0 ? 'finals' : 'same-day-out',
     };
   };
 
@@ -445,6 +558,117 @@ export async function getPacingData(sheetId?: string): Promise<{
   };
 }
 
+// ─── Deadline pacing table reader (both cohort docs) ─────────────────────────
+//
+// Wharton's "Deadline Pacing Table V2" and CBS's "Deadline Pacing Table" share a
+// header row but NOT column positions: the cumulative running total is col 21
+// ("Total Enrollments") for Wharton, col 7 ("AI 2025 Total Enrollment") for CBS,
+// because Wharton repeats the block once per program and CBS has a single one.
+// Every column is therefore resolved by header text. The rule that picks the
+// cumulative column is "last header containing 'Total Enrollment' that isn't a
+// daily column" — which lands on the all-program total for Wharton (col 21 sits
+// right of the per-program "PE Total Enrollment" …) and on the only one for CBS.
+
+export interface TodayCard {
+  cohortLabel: string;
+  todayGoal: number;
+  yesterdayGoal: number;
+  yesterdayActual: number | null;
+  /** Cumulative enrollments as of the last keyed day. */
+  cohortToDate: number | null;
+  updatedThrough: string | null;
+  /** Days to the enrollment deadline as of today (ET), from today's row. */
+  daysRemaining: number | null;
+  /** Cumulative goal the plan expected by the last keyed day — the apples-to-apples
+   *  comparison for `cohortToDate`, which reflects prior-day totals. */
+  goalToDate: number | null;
+}
+
+function dayMsOf(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const ms = new Date(raw).setHours(0, 0, 0, 0);
+  return isNaN(ms) ? null : ms;
+}
+
+export async function readDeadlineTable(
+  sheetId: string,
+  tab: string,
+  cohortLabel: string,
+): Promise<TodayCard | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:AF250`,
+    });
+    const rows = (res.data.values ?? []) as string[][];
+    const hIdx = rows.findIndex(r => (r[0] ?? '').toString().trim() === 'Current Date');
+    if (hIdx < 0) return null;
+
+    const header = rows[hIdx].map(c => String(c ?? '').trim().toLowerCase());
+    const findLast = (pred: (h: string) => boolean) => {
+      for (let i = header.length - 1; i >= 0; i--) if (header[i] && pred(header[i])) return i;
+      return -1;
+    };
+    const findFirst = (pred: (h: string) => boolean) => header.findIndex(h => h && pred(h));
+
+    const cDay        = findFirst(h => h.includes('day before deadline'));
+    const cDailyGoal  = findFirst(h => h === 'daily goals');
+    const cDailyReal  = findFirst(h => h.includes('daily enrollments actuals'));
+    const cCumulative = findLast(h => /total enrollments?$/.test(h) && !h.includes('daily'));
+    // Wharton repeats "Forecasted Goal" once per program (col 8 is PE's), and carries
+    // the all-program plan in "Forecast Enrollments" — so that name is tried first.
+    // CBS has a single program and only the "Forecasted Goal" column.
+    const cCumGoalFc  = findFirst(h => h === 'forecast enrollments');
+    const cCumGoal    = cCumGoalFc >= 0 ? cCumGoalFc : findFirst(h => h === 'forecasted goal');
+    if (cDailyGoal < 0 || cDailyReal < 0) return null;
+
+    const dataRows = rows.slice(hIdx + 1).filter(r => dayMsOf(r[0]) !== null);
+
+    // Business day boundary is midnight ET, not server-local (UTC on Vercel)
+    const todayMs = nowET().setHours(0, 0, 0, 0);
+    const yesterdayMs = todayMs - 86400000;
+    const rowAt = (ms: number) => dataRows.find(r => dayMsOf(r[0]) === ms) ?? null;
+
+    const todayRow = rowAt(todayMs);
+    const yRow = rowAt(yesterdayMs);
+
+    // "Updated through" = the most recent past day that has a keyed daily actual.
+    // The cumulative column carries the current total forward into future rows, so
+    // it must be read at that day, not at whatever the last row happens to be.
+    let updatedThrough: string | null = null;
+    let updatedMs = -Infinity;
+    let cohortToDate: number | null = null;
+    let goalToDate: number | null = null;
+    for (const r of dataRows) {
+      const ms = dayMsOf(r[0])!;
+      if (ms > todayMs) continue;
+      if (N(r[cDailyReal]) !== null && ms > updatedMs) {
+        updatedMs = ms;
+        updatedThrough = new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (cCumulative >= 0) {
+          const cumulative = N(r[cCumulative]);
+          if (cumulative !== null) cohortToDate = cumulative;
+        }
+        if (cCumGoal >= 0) goalToDate = N(r[cCumGoal]);
+      }
+    }
+
+    return {
+      cohortLabel,
+      todayGoal: N(todayRow?.[cDailyGoal]) ?? 0,
+      yesterdayGoal: N(yRow?.[cDailyGoal]) ?? 0,
+      yesterdayActual: N(yRow?.[cDailyReal]),
+      cohortToDate,
+      updatedThrough,
+      daysRemaining: cDay >= 0 ? N(todayRow?.[cDay]) : null,
+      goalToDate,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Fetches historical Wharton cohort pacing from the V1 sheet (Overall Cohort - AN Summary)
 // and returns a Map<daysRemaining → [{label, pct}]>. Used by the V2 reader to populate
@@ -464,15 +688,13 @@ async function fetchHistoricalWhartonMap(
     const hIdx = rows.findIndex(r => r[0]?.toString().trim() === 'Days');
     if (hIdx < 0) return new Map();
 
-    // Col 24 ("Spring '26 - actual") is still labeled as the active column in this sheet
-    // because it was never rotated after Fall '26 moved to its own V2 sheet — but Spring '26
-    // is closed now, and its full day-by-day curve lives there. Treat it as historical too
-    // so the V2/Fall '26 reader's "last 3 cohorts" includes Fall '25, Winter '26, AND Spring '26
-    // instead of stalling one cohort behind. Update this list again next time a cohort closes.
-    const histCols = [18, 19, 20, 21, 22, 23, 24] as const;
-    const labels = histCols.map(col =>
-      (rows[hIdx]?.[col] ?? '').toString().replace(/\s*-\s*actual\s*$/i, '').trim()
-    );
+    // Every closed Wharton cohort in the sheet — resolved by header text, so the
+    // "last 3 cohorts" set rolls forward on its own when a cohort closes and the
+    // sheet owner adds a column. (This used to be a hardcoded index list that had
+    // to be hand-edited on every rotation, and was one column stale.)
+    const { hist } = resolveSummaryBlocks(rows, hIdx).wharton;
+    const histCols = hist.map(h => h.col);
+    const labels = hist.map(h => h.label);
 
     const dataRows = rows.slice(hIdx + 1);
     // pct is computed against each column's OWN eventual final (the day=0 row), not
@@ -768,6 +990,9 @@ export async function getPacingDataV2(
       pctComplete: c.pctComplete,
       isActive: false,
     })),
+    // The day-aligned path (last3AtDay) yields same-day-out pace values; only the
+    // fallback below it reads each cohort's finished total from the summary block.
+    basis: last3AtDay.length === 3 ? 'same-day-out' : 'finals',
   };
 
   return {
@@ -775,5 +1000,130 @@ export async function getPacingDataV2(
     pacing,
     comparison: { wharton: wComparison, cbsee: null },
     programs: ['wharton'],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Current-cohort view for /enrollment: Wharton and CBSEE side by side.
+//
+// The two programs no longer live in one sheet. Wharton Fall '26 has its own
+// cohort doc (V2 deadline table); CBSEE Fall '26's day-by-day curve and its
+// historical cohort curves are still in the shared AN Summary pacing sheet,
+// while its headline numbers (enrolled / goal / days remaining / goal pace)
+// come from the CBS cohort doc — the same source Pulse and Cohort Command read,
+// so the three surfaces cannot disagree on the enrollment figure.
+// ---------------------------------------------------------------------------
+
+export interface CbseeDocSource {
+  sheetId: string;
+  deadlineTab: string;
+  goalsTab: string;
+  /** Season+year labels to match in the goals tab, e.g. ["Fall 2026", "Fall '26"]. */
+  goalLabels: string[];
+}
+
+export async function getPacingDataCurrent(
+  whartonDocId: string,
+  opts: {
+    whartonGoalsTab?: string;
+    whartonCohortLabels?: string[];
+    summarySheetId?: string;
+    cbseeDoc?: CbseeDocSource;
+  } = {},
+): Promise<{
+  summary: CohortSummary[];
+  pacing: PacingDataPoint[];
+  comparison: { wharton: ComparisonPanel; cbsee: ComparisonPanel | null };
+  programs: string[];
+}> {
+  if (isDemo()) return getDemoPacing();
+
+  const summarySheetId = opts.summarySheetId ?? process.env.GOOGLE_PACING_SHEET_ID;
+
+  const [wharton, summary, cbseeToday, cbseeGoal] = await Promise.all([
+    getPacingDataV2(whartonDocId, { goalsTab: opts.whartonGoalsTab, cohortLabels: opts.whartonCohortLabels }),
+    // CBSEE curves are a bonus — a failure here must not take Wharton down with it.
+    summarySheetId ? getPacingData(summarySheetId).catch(() => null) : Promise.resolve(null),
+    opts.cbseeDoc ? readDeadlineTable(opts.cbseeDoc.sheetId, opts.cbseeDoc.deadlineTab, 'CBSEE') : Promise.resolve(null),
+    opts.cbseeDoc ? readDocGoal(opts.cbseeDoc.sheetId, opts.cbseeDoc.goalsTab, opts.cbseeDoc.goalLabels) : Promise.resolve(null),
+  ]);
+
+  const cSummary = summary?.summary.find(s => s.program === 'CBSEE');
+  const cPanel = summary?.comparison.cbsee ?? null;
+  if (!cSummary || !cPanel) return wharton;
+
+  // Cohort-doc values win; the AN Summary is the fallback for each field.
+  const enrolled = cbseeToday?.cohortToDate ?? cSummary.enrolled;
+  const goal = cbseeGoal?.goal ?? cSummary.goal;
+  // Days remaining is the calendar countdown from the cohort doc's today row, so
+  // /enrollment, /pulse and /cohort-performance all show the same number. The
+  // comparison panel keeps its own basis — the AN Summary row the CBSEE actuals
+  // were read at, one day back because enrollment counts are prior-day totals.
+  const daysRemaining = cbseeToday?.daysRemaining ?? cSummary.daysRemaining;
+  const goalPace = cbseeToday?.goalToDate ?? cSummary.forecast;
+  const pct = goal > 0 ? (enrolled / goal * 100).toFixed(1) : '0.0';
+  const vsPace = enrolled - goalPace;
+
+  const cbseeSummary: CohortSummary = {
+    ...cSummary,
+    goal,
+    enrolled,
+    daysRemaining,
+    forecast: goalPace,
+    goalSource: cbseeGoal?.source ?? 'built-in CBSEE goal map (no cohort-doc goals tab reachable)',
+    keyTakeaway:
+      `${cSummary.cohort} has enrolled ${enrolled.toLocaleString()} of ${goal.toLocaleString()} students (${pct}%) ` +
+      `with ${daysRemaining} days remaining` +
+      (goalPace > 0
+        ? `, ${vsPace >= 0 ? `running ${vsPace} ahead of` : `falling ${-vsPace} behind`} the ${goalPace.toLocaleString()}-enrollment goal pace`
+        : '') +
+      `, vs. ${cSummary.histAvg.toLocaleString()} for the last 3 cohorts at this point.`,
+  };
+
+  // Join the two pacing series on days-remaining — both tables use it as their
+  // x-axis. Union of days, so neither program's curve gets clipped by the other's
+  // shorter enrollment window.
+  const byDay = new Map<number, PacingDataPoint>();
+  for (const pt of wharton.pacing) byDay.set(pt.day, { ...pt });
+  for (const pt of summary!.pacing) {
+    const existing = byDay.get(pt.day);
+    const cFields = {
+      cHistoricals: pt.cHistoricals,
+      cActualPct: pt.cActualPct,
+      cLast3Pct: pt.cLast3Pct,
+      cActual: pt.cActual,
+      cForecast: pt.cForecast,
+    };
+    if (existing) Object.assign(existing, cFields);
+    else {
+      // Days outside the Wharton cohort's window (CBSEE enrolls over a longer
+      // run-up). The AN Summary still has the Wharton historical curves there,
+      // computed the same way, so carry them rather than leaving a hole.
+      byDay.set(pt.day, {
+        day: pt.day,
+        wHistoricals: pt.wHistoricals,
+        wLast3Pct: pt.wLast3Pct,
+        ...cFields,
+      });
+    }
+  }
+  const pacing = [...byDay.values()].sort((a, b) => b.day - a.day);
+
+  return {
+    summary: [...wharton.summary, cbseeSummary],
+    pacing,
+    comparison: {
+      wharton: wharton.comparison.wharton,
+      cbsee: {
+        ...cPanel,
+        activeRow: {
+          ...cPanel.activeRow,
+          enrolled,
+          goal,
+          pctOfGoal: goal > 0 ? +(enrolled / goal * 100).toFixed(1) : 0,
+        },
+      },
+    },
+    programs: ['wharton', 'cbsee'],
   };
 }

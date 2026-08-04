@@ -178,6 +178,7 @@ export function getDemoPacing(): {
       pctComplete: r1(avgRows(last3WRows, r => r.pctComplete ?? 0)),
     },
     closedRows: [...last3WRows].reverse(),
+    basis: W_CUR === 0 ? 'finals' : 'same-day-out',
   };
   const cbsee: ComparisonPanel = {
     program: "CBSEE",
@@ -195,6 +196,7 @@ export function getDemoPacing(): {
       pctComplete: r1(avgRows(last3CRows, r => r.pctComplete ?? 0)),
     },
     closedRows: [...last3CRows].reverse(),
+    basis: C_CUR === 0 ? 'finals' : 'same-day-out',
   };
 
   return { summary, pacing, comparison: { wharton, cbsee }, programs: ['wharton', 'cbsee'] };

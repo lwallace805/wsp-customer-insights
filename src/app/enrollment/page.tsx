@@ -1,6 +1,7 @@
 import EnrollmentDashboard from '@/components/enrollment/EnrollmentDashboard';
 import type { CohortSummary, PacingDataPoint, ComparisonPanel } from '@/lib/sheets';
 import { isDemo } from '@/lib/demo/flag';
+import { getEnrollmentView, parseView, viewLabels, type EnrollmentView } from '@/lib/enrollmentView';
 
 // Always fetch live data from Google Sheets — never use the static build cache
 export const dynamic = 'force-dynamic';
@@ -19,51 +20,32 @@ const EMPTY_PANEL: ComparisonPanel = {
   activeRow: { label: '', enrolled: 0, goal: 0, pctOfGoal: 0, pctComplete: null, isActive: true },
   last3Avg: { enrolled: 0, goal: 0, pctOfGoal: 0, pctComplete: null },
   closedRows: [],
+  basis: 'same-day-out',
 };
 
-async function getData(cohort: string): Promise<PageData> {
+async function getData(view: EnrollmentView): Promise<PageData> {
   if (isDemo()) {
     const { getPacingData } = await import('@/lib/sheets');
     const { summary, pacing, comparison, programs } = await getPacingData();
     return { summary, pacing, comparison, programs, mock: false };
   }
 
-  const isFall26 = cohort !== 'spring26';
-  const sheetId = isFall26
-    ? process.env.FALL26_PACING_SHEET_ID
-    : process.env.GOOGLE_PACING_SHEET_ID;
+  const empty = (mock: boolean): PageData => ({
+    summary: [],
+    pacing: [],
+    comparison: { wharton: EMPTY_PANEL, cbsee: EMPTY_PANEL },
+    programs: ['wharton', 'cbsee'],
+    mock,
+  });
 
-  const hasCredentials = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY && !!sheetId;
-
-  if (!hasCredentials) {
-    return {
-      summary: [],
-      pacing: [],
-      comparison: { wharton: EMPTY_PANEL, cbsee: isFall26 ? null : EMPTY_PANEL },
-      programs: isFall26 ? ['wharton'] : ['wharton', 'cbsee'],
-      mock: true,
-    };
-  }
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) return empty(true);
 
   try {
-    if (isFall26) {
-      const { getPacingDataV2 } = await import('@/lib/sheets');
-      const { summary, pacing, comparison, programs } = await getPacingDataV2(sheetId!);
-      return { summary, pacing, comparison, programs, mock: false };
-    } else {
-      const { getPacingData } = await import('@/lib/sheets');
-      const { summary, pacing, comparison, programs } = await getPacingData(sheetId);
-      return { summary, pacing, comparison, programs, mock: false };
-    }
+    const { summary, pacing, comparison, programs } = await getEnrollmentView(view);
+    return { summary, pacing, comparison, programs, mock: false };
   } catch (err) {
     console.error('Enrollment data error:', err);
-    return {
-      summary: [],
-      pacing: [],
-      comparison: { wharton: EMPTY_PANEL, cbsee: isFall26 ? null : EMPTY_PANEL },
-      programs: isFall26 ? ['wharton'] : ['wharton', 'cbsee'],
-      mock: true,
-    };
+    return empty(true);
   }
 }
 
@@ -72,15 +54,17 @@ export default async function EnrollmentPage({
 }: {
   searchParams: Promise<{ cohort?: string }>;
 }) {
-  const { cohort = 'fall26' } = await searchParams;
-  const data = await getData(cohort);
+  const { cohort } = await searchParams;
+  const view = parseView(cohort);
+  const data = await getData(view);
   return (
     <EnrollmentDashboard
       summary={data.summary}
       pacing={data.pacing}
       comparison={data.comparison}
       programs={data.programs}
-      activeCohort={cohort}
+      activeCohort={view}
+      cohortOptions={viewLabels()}
       mock={data.mock}
     />
   );

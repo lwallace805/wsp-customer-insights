@@ -131,6 +131,7 @@ function buildMockComparison(pacing: PacingDataPoint[]): { wharton: ComparisonPa
         pctComplete: parseFloat(avg(r => r.pctComplete ?? 0).toFixed(1)),
       },
       closedRows: [...rows].reverse(),
+      basis: daysRem === 0 ? 'finals' : 'same-day-out',
     };
   };
 
@@ -144,16 +145,10 @@ function buildMockComparison(pacing: PacingDataPoint[]): { wharton: ComparisonPa
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const cohort = searchParams.get('cohort') ?? 'fall26';
+  const { getEnrollmentView, parseView } = await import('@/lib/enrollmentView');
+  const view = parseView(searchParams.get('cohort') ?? undefined);
 
-  const sheetId = cohort === 'spring26'
-    ? process.env.GOOGLE_PACING_SHEET_ID
-    : process.env.FALL26_PACING_SHEET_ID;
-
-  const hasCredentials =
-    !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY && !!sheetId;
-
-  if (!hasCredentials) {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
     const pacing = buildMockPacing();
     const comparison = buildMockComparison(pacing);
     return NextResponse.json({
@@ -166,16 +161,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    if (cohort !== 'spring26') {
-      const { getPacingDataV2 } = await import('@/lib/sheets');
-      const { summary, pacing, comparison, programs } = await getPacingDataV2(sheetId!);
-      return NextResponse.json({ summary, pacing, comparison, programs, mock: false }, {
-        headers: { 'Cache-Control': 'no-store' },
-      });
-    }
-    const { getPacingData } = await import('@/lib/sheets');
-    const { summary, pacing, comparison, programs } = await getPacingData(sheetId);
-    return NextResponse.json({ summary, pacing, comparison, programs, mock: false }, {
+    const { summary, pacing, comparison, programs } = await getEnrollmentView(view);
+    return NextResponse.json({ summary, pacing, comparison, programs, view, mock: false }, {
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (err) {

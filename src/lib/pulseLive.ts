@@ -12,7 +12,14 @@
 //    Columbia cohort doc (deadline table daily goals + Overall WoW leads)
 
 import { google } from 'googleapis';
-import { getPacingData, getPacingDataV2, readDocGoal, type CohortSummary } from '@/lib/sheets';
+import {
+  getPacingData,
+  getPacingDataV2,
+  readDocGoal,
+  readDeadlineTable,
+  type CohortSummary,
+  type TodayCard,
+} from '@/lib/sheets';
 import {
   getActiveCohort,
   getCohortWeek,
@@ -21,6 +28,7 @@ import {
   nowET,
   type CohortWindow,
 } from '@/lib/cohortCalendar';
+import { COHORT_SHEETS } from '@/lib/cohortSheets';
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -39,81 +47,15 @@ function N(v: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
-function dayMs(raw: string | undefined): number | null {
-  if (!raw) return null;
-  const ms = new Date(raw).setHours(0, 0, 0, 0);
-  return isNaN(ms) ? null : ms;
-}
-
 // Per-cohort sheet wiring. When a new cohort doc is created (e.g. CBS Fall '26),
 // share it with the service account and add its entry here.
 // `goalsTab` is the tab that holds the cohort's enrollment goal — the authoritative
 // target, read live so a change in the doc flows through every surface (see
 // readDocGoal in sheets.ts). Wharton calls it "Overall Goals", CBS calls it "Goals".
-const COHORT_SHEETS: Record<string, { sheetId: () => string | undefined; deadlineTab: string; goalsTab: string } | undefined> = {
-  'w-fall-26': { sheetId: () => process.env.FALL26_PACING_SHEET_ID, deadlineTab: 'Deadline Pacing Table V2', goalsTab: 'Overall Goals' },
-  'c-spring-26': { sheetId: () => '1EfNBwZYYObVU3XSiW1VPC_Fi13ZLaQdq_tZZyPxZy14', deadlineTab: 'Deadline Pacing Table', goalsTab: 'Goals' },
-};
-
-// ─── Deadline Pacing Table reader ─────────────────────────────────────────────
-// Columns: 0 Current Date · 3 Daily Goals (per-day) · 4 Total Daily Enrollments
-// Actuals (per-day) · 21 cumulative Total Enrollments (Wharton V2 only).
-
-export interface TodayCard {
-  cohortLabel: string;
-  todayGoal: number;
-  yesterdayGoal: number;
-  yesterdayActual: number | null;
-  cohortToDate: number | null;
-  updatedThrough: string | null;
-}
-
-async function readDeadlineTable(sheetId: string, tab: string, cohortLabel: string): Promise<TodayCard | null> {
-  try {
-    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range: `'${tab}'!A1:AF250`,
-    });
-    const rows = res.data.values ?? [];
-    const hIdx = rows.findIndex(r => (r[0] ?? '').toString().trim() === 'Current Date');
-    if (hIdx < 0) return null;
-    const dataRows = rows.slice(hIdx + 1).filter(r => dayMs(r[0]) !== null);
-
-    // Business day boundary is midnight ET, not server-local (UTC on Vercel)
-    const todayMs = nowET().setHours(0, 0, 0, 0);
-    const yesterdayMs = todayMs - 86400000;
-    const rowAt = (ms: number) => dataRows.find(r => dayMs(r[0]) === ms) ?? null;
-
-    const todayRow = rowAt(todayMs);
-    const yRow = rowAt(yesterdayMs);
-
-    let updatedThrough: string | null = null;
-    let updatedMs = -Infinity;
-    let cohortToDate: number | null = null;
-    for (const r of dataRows) {
-      const ms = dayMs(r[0])!;
-      if (ms > todayMs) continue;
-      if (N(r[4]) !== null && ms > updatedMs) {
-        updatedMs = ms;
-        updatedThrough = new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const cumulative = N(r[21]);
-        if (cumulative !== null) cohortToDate = cumulative;
-      }
-    }
-
-    return {
-      cohortLabel,
-      todayGoal: N(todayRow?.[3]) ?? 0,
-      yesterdayGoal: N(yRow?.[3]) ?? 0,
-      yesterdayActual: N(yRow?.[4]),
-      cohortToDate,
-      updatedThrough,
-    };
-  } catch {
-    return null;
-  }
-}
+// Which doc tracks which cohort lives in one registry (src/lib/cohortSheets.ts),
+// shared with the enrollment dashboard. The deadline-table reader lives in
+// sheets.ts for the same reason — every surface reads enrollments the same way.
+export type { TodayCard };
 
 // ─── Overall WoW leads reader ─────────────────────────────────────────────────
 
@@ -406,8 +348,10 @@ async function buildColumbia(c: CohortWindow | null, now: Date): Promise<PulseFa
   const wiring = c ? COHORT_SHEETS[c.key] : undefined;
   const sheetId = wiring?.sheetId();
 
-  // Enrollment summary comes from the pacing sheet (AN Summary), which tracks
-  // the active Columbia cohort; daily goals + leads come from the cohort doc.
+  // Headline numbers come from the cohort doc's deadline pacing table — the same
+  // source Pulse's Today card and the enrollment dashboard use, so the surfaces
+  // can't disagree. The AN Summary pacing sheet is the fallback (and remains the
+  // source for the day-by-day historical comparison curves elsewhere).
   const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
   const [pacing, today, leads, docGoal] = await Promise.all([
     getPacingData(pacingSheetId).catch(() => null),
@@ -429,12 +373,12 @@ async function buildColumbia(c: CohortWindow | null, now: Date): Promise<PulseFa
       week: c ? getCohortWeek(c, now) : 0,
       phase: c ? getPhase(c, now) : '',
       endgame: c ? endgameLabel(c) : '',
-      enrolls: s?.enrolled ?? 0,
+      enrolls: today?.cohortToDate ?? s?.enrolled ?? 0,
       goal: docGoal?.goal ?? s?.goal ?? 0,
       goalSource: docGoal?.source ?? 'No cohort-doc goals tab wired — built-in CBSEE goal map',
-      forecastToDate: s?.forecast ?? 0,
-      daysRemaining: s?.daysRemaining ?? 0,
-      wired: !!s || !!today,
+      forecastToDate: today?.goalToDate ?? s?.forecast ?? 0,
+      daysRemaining: today?.daysRemaining ?? s?.daysRemaining ?? 0,
+      wired: !!today?.cohortToDate || !!s,
     },
     today,
     leads,
@@ -502,7 +446,10 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
       totals: leads?.totals ?? null,
       leadsDetail: leads,
       keyedThrough: today?.updatedThrough ?? null,
-      historyBasis: 'finals',
+      // The comparison reader says which basis its closed rows are on — early in
+      // a cycle they are same-day-out pace values, not the cohorts' finals, and
+      // mislabeling them makes "Spring '26: 91" read as a finished total of 91.
+      historyBasis: cmp.basis,
       history: [
         { label: win!.label, enrolled: today?.cohortToDate ?? s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +((today?.cohortToDate ?? s.enrolled) / s.goal * 100).toFixed(1) : 0, isActive: true },
         ...cmp.closedRows.map(r => toHistoryRow(r)),
@@ -521,31 +468,33 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
       : Promise.resolve(null),
   ]);
   const s = pacing?.summary.find(x => x.program === 'CBSEE');
-  if (!s || !win) return null;
+  if (!win) return null;
+  const enrolls = today?.cohortToDate ?? s?.enrolled ?? null;
+  if (enrolls === null) return null;
   // Cohort doc's goals tab wins over the built-in CBSEE goal map, same as Wharton.
-  const goal = docGoal?.goal ?? s.goal;
+  const goal = docGoal?.goal ?? s?.goal ?? 0;
 
   // Note: the AN-summary comparison panel's closedRows are SAME-DAY-OUT pace
   // values (not finals), and C_GOALS backfills finals as goals for closed
   // CBSEE cohorts — so true finals aren't reconstructable from this sheet.
   // We pass the pace values through and label the basis honestly in the UI
   // via historyBasis.
-  const cmp = pacing!.comparison.cbsee;
+  const cmp = pacing?.comparison.cbsee;
   const closedRows = (cmp?.closedRows ?? []).map(r => toHistoryRow(r));
 
   return {
     family,
     label: win.label,
-    enrolls: s.enrolled,
+    enrolls,
     goal,
-    forecastToDate: s.forecast,
-    daysRemaining: s.daysRemaining,
+    forecastToDate: today?.goalToDate ?? s?.forecast ?? 0,
+    daysRemaining: today?.daysRemaining ?? s?.daysRemaining ?? 0,
     totals: leads?.totals ?? null,
     leadsDetail: leads,
     keyedThrough: today?.updatedThrough ?? null,
-    historyBasis: 'same-day-out',
+    historyBasis: cmp?.basis ?? 'same-day-out',
     history: [
-      { label: win.label, enrolled: s.enrolled, goal, pctDone: goal > 0 ? +(s.enrolled / goal * 100).toFixed(1) : 0, isActive: true },
+      { label: win.label, enrolled: enrolls, goal, pctDone: goal > 0 ? +(enrolls / goal * 100).toFixed(1) : 0, isActive: true },
       ...closedRows,
     ],
   };

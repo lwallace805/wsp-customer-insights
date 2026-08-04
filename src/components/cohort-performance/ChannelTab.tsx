@@ -44,6 +44,20 @@ export default function ChannelTab({ cohort }: Props) {
 
   const maxCpe = cpeData.length > 0 ? Math.max(...cpeData.map(c => c.cpe)) : 1;
 
+  // A cohort with no channel rows has no attribution in its source doc yet.
+  // Say that, rather than banner an empty table as "illustrative data".
+  if (cohort.channels.length === 0) {
+    return (
+      <div className="bg-[#161b22] border border-white/10 rounded-xl p-8 text-center">
+        <p className="text-sm font-semibold text-white">No channel attribution yet for {cohort.cohort}</p>
+        <p className="text-xs text-gray-500 mt-2 max-w-lg mx-auto">
+          The cohort performance doc has no per-channel enrollment or spend breakdown for this cohort so far.
+          Nothing illustrative is shown in its place — this view fills in once the channel tables are keyed.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <ProFormaBanner />
