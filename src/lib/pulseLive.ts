@@ -263,6 +263,9 @@ async function readWoWLeads(
       }
     }
 
+    // Rewinding to before the cohort's first week closed legitimately leaves no
+    // weeks. That's "nothing has closed yet", not "the tab is missing" — return
+    // the shell so the UI can say which.
     const lastWithData = [...outWeeks].reverse().find(w => w.leads > 0);
     return {
       cohortLabel,

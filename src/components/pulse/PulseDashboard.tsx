@@ -217,7 +217,11 @@ function FamilyRow({ f }: { f: PulseFamilyLive }) {
               </p>
             </>
           ) : (
-            <p className="text-sm text-gray-600 italic">Overall WoW tab unavailable.</p>
+            <p className="text-sm text-gray-600 italic">
+              {f.leads
+                ? 'No week had closed yet on this date — leads report weekly, so the first full week has to finish before it shows here.'
+                : 'Overall WoW tab unavailable.'}
+            </p>
           )}
         </div>
       </div>
@@ -291,19 +295,24 @@ export default function PulseDashboard() {
           </p>
         </div>
 
-        {data && (
-          <AsOfPicker value={data.asOfDate} max={todayFrom(data)} onChange={changeAsOf} />
-        )}
-        <button
-          onClick={() => setDeadlineMode(d => !d)}
-          className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-            deadlineMode
-              ? 'bg-orange-500/15 text-orange-400 border-orange-500/40'
-              : 'bg-[#161b22] text-gray-400 border-white/10 hover:text-white'
-          }`}
-        >
-          Deadline-day preview
-        </button>
+        {/* Right-hand control group. The date picker was previously a direct child
+            of the justify-between header, which parked it in the middle of empty
+            space where it read as decoration rather than a control. */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {data && (
+            <AsOfPicker value={data.asOfDate} max={todayFrom(data)} onChange={changeAsOf} />
+          )}
+          <button
+            onClick={() => setDeadlineMode(d => !d)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+              deadlineMode
+                ? 'bg-orange-500/15 text-orange-400 border-orange-500/40'
+                : 'bg-[#161b22] text-gray-400 border-white/10 hover:text-white'
+            }`}
+          >
+            Deadline-day preview
+          </button>
+        </div>
       </div>
 
       {error && (
