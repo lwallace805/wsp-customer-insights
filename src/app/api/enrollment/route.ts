@@ -149,7 +149,9 @@ function buildMockComparison(pacing: PacingDataPoint[]): { wharton: ComparisonPa
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const { getEnrollmentView, parseView } = await import('@/lib/enrollmentView');
+  const { resolveAsOf } = await import('@/lib/cohortCalendar');
   const view = parseView(searchParams.get('cohort') ?? undefined);
+  const asOf = resolveAsOf(searchParams.get('asOf'));
 
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
     const pacing = buildMockPacing();
@@ -164,8 +166,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { summary, pacing, comparison, programs } = await getEnrollmentView(view);
-    return NextResponse.json({ summary, pacing, comparison, programs, view, mock: false }, {
+    const { summary, pacing, comparison, programs } = await getEnrollmentView(view, asOf);
+    return NextResponse.json({ summary, pacing, comparison, programs, view, asOf: asOf.ymd, mock: false }, {
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (err) {

@@ -287,6 +287,11 @@ export async function getPacingData(sheetId?: string, opts: {
   /** Render a closed cohort instead of the newest one (normalized labels,
    *  e.g. `{ wharton: "Spring '26", cbsee: "Summer '26" }`). */
   pins?: { wharton?: string; cbsee?: string };
+  /** Rewind to an earlier day. This table has no dates — its rows ARE the
+   *  days-remaining index — so the cutoff is expressed in days-out (see
+   *  daysOutAt in cohortCalendar). Rows below the cutoff are in the future
+   *  relative to the requested day and are treated as unkeyed. */
+  asOfDay?: { wharton?: number; cbsee?: number };
 } = {}): Promise<{
   summary: CohortSummary[];
   pacing: PacingDataPoint[];
@@ -332,15 +337,19 @@ export async function getPacingData(sheetId?: string, opts: {
   const cOwnFinals = HIST_C_COLS.map(col => N(zeroRow[col]));
 
   // --- Find first row with data for each program (rows are day-0-first, so first hit = most recent) ---
-  const firstWithData = (col: number | null) => {
+  // `minDay` rewinds the view: a row with a SMALLER days-remaining than the cutoff
+  // is a later calendar date than the requested one, so it hasn't happened yet
+  // from that vantage point.
+  const firstWithData = (col: number | null, minDay?: number) => {
     if (col === null) return -1;
     for (let i = 0; i < dataRows.length; i++) {
+      if (minDay !== undefined && (N(dataRows[i]?.[COL_DAY]) ?? -1) < minDay) continue;
       if (N(dataRows[i]?.[col]) !== null) return i;
     }
     return -1;
   };
-  const wIdx = firstWithData(wBlock.activeCol);
-  const cIdx = firstWithData(cBlock?.activeCol ?? null);
+  const wIdx = firstWithData(wBlock.activeCol, opts.asOfDay?.wharton);
+  const cIdx = firstWithData(cBlock?.activeCol ?? null, opts.asOfDay?.cbsee);
 
   const wCohortName = wBlock.activeLabel!;
   const cCohortName = cBlock?.activeLabel ?? '';
@@ -438,8 +447,11 @@ export async function getPacingData(sheetId?: string, opts: {
         }).filter((x): x is { label: string; pct: number; raw: number; final: number } => x !== null) : [],
       };
 
-      // Active cohort fields
-      const wa = N(r[wBlock.activeCol!]);
+      // Active cohort fields. Past the as-of cutoff the cohort's own line stops —
+      // historical cohorts are already closed, so their full curves still show.
+      const wPast = opts.asOfDay?.wharton === undefined || pt.day >= opts.asOfDay.wharton;
+      const cPast = opts.asOfDay?.cbsee === undefined || pt.day >= opts.asOfDay.cbsee;
+      const wa = wPast ? N(r[wBlock.activeCol!]) : null;
       if (wa !== null && wGoal > 0) {
         pt.wActualPct = +(wa / wGoal * 100).toFixed(2);
         pt.wActual = wa;
@@ -450,7 +462,7 @@ export async function getPacingData(sheetId?: string, opts: {
       }
 
       if (hasCBSEE) {
-        const ca = N(r[cBlock!.activeCol!]);
+        const ca = cPast ? N(r[cBlock!.activeCol!]) : null;
         if (ca !== null && cGoal > 0) {
           pt.cActualPct = +(ca / cGoal * 100).toFixed(2);
           pt.cActual = ca;
@@ -590,9 +602,14 @@ export interface TodayCard {
   updatedThrough: string | null;
   /** Days to the enrollment deadline as of today (ET), from today's row. */
   daysRemaining: number | null;
-  /** Cumulative goal the plan expected by the last keyed day — the apples-to-apples
-   *  comparison for `cohortToDate`, which reflects prior-day totals. */
+  /** Cumulative goal the plan expected by the last keyed day. */
   goalToDate: number | null;
+  /** Cumulative goal at the day BEFORE the rendered day. This is the baseline the
+   *  "vs pace" delta uses, matching getPacingDataV2's long-standing convention:
+   *  enrollment counts reflect prior-day totals, so the fair comparison is what
+   *  the plan expected by the end of that prior day. Kept as its own field so
+   *  Wharton and Columbia can't drift onto two different definitions. */
+  goalYesterday: number | null;
 }
 
 function dayMsOf(raw: string | undefined): number | null {
@@ -605,6 +622,8 @@ export async function readDeadlineTable(
   sheetId: string,
   tab: string,
   cohortLabel: string,
+  /** Render the table as of this day instead of today (see resolveAsOf). */
+  asOf: Date = nowET(),
 ): Promise<TodayCard | null> {
   try {
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
@@ -637,7 +656,7 @@ export async function readDeadlineTable(
     const dataRows = rows.slice(hIdx + 1).filter(r => dayMsOf(r[0]) !== null);
 
     // Business day boundary is midnight ET, not server-local (UTC on Vercel)
-    const todayMs = nowET().setHours(0, 0, 0, 0);
+    const todayMs = new Date(asOf).setHours(0, 0, 0, 0);
     const yesterdayMs = todayMs - 86400000;
     const rowAt = (ms: number) => dataRows.find(r => dayMsOf(r[0]) === ms) ?? null;
 
@@ -674,6 +693,7 @@ export async function readDeadlineTable(
       updatedThrough,
       daysRemaining: cDay >= 0 ? N(todayRow?.[cDay]) : null,
       goalToDate,
+      goalYesterday: cCumGoal >= 0 ? N(yRow?.[cCumGoal]) : null,
     };
   } catch {
     return null;
@@ -760,7 +780,7 @@ const V2 = {
 
 export async function getPacingDataV2(
   sheetId: string,
-  opts: { goalsTab?: string; cohortLabels?: string[] } = {},
+  opts: { goalsTab?: string; cohortLabels?: string[]; asOf?: Date } = {},
 ): Promise<{
   summary: CohortSummary[];
   pacing: PacingDataPoint[];
@@ -792,7 +812,7 @@ export async function getPacingDataV2(
   // re-set target because the per-day plan has to be rebuilt by hand.
   const deadlineRow = dataRows.find(r => N(r[V2.daysBeforeDeadline]) === 0);
   const goalPlanTotal = N(deadlineRow?.[V2.goalCumulative]);
-  const activeWharton = getActiveCohort('wharton');
+  const activeWharton = getActiveCohort('wharton', opts.asOf ?? nowET());
   const goalLabels = opts.cohortLabels
     ?? (activeWharton ? [activeWharton.termLabel, activeWharton.label] : ["Fall '26", 'Fall 2026']);
   const docGoal = await readDocGoal(sheetId, opts.goalsTab ?? 'Overall Goals', goalLabels);
@@ -808,7 +828,7 @@ export async function getPacingDataV2(
   // at 8pm ET, which advanced todayRow a day early every evening. nowET() carries
   // the ET wall clock in local fields, so setHours(0,0,0,0) lands on the same ms
   // basis as the row dates parsed by new Date("M/D/YYYY").
-  const todayMs = nowET().setHours(0, 0, 0, 0);
+  const todayMs = new Date(opts.asOf ?? nowET()).setHours(0, 0, 0, 0);
   const todayRow = dataRows.reduce<string[] | null>((best, r) => {
     const raw = r[V2.date];
     if (!raw) return best;
@@ -1044,6 +1064,10 @@ export async function getPacingDataCurrent(
     whartonCohortLabels?: string[];
     summarySheetId?: string;
     cbseeDoc?: CbseeDocSource;
+    /** Render every source as of this day instead of today. */
+    asOf?: Date;
+    /** The same day expressed as days-out per program, for the date-less AN Summary. */
+    asOfDay?: { wharton?: number; cbsee?: number };
   } = {},
 ): Promise<{
   summary: CohortSummary[];
@@ -1056,10 +1080,10 @@ export async function getPacingDataCurrent(
   const summarySheetId = opts.summarySheetId ?? process.env.GOOGLE_PACING_SHEET_ID;
 
   const [wharton, summary, cbseeToday, cbseeGoal] = await Promise.all([
-    getPacingDataV2(whartonDocId, { goalsTab: opts.whartonGoalsTab, cohortLabels: opts.whartonCohortLabels }),
+    getPacingDataV2(whartonDocId, { goalsTab: opts.whartonGoalsTab, cohortLabels: opts.whartonCohortLabels, asOf: opts.asOf }),
     // CBSEE curves are a bonus — a failure here must not take Wharton down with it.
-    summarySheetId ? getPacingData(summarySheetId).catch(() => null) : Promise.resolve(null),
-    opts.cbseeDoc ? readDeadlineTable(opts.cbseeDoc.sheetId, opts.cbseeDoc.deadlineTab, 'CBSEE') : Promise.resolve(null),
+    summarySheetId ? getPacingData(summarySheetId, { asOfDay: opts.asOfDay }).catch(() => null) : Promise.resolve(null),
+    opts.cbseeDoc ? readDeadlineTable(opts.cbseeDoc.sheetId, opts.cbseeDoc.deadlineTab, 'CBSEE', opts.asOf) : Promise.resolve(null),
     opts.cbseeDoc ? readDocGoal(opts.cbseeDoc.sheetId, opts.cbseeDoc.goalsTab, opts.cbseeDoc.goalLabels) : Promise.resolve(null),
   ]);
 
@@ -1075,7 +1099,7 @@ export async function getPacingDataCurrent(
   // comparison panel keeps its own basis — the AN Summary row the CBSEE actuals
   // were read at, one day back because enrollment counts are prior-day totals.
   const daysRemaining = cbseeToday?.daysRemaining ?? cSummary.daysRemaining;
-  const goalPace = cbseeToday?.goalToDate ?? cSummary.forecast;
+  const goalPace = cbseeToday?.goalYesterday ?? cbseeToday?.goalToDate ?? cSummary.forecast;
   const pct = goal > 0 ? (enrolled / goal * 100).toFixed(1) : '0.0';
   const vsPace = enrolled - goalPace;
 

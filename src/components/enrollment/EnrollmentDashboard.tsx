@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import AsOfPicker from '@/components/AsOfPicker';
 import type { CohortSummary, PacingDataPoint, ComparisonPanel } from '@/lib/sheets';
 import TabNav, { type Tab } from './TabNav';
 import ExecutiveSummary from './ExecutiveSummary';
@@ -20,6 +22,10 @@ interface Props {
   activeCohort: string;
   /** Selector options, derived from the cohort calendar by the server. */
   cohortOptions?: Array<{ id: string; label: string }>;
+  /** Day currently rendered (YYYY-MM-DD) and today's date, for the As-of control. */
+  asOfDate: string;
+  asOfIsToday: boolean;
+  today: string;
   mock: boolean;
 }
 
@@ -28,8 +34,13 @@ const FALLBACK_OPTIONS = [
   { id: 'previous', label: 'Previous' },
 ];
 
-export default function EnrollmentDashboard({ summary, pacing, comparison, programs, activeCohort, cohortOptions, mock }: Props) {
+export default function EnrollmentDashboard({ summary, pacing, comparison, programs, activeCohort, cohortOptions, asOfDate, asOfIsToday, today, mock }: Props) {
   const options = cohortOptions?.length ? cohortOptions : FALLBACK_OPTIONS;
+  const router = useRouter();
+  // The page is server-rendered per request, so changing the date is a navigation
+  // — that keeps the URL shareable and the data fetch on the server.
+  const setAsOf = (ymd: string) =>
+    router.push(`?cohort=${activeCohort}${ymd === today ? '' : `&asOf=${ymd}`}`);
   const hasCBSEE = programs.includes('cbsee');
 
   // Reset to Executive Summary if the active tab is CBSEE-only and this cohort lacks CBSEE
@@ -39,7 +50,8 @@ export default function EnrollmentDashboard({ summary, pacing, comparison, progr
       ? 'Executive Summary'
       : activeTab;
 
-  const now = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const [y, m, d] = asOfDate.split('-').map(Number);
+  const now = new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
     <div className="w-full">
@@ -50,17 +62,19 @@ export default function EnrollmentDashboard({ summary, pacing, comparison, progr
             <h1 className="text-xl font-bold text-white">WSP Enrollment Dashboard</h1>
           </div>
           <p className="text-sm text-gray-400">
-            {hasCBSEE ? 'Wharton Online & CBSEE' : 'Wharton Online'} · Updated {now}
+            {hasCBSEE ? 'Wharton Online & CBSEE' : 'Wharton Online'} · {asOfIsToday ? 'Updated' : 'As of'} {now}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <AsOfPicker value={asOfDate} max={today} onChange={setAsOf} />
+
           {/* Cohort selector */}
           <div className="flex items-center bg-white/5 border border-white/10 rounded-lg p-0.5 gap-0.5">
             {options.map(opt => (
               <Link
                 key={opt.id}
-                href={`?cohort=${opt.id}`}
+                href={`?cohort=${opt.id}${asOfIsToday ? '' : `&asOf=${asOfDate}`}`}
                 className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                   activeCohort === opt.id
                     ? 'bg-white/15 text-white'

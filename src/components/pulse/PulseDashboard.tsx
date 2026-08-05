@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AsOfPicker from '@/components/AsOfPicker';
 import Link from 'next/link';
 import { PULSE as DEMO } from '@/data/proforma';
 
@@ -33,6 +34,8 @@ interface PulseFamilyLive {
 }
 interface PulseLive {
   asOf: string;
+  asOfDate: string;
+  isToday: boolean;
   families: PulseFamilyLive[];
   freshness: Array<{ source: string; updatedThrough: string; cadence: string; lagging: boolean }>;
 }
@@ -222,25 +225,48 @@ function FamilyRow({ f }: { f: PulseFamilyLive }) {
   );
 }
 
+// The API echoes back the day it rendered; when that IS today, it's also the max
+// selectable date. When rewound, today is whatever the browser says it is — the
+// server clamps anything later anyway, so a stale clock can't fabricate data.
+function todayFrom(data: PulseLive): string {
+  if (data.isToday) return data.asOfDate;
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+}
+
 export default function PulseDashboard() {
   const [data, setData] = useState<PulseLive | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deadlineMode, setDeadlineMode] = useState(false);
+  // Read straight from the URL so a shared "?asOf=" link loads rewound. Only the
+  // fetch depends on it — no markup does — so the SSR/client difference is inert.
+  const [asOf, setAsOf] = useState<string>(() =>
+    typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('asOf') ?? ''
+  );
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/pulse')
+    fetch(`/api/pulse${asOf ? `?asOf=${asOf}` : ''}`)
       .then(r => r.json())
       .then(json => {
         if (cancelled) return;
         if (json.error) setError(json.error);
-        else setData(json);
+        else { setData(json); setError(null); }
         setLoading(false);
       })
       .catch(e => { if (!cancelled) { setError(String(e)); setLoading(false); } });
     return () => { cancelled = true; };
-  }, []);
+  }, [asOf]);
+
+  // Keep the URL in step so a rewound view can be shared or reloaded.
+  const changeAsOf = (ymd: string) => {
+    const isToday = !!data && ymd === todayFrom(data);
+    setLoading(true);
+    setAsOf(isToday ? '' : ymd);
+    const url = isToday ? window.location.pathname : `${window.location.pathname}?asOf=${ymd}`;
+    window.history.replaceState(null, '', url);
+  };
 
   const combinedEnrolls = data ? data.families.reduce((s, f) => s + (f.cohort.wired ? f.cohort.enrolls : 0), 0) : 0;
   const combinedForecast = data ? data.families.reduce((s, f) => s + (f.cohort.wired ? f.cohort.forecastToDate : 0), 0) : 0;
@@ -259,8 +285,15 @@ export default function PulseDashboard() {
           </div>
           <p className="text-sm text-gray-400">
             Active cohorts (calendar-resolved) · All B2C · {data ? `As of ${data.asOf}` : 'Loading…'}
+            {data && !data.isToday && (
+              <span className="ml-2 text-amber-300">· rewound view, not today</span>
+            )}
           </p>
         </div>
+
+        {data && (
+          <AsOfPicker value={data.asOfDate} max={todayFrom(data)} onChange={changeAsOf} />
+        )}
         <button
           onClick={() => setDeadlineMode(d => !d)}
           className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${

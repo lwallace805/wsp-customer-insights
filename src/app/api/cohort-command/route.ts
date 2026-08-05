@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCohortCommandLive } from '@/lib/pulseLive';
+import { resolveAsOf } from '@/lib/cohortCalendar';
 
 export async function GET(req: NextRequest) {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
   const family = req.nextUrl.searchParams.get('family') === 'columbia' ? 'columbia' : 'wharton';
 
   try {
-    const data = await getCohortCommandLive(family);
+    const data = await getCohortCommandLive(family, resolveAsOf(req.nextUrl.searchParams.get('asOf')));
     return NextResponse.json({ live: data }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     console.error('Cohort command live error:', err);

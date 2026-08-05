@@ -54,6 +54,51 @@ export function nowET(): Date {
   return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 }
 
+// ─── "As of" date ─────────────────────────────────────────────────────────────
+// Every surface can be rewound to an earlier business day ("show me where pacing
+// stood on Monday"). The date is carried as a YYYY-MM-DD string in the `asOf`
+// query param and resolved here, once, so Pulse and the enrollment dashboard
+// can't disagree about which day they're rendering.
+
+/** Today in ET as YYYY-MM-DD. */
+export function todayET(): string {
+  const d = nowET();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export interface AsOf {
+  /** Local-midnight Date for the requested day. */
+  date: Date;
+  /** YYYY-MM-DD, suitable for a date input's value. */
+  ymd: string;
+  /** False when the user has rewound to an earlier day. */
+  isToday: boolean;
+}
+
+/** Resolve an `asOf` query param. Falls back to today (ET) when absent or
+ *  unparseable, and clamps future dates to today — there is no data past the
+ *  last keyed day, and a future date would silently render as "today" anyway. */
+export function resolveAsOf(param?: string | null): AsOf {
+  const today = todayET();
+  let ymd = today;
+  if (param && /^\d{4}-\d{2}-\d{2}$/.test(param)) {
+    const [y, m, d] = param.split('-').map(Number);
+    const parsed = new Date(y, m - 1, d);
+    // Reject impossible dates ("2026-02-31" rolls over to March).
+    const valid = parsed.getFullYear() === y && parsed.getMonth() === m - 1 && parsed.getDate() === d;
+    if (valid && param <= today) ymd = param;
+  }
+  const [y, m, d] = ymd.split('-').map(Number);
+  return { date: new Date(y, m - 1, d), ymd, isToday: ymd === today };
+}
+
+/** Days remaining to a cohort's final (extended) deadline as of `date` —
+ *  the AN Summary's day index, which counts down to that same deadline. */
+export function daysOutAt(w: CohortWindow, date: Date): number {
+  const d = new Date(date).setHours(0, 0, 0, 0);
+  return Math.round((toMs(w.extEnds) - d) / 86400000);
+}
+
 /** The cohort whose [opens, extEnds] window contains `date`. Windows tile
  *  exactly (each opens the day after the previous extEnds), so this is
  *  unambiguous. Returns null outside the transcribed range. */

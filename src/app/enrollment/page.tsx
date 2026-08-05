@@ -2,6 +2,7 @@ import EnrollmentDashboard from '@/components/enrollment/EnrollmentDashboard';
 import type { CohortSummary, PacingDataPoint, ComparisonPanel } from '@/lib/sheets';
 import { isDemo } from '@/lib/demo/flag';
 import { getEnrollmentView, parseView, viewLabels, type EnrollmentView } from '@/lib/enrollmentView';
+import { resolveAsOf, todayET, type AsOf } from '@/lib/cohortCalendar';
 
 // Always fetch live data from Google Sheets — never use the static build cache
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ const EMPTY_PANEL: ComparisonPanel = {
   basis: 'same-day-out',
 };
 
-async function getData(view: EnrollmentView): Promise<PageData> {
+async function getData(view: EnrollmentView, asOf: AsOf): Promise<PageData> {
   if (isDemo()) {
     const { getPacingData } = await import('@/lib/sheets');
     const { summary, pacing, comparison, programs } = await getPacingData();
@@ -41,7 +42,7 @@ async function getData(view: EnrollmentView): Promise<PageData> {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) return empty(true);
 
   try {
-    const { summary, pacing, comparison, programs } = await getEnrollmentView(view);
+    const { summary, pacing, comparison, programs } = await getEnrollmentView(view, asOf);
     return { summary, pacing, comparison, programs, mock: false };
   } catch (err) {
     console.error('Enrollment data error:', err);
@@ -52,11 +53,12 @@ async function getData(view: EnrollmentView): Promise<PageData> {
 export default async function EnrollmentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cohort?: string }>;
+  searchParams: Promise<{ cohort?: string; asOf?: string }>;
 }) {
-  const { cohort } = await searchParams;
+  const { cohort, asOf: asOfParam } = await searchParams;
   const view = parseView(cohort);
-  const data = await getData(view);
+  const asOf = resolveAsOf(asOfParam);
+  const data = await getData(view, asOf);
   return (
     <EnrollmentDashboard
       summary={data.summary}
@@ -64,7 +66,10 @@ export default async function EnrollmentPage({
       comparison={data.comparison}
       programs={data.programs}
       activeCohort={view}
-      cohortOptions={viewLabels()}
+      cohortOptions={viewLabels(asOf.date)}
+      asOfDate={asOf.ymd}
+      asOfIsToday={asOf.isToday}
+      today={todayET()}
       mock={data.mock}
     />
   );

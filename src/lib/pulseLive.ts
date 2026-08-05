@@ -25,8 +25,10 @@ import {
   getCohortWeek,
   endgameLabel,
   getPhase,
-  nowET,
+  resolveAsOf,
+  daysOutAt,
   type CohortWindow,
+  type AsOf,
 } from '@/lib/cohortCalendar';
 import { COHORT_SHEETS } from '@/lib/cohortSheets';
 
@@ -110,7 +112,22 @@ export interface LeadsLive {
   updatedThrough: string | null;
 }
 
-async function readWoWLeads(sheetId: string, cohortLabel: string): Promise<LeadsLive | null> {
+/** Week N of a cohort starts N-1 weeks after enrollment opened. Deriving the
+ *  start this way avoids parsing the sheet's year-less "7/28-8/3" ranges, and
+ *  it matches them exactly (Wharton wk 7 = opens Jun 16 + 42d = Jul 28). */
+function weekStartMs(opens: string, week: number): number {
+  const [y, m, d] = opens.split('-').map(Number);
+  return new Date(y, m - 1, d).getTime() + (week - 1) * 7 * 86400000;
+}
+
+async function readWoWLeads(
+  sheetId: string,
+  cohortLabel: string,
+  /** When rewinding, weeks starting after this day are dropped and the cohort
+   *  totals are recomputed from the weeks that remain — otherwise a past-dated
+   *  view would show enrollments as of that day beside leads through today. */
+  rewind?: { asOf: Date; opens: string },
+): Promise<LeadsLive | null> {
   try {
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
     const res = await sheets.spreadsheets.values.get({
@@ -214,14 +231,46 @@ async function readWoWLeads(sheetId: string, cohortLabel: string): Promise<Leads
     }
     if (weeks.length === 0) return null;
 
-    const lastWithData = [...weeks].reverse().find(w => w.leads > 0);
+    // Rewound: drop future weeks and rebuild the cohort totals from what's left.
+    // The sheet's Total row is a whole-cohort figure, so it can't be reused here.
+    let outWeeks = weeks;
+    if (rewind) {
+      // Only weeks that had FULLY closed by the as-of day. A week merely having
+      // started still spans days after it (wk 7 = 7/28-8/3 on a Jul 28 view), and
+      // counting those leaks exactly the future data the rewind exists to hide.
+      // Leads therefore rewind to the last complete week while enrollments rewind
+      // to the day — that's the grain of each source, and the card names the week.
+      const cutoff = new Date(rewind.asOf).setHours(0, 0, 0, 0);
+      outWeeks = weeks.filter(w => weekStartMs(rewind.opens, w.week) + 6 * 86400000 <= cutoff);
+      const sum = (fn: (w: LeadsWeekLive) => number | null) =>
+        outWeeks.reduce((s, w) => s + (fn(w) ?? 0), 0);
+      cohortLeads = sum(w => w.leads);
+      cohortLeadsForecast = sum(w => w.leadsForecast);
+      const enrolls = sum(w => w.enrolls);
+      if (totals) {
+        // ROAS needs revenue, which isn't in the weekly grain — null rather than
+        // carry today's whole-cohort figure onto a past-dated view.
+        totals = {
+          ...totals,
+          leads: cohortLeads,
+          leadsF: cohortLeadsForecast,
+          enrolls,
+          enrollsF: sum(w => w.enrollForecast),
+          spend: null, spendF: null, cpl: null, cplF: null, cpe: null, cpeF: null, roas: null,
+          cvr: cohortLeads > 0 ? +(enrolls / cohortLeads * 100).toFixed(2) : null,
+          cvrF: null,
+        };
+      }
+    }
+
+    const lastWithData = [...outWeeks].reverse().find(w => w.leads > 0);
     return {
       cohortLabel,
-      weeks,
+      weeks: outWeeks,
       cohortLeads,
       cohortLeadsForecast,
       totals,
-      programs,
+      programs: rewind ? [] : programs,
       updatedThrough: lastWithData?.dateRange ?? null,
     };
   } catch {
@@ -252,21 +301,27 @@ export interface PulseFamilyLive {
 }
 
 export interface PulseLive {
+  /** Human-readable rendering date, e.g. "August 4, 2026". */
   asOf: string;
+  /** The same date as YYYY-MM-DD, for the date picker's value. */
+  asOfDate: string;
+  /** False when the view has been rewound to an earlier day. */
+  isToday: boolean;
   families: PulseFamilyLive[];
   freshness: Array<{ source: string; updatedThrough: string; cadence: string; lagging: boolean }>;
 }
 
-export async function getPulseLive(): Promise<PulseLive> {
-  const now = nowET();
+export async function getPulseLive(asOfInput?: AsOf): Promise<PulseLive> {
+  const at = asOfInput ?? resolveAsOf(null);
+  const now = at.date;
   const asOf = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const wWindow = getActiveCohort('wharton', now);
   const cWindow = getActiveCohort('columbia', now);
 
   const [wharton, columbia, teamPulled] = await Promise.all([
-    buildWharton(wWindow, now),
-    buildColumbia(cWindow, now),
+    buildWharton(wWindow, now, at.isToday),
+    buildColumbia(cWindow, now, at.isToday),
     import('@/lib/enrollmentTeam').then(m => m.getTeamDataPulledDate()).catch(() => null),
   ]);
 
@@ -297,10 +352,10 @@ export async function getPulseLive(): Promise<PulseLive> {
     },
   ];
 
-  return { asOf, families: [wharton, columbia], freshness };
+  return { asOf, asOfDate: at.ymd, isToday: at.isToday, families: [wharton, columbia], freshness };
 }
 
-async function buildWharton(w: CohortWindow | null, now: Date): Promise<PulseFamilyLive> {
+async function buildWharton(w: CohortWindow | null, now: Date, isToday: boolean): Promise<PulseFamilyLive> {
   const label = w ? `Wharton ${w.label}` : 'Wharton';
   const wiring = w ? COHORT_SHEETS[w.key] : undefined;
   const sheetId = wiring?.sheetId();
@@ -315,10 +370,10 @@ async function buildWharton(w: CohortWindow | null, now: Date): Promise<PulseFam
   }
 
   const [{ summary }, today, leads] = await Promise.all([
-    getPacingDataV2(sheetId, { goalsTab: wiring.goalsTab, cohortLabels: [w.termLabel, w.label] })
+    getPacingDataV2(sheetId, { goalsTab: wiring.goalsTab, cohortLabels: [w.termLabel, w.label], asOf: now })
       .catch(() => ({ summary: [] as CohortSummary[] })),
-    readDeadlineTable(sheetId, wiring.deadlineTab, label),
-    readWoWLeads(sheetId, label),
+    readDeadlineTable(sheetId, wiring.deadlineTab, label, now),
+    readWoWLeads(sheetId, label, isToday ? undefined : { asOf: now, opens: w.opens }),
   ]);
   const s = summary[0];
 
@@ -343,7 +398,7 @@ async function buildWharton(w: CohortWindow | null, now: Date): Promise<PulseFam
   };
 }
 
-async function buildColumbia(c: CohortWindow | null, now: Date): Promise<PulseFamilyLive> {
+async function buildColumbia(c: CohortWindow | null, now: Date, isToday: boolean): Promise<PulseFamilyLive> {
   const label = c ? `CBS ${c.label}` : 'CBS';
   const wiring = c ? COHORT_SHEETS[c.key] : undefined;
   const sheetId = wiring?.sheetId();
@@ -354,9 +409,9 @@ async function buildColumbia(c: CohortWindow | null, now: Date): Promise<PulseFa
   // source for the day-by-day historical comparison curves elsewhere).
   const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
   const [pacing, today, leads, docGoal] = await Promise.all([
-    getPacingData(pacingSheetId).catch(() => null),
-    sheetId ? readDeadlineTable(sheetId, wiring!.deadlineTab, label) : Promise.resolve(null),
-    sheetId ? readWoWLeads(sheetId, label) : Promise.resolve(null),
+    getPacingData(pacingSheetId, { asOfDay: { cbsee: c ? Math.max(0, daysOutAt(c, now)) : undefined } }).catch(() => null),
+    sheetId ? readDeadlineTable(sheetId, wiring!.deadlineTab, label, now) : Promise.resolve(null),
+    sheetId && c ? readWoWLeads(sheetId, label, isToday ? undefined : { asOf: now, opens: c.opens }) : Promise.resolve(null),
     sheetId && wiring && c
       ? readDocGoal(sheetId, wiring.goalsTab, [c.termLabel, c.label])
       : Promise.resolve(null),
@@ -376,7 +431,7 @@ async function buildColumbia(c: CohortWindow | null, now: Date): Promise<PulseFa
       enrolls: today?.cohortToDate ?? s?.enrolled ?? 0,
       goal: docGoal?.goal ?? s?.goal ?? 0,
       goalSource: docGoal?.source ?? 'No cohort-doc goals tab wired — built-in CBSEE goal map',
-      forecastToDate: today?.goalToDate ?? s?.forecast ?? 0,
+      forecastToDate: today?.goalYesterday ?? today?.goalToDate ?? s?.forecast ?? 0,
       daysRemaining: today?.daysRemaining ?? s?.daysRemaining ?? 0,
       wired: !!today?.cohortToDate || !!s,
     },
@@ -420,8 +475,9 @@ export interface CommandLive {
   historyBasis: 'finals' | 'same-day-out';
 }
 
-export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Promise<CommandLive | null> {
-  const now = nowET();
+export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfInput?: AsOf): Promise<CommandLive | null> {
+  const asOfRes = asOfInput ?? resolveAsOf(null);
+  const now = asOfRes.date;
   const win = getActiveCohort(family, now);
   const wiring = win ? COHORT_SHEETS[win.key] : undefined;
   const sheetId = wiring?.sheetId();
@@ -429,9 +485,9 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
   if (family === 'wharton') {
     if (!sheetId || !wiring) return null;
     const [pacing, today, leads] = await Promise.all([
-      getPacingDataV2(sheetId, { goalsTab: wiring.goalsTab, cohortLabels: [win!.termLabel, win!.label] }).catch(() => null),
-      readDeadlineTable(sheetId, wiring.deadlineTab, win!.label),
-      readWoWLeads(sheetId, win!.label),
+      getPacingDataV2(sheetId, { goalsTab: wiring.goalsTab, cohortLabels: [win!.termLabel, win!.label], asOf: now }).catch(() => null),
+      readDeadlineTable(sheetId, wiring.deadlineTab, win!.label, now),
+      readWoWLeads(sheetId, win!.label, asOfRes.isToday ? undefined : { asOf: now, opens: win!.opens }),
     ]);
     const s = pacing?.summary[0];
     if (!s) return null;
@@ -460,9 +516,9 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
   // Columbia: enrollment summary from the pacing sheet; WoW + daily from the doc
   const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
   const [pacing, today, leads, docGoal] = await Promise.all([
-    getPacingData(pacingSheetId).catch(() => null),
-    sheetId && wiring ? readDeadlineTable(sheetId, wiring.deadlineTab, win?.label ?? 'CBS') : Promise.resolve(null),
-    sheetId ? readWoWLeads(sheetId, win?.label ?? 'CBS') : Promise.resolve(null),
+    getPacingData(pacingSheetId, { asOfDay: { cbsee: win ? Math.max(0, daysOutAt(win, now)) : undefined } }).catch(() => null),
+    sheetId && wiring ? readDeadlineTable(sheetId, wiring.deadlineTab, win?.label ?? 'CBS', now) : Promise.resolve(null),
+    sheetId && win ? readWoWLeads(sheetId, win.label, asOfRes.isToday ? undefined : { asOf: now, opens: win.opens }) : Promise.resolve(null),
     sheetId && wiring && win
       ? readDocGoal(sheetId, wiring.goalsTab, [win.termLabel, win.label])
       : Promise.resolve(null),
@@ -487,7 +543,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia'): Prom
     label: win.label,
     enrolls,
     goal,
-    forecastToDate: today?.goalToDate ?? s?.forecast ?? 0,
+    forecastToDate: today?.goalYesterday ?? today?.goalToDate ?? s?.forecast ?? 0,
     daysRemaining: today?.daysRemaining ?? s?.daysRemaining ?? 0,
     totals: leads?.totals ?? null,
     leadsDetail: leads,
