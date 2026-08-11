@@ -101,6 +101,81 @@ export async function readDocGoal(sheetId: string, tab: string, labels: string[]
   }
 }
 
+// ─── Per-program goals from the same goals tab ────────────────────────────────
+// Below the cohort's headline goal, both docs carry a program-level breakdown —
+// but NOT at the same columns. Wharton's table is
+//   Program | % of Enrollments | Goal Enrollments | CVR | Goal Leads
+// and CBS drops the percentage column
+//   Program | Goal Enrollments | CVR | Goal Leads
+// so columns are resolved by header name, never by index.
+//
+// The goals tab lays several planning models side by side ("Past Cohort Model",
+// "3 Cohort CVR Avg. Model", ...). They agree on Goal Enrollments and differ only
+// on CVR / Goal Leads, so reading the leftmost block (cols A–F) is unambiguous for
+// enrollments and pins lead goals to the Past Cohort Model.
+
+export interface ProgramGoal {
+  program: string;
+  goalEnrollments: number | null;
+  goalLeads: number | null;
+  /** Planned lead→enroll CVR, as a percent. */
+  goalCvr: number | null;
+}
+
+export interface ProgramGoals {
+  rows: ProgramGoal[];
+  /** The sheet's own Total row, so callers can check the parts still sum to it. */
+  total: number | null;
+  source: string;
+}
+
+/** Per-program targets for the active cohort. Returns null on any miss (tab
+ *  absent, no "Program" header, non-numeric) so callers fall back rather than
+ *  render a partial breakdown. */
+export async function readProgramGoals(sheetId: string, tab: string): Promise<ProgramGoals | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:F40`,
+    });
+    const rows = res.data.values ?? [];
+    const hIdx = rows.findIndex(r => (r?.[0] ?? '').toString().trim().toLowerCase() === 'program');
+    if (hIdx < 0) return null;
+
+    const header = rows[hIdx].map(c => String(c ?? '').trim().toLowerCase());
+    const col = (...needles: string[]) =>
+      header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
+    const cEnroll = col('goal', 'enrollment');
+    const cLeads = col('goal', 'lead');
+    const cCvr = col('cvr');
+    if (cEnroll < 0) return null;
+
+    const at = (r: string[], i: number) => (i >= 0 ? N(r[i]) : null);
+    const out: ProgramGoal[] = [];
+    let total: number | null = null;
+    for (const r of rows.slice(hIdx + 1, hIdx + 12)) {
+      const label = (r?.[0] ?? '').toString().trim();
+      if (!label) break;
+      if (/^\*/.test(label)) continue;
+      // The Total row closes the block — capture it as the cross-check, don't
+      // emit it as a program.
+      if (/^total$/i.test(label)) { total = at(r, cEnroll); break; }
+      out.push({
+        program: label,
+        goalEnrollments: at(r, cEnroll),
+        goalLeads: at(r, cLeads),
+        goalCvr: at(r, cCvr),
+      });
+    }
+    if (out.length === 0) return null;
+    const n = out.length;
+    return { rows: out, total, source: `${tab}!A${hIdx + 1} (${n} program${n === 1 ? '' : 's'})` };
+  } catch {
+    return null;
+  }
+}
+
 export interface CohortSummary {
   cohort: string;
   program: string;
