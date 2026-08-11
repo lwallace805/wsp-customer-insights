@@ -300,6 +300,191 @@ export async function readChannelTable(sheetId: string, tab = 'Overall Performan
   }
 }
 
+// ─── Paid-only performance from "Paid WoW Performance & Goals" ───────────────
+// This tab is the paid-media counterpart to Overall WoW, and its figures are
+// deliberately smaller: paid leads/enrollments only (5,572 / 54 for Wharton
+// Fall '26) against all-source (6,888 / 116). Four blocks matter:
+//
+//   "Overall Performance"      cols B–T   — all-paid totals by program, plus the
+//                                            CPL / CPE goals paid is held to
+//   Google | Bing | Meta | LinkedIn       — the same shape per channel; their
+//                                            "Total (All)" rows sum to the above
+//   "Paid Total Weekly"        cols CA–CO — the all-paid weekly series
+//
+// Blocks are located by their banner text and columns resolved by header name,
+// because the four channel blocks sit at different offsets and each has its own
+// slightly different column order. Weekly rows are every sixth line (indented
+// per-program sub-rows fill the gaps), so they're found by scanning for a date
+// range rather than by stride.
+
+export interface PaidWeek {
+  week: number;
+  dateRange: string;
+  spend: number | null; spendF: number | null;
+  leads: number | null; leadsF: number | null;
+  enrolls: number | null; enrollsF: number | null;
+  cpl: number | null; cpe: number | null; cvr: number | null;
+}
+
+export interface PaidRow {
+  label: string;
+  spend: number | null; spendF: number | null;
+  leads: number | null; leadsF: number | null;
+  enrolls: number | null; enrollsF: number | null;
+  cpl: number | null; cpe: number | null;
+  cplGoal: number | null; cpeGoal: number | null;
+  cvr: number | null; roas: number | null;
+}
+
+export interface PaidWoW {
+  /** "Total (All)" from the all-paid block. */
+  totals: PaidRow | null;
+  programs: PaidRow[];
+  /** Per-channel "Total (All)" rows — Google / Bing / Meta / LinkedIn / … */
+  channels: PaidRow[];
+  weeks: PaidWeek[];
+  source: string;
+}
+
+// CBS runs an "Open AI" line the Wharton doc doesn't; the list is the union.
+const PAID_CHANNELS = ['Google', 'Bing', 'Meta', 'LinkedIn', 'Open AI'];
+
+/** The block's grand-total row. Wharton labels it "Total (All)" and carries a
+ *  "Total (No RDI)" restatement beside it; CBS just says "Total". Matching both
+ *  while never matching the restatement keeps one reader over both layouts. */
+function isGrandTotal(label: string) {
+  return /^total\s*\(all\)\s*$/i.test(label) || /^total\s*$/i.test(label);
+}
+
+/** Column resolver scoped to one block, so "spend (actual)" in the Meta block
+ *  can't be satisfied by the Google block's identically-named column. */
+function blockCols(header: string[], base: number, end: number) {
+  return (...needles: string[]) => {
+    for (let i = base; i < end; i++) {
+      const h = String(header[i] ?? '').trim().toLowerCase();
+      if (h !== '' && needles.every(n => h.includes(n))) return i;
+    }
+    return -1;
+  };
+}
+
+export async function readPaidWoW(sheetId: string, tab = 'Paid WoW Performance & Goals'): Promise<PaidWoW | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:CZ220`,
+    });
+    const rows = (res.data.values ?? []) as string[][];
+    const cell = (r: number, c: number) => String(rows[r]?.[c] ?? '').trim();
+    const at = (r: string[], i: number) => (i >= 0 ? NUM(r?.[i]) : null);
+
+    const readRow = (r: string[], find: ReturnType<typeof blockCols>, label: string): PaidRow => ({
+      label,
+      spend: at(r, find('spend', 'actual')),
+      spendF: at(r, find('spend', 'forecast')),
+      leads: at(r, find('leads', 'actual')),
+      leadsF: at(r, find('leads', 'forecast')),
+      enrolls: at(r, find('enrollments', 'actual')),
+      enrollsF: at(r, find('enrollment', 'forecast')),
+      cpl: at(r, find('cpl', 'actual')),
+      cpe: at(r, find('cpe', 'actual')),
+      cplGoal: at(r, find('cpl', 'goal')),
+      cpeGoal: at(r, find('cpe', 'goal')),
+      cvr: at(r, find('cvr', 'actual')),
+      roas: at(r, find('roas', 'actual')),
+    });
+
+    // ── Per-channel blocks: banner row carrying the channel names ──
+    const banner = rows.findIndex(r =>
+      PAID_CHANNELS.filter(ch => (r ?? []).some(c => String(c ?? '').trim() === ch)).length >= 2);
+
+    // ── All-paid block: the first header row whose column B reads "Program" ──
+    // Wharton opens with a combined-paid block and puts the channels below it.
+    // CBS has no combined block at all, so its first "Program" header in column B
+    // belongs to the Google channel — reading it as all-paid would label one
+    // channel's numbers as the cohort's paid total. The banner directly above the
+    // header is what tells the two layouts apart.
+    let pHdr = rows.findIndex(r => String(r?.[1] ?? '').trim().toLowerCase() === 'program');
+    if (pHdr >= 0 && banner >= 0 && pHdr - 1 === banner) pHdr = -1;
+
+    let totals: PaidRow | null = null;
+    const programs: PaidRow[] = [];
+    if (pHdr >= 0) {
+      const pFind = blockCols(rows[pHdr], 1, 21);
+      for (let i = pHdr + 1; i < pHdr + 12 && i < rows.length; i++) {
+        const label = cell(i, 1);
+        if (!label) break;
+        if (isGrandTotal(label)) { totals = readRow(rows[i], pFind, 'Total'); continue; }
+        // "Total (No RDI)" is a restatement of the same paid spend, not a program.
+        if (/^total/i.test(label) || /^\*/.test(label)) continue;
+        programs.push(readRow(rows[i], pFind, label));
+      }
+    }
+
+    const channels: PaidRow[] = [];
+    if (banner >= 0) {
+      const spots = PAID_CHANNELS
+        .map(ch => ({ ch, col: rows[banner].findIndex(c => String(c ?? '').trim() === ch) }))
+        .filter(s => s.col >= 0)
+        .sort((a, b) => a.col - b.col);
+      spots.forEach((s, k) => {
+        const end = k + 1 < spots.length ? spots[k + 1].col : s.col + 21;
+        const hdr = banner + 1;
+        const find = blockCols(rows[hdr] ?? [], s.col, end);
+        // The block's own "Total (All)" — found by scanning its column, so an
+        // extra row inserted above it doesn't shift us onto a program row.
+        for (let i = hdr + 1; i < hdr + 12 && i < rows.length; i++) {
+          if (isGrandTotal(cell(i, s.col))) {
+            channels.push({ ...readRow(rows[i], find, s.ch) });
+            break;
+          }
+        }
+      });
+    }
+
+    // ── "Paid Total Weekly": all-paid weekly series ──
+    const weeks: PaidWeek[] = [];
+    let wCol = -1, wHdr = -1;
+    for (let r = 0; r < rows.length && wCol < 0; r++) {
+      const k = (rows[r] ?? []).findIndex(c => /paid total weekly/i.test(String(c ?? '')));
+      if (k >= 0) { wCol = k; wHdr = r + 1; }
+    }
+    if (wCol >= 0) {
+      const find = blockCols(rows[wHdr] ?? [], wCol, wCol + 20);
+      const c = {
+        spend: find('spend', 'actual'), spendF: find('spend', 'forecast'),
+        leads: find('leads', 'actual'), leadsF: find('leads', 'forecast'),
+        enrolls: find('enrollments', 'actual'), enrollsF: find('enrollment', 'forecast'),
+        cpl: find('cpl', 'actual'), cpe: find('cpe', 'actual'), cvr: find('cvr', 'actual'),
+      };
+      for (let r = wHdr + 1; r < rows.length; r++) {
+        const range = cell(r, wCol);
+        if (!/\d+\/\d+\s*-\s*\d+\/\d+/.test(range)) continue;
+        const row = rows[r];
+        weeks.push({
+          week: weeks.length + 1,   // no week-number column in this block; the
+          dateRange: range,         // rows run in order from the cohort's open
+          spend: at(row, c.spend), spendF: at(row, c.spendF),
+          leads: at(row, c.leads), leadsF: at(row, c.leadsF),
+          enrolls: at(row, c.enrolls), enrollsF: at(row, c.enrollsF),
+          cpl: at(row, c.cpl), cpe: at(row, c.cpe), cvr: at(row, c.cvr),
+        });
+      }
+    }
+
+    // Deliberately NOT synthesising a combined total by summing channels when the
+    // doc lacks one. CBS's Open AI line currently reports 57,339 enrollments
+    // against $0 spend and 0 leads, and rolling that into a headline would
+    // quietly corrupt every figure derived from it. Channels are shown as the
+    // sheet states them so a bad row stays visibly attributable to its channel.
+    if (!totals && channels.length === 0 && weeks.length === 0) return null;
+    return { totals, programs, channels, weeks, source: tab };
+  } catch {
+    return null;
+  }
+}
+
 export interface CohortSummary {
   cohort: string;
   program: string;
