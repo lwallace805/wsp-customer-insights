@@ -17,8 +17,16 @@ import {
   getPacingDataV2,
   readDocGoal,
   readDeadlineTable,
+  readProgramGoals,
+  readChannelTable,
+  readPaidWoW,
+  readCohortFinals,
   type CohortSummary,
   type TodayCard,
+  type ProgramGoals,
+  type ChannelTable,
+  type PaidWoW,
+  type CohortFinals,
 } from '@/lib/sheets';
 import {
   getActiveCohort,
@@ -471,6 +479,23 @@ export interface CommandLive {
   daysRemaining: number;
   totals: WoWTotals | null; // spend / leads / CPL / CPE / ROAS / CVR (WoW basis)
   leadsDetail: LeadsLive | null; // weekly rows + per-program totals (WoW)
+  // Per-program targets from the cohort doc's goals tab. Paired with the WoW
+  // per-program actuals in leadsDetail.programs to give the By Program view a
+  // real goal instead of a hardcoded one.
+  programGoals: ProgramGoals | null;
+  // Channel attribution from the doc's "Overall Performance Tables". Its Grand
+  // Total is keyed on its own cadence and can trail the deadline table by a day,
+  // so the UI reconciles the two rather than presenting them as one figure.
+  channels: ChannelTable | null;
+  // Paid-only performance. Its leads/enrollments are a SUBSET of the all-source
+  // figures everywhere else on the dashboard, by design — the Paid Media tab
+  // says so rather than letting the smaller numbers read as a discrepancy.
+  paid: PaidWoW | null;
+  // Closed-cohort FINALS from the summary tracker. Deliberately separate from
+  // `history`, whose closed rows are same-day-out pace values — putting final
+  // economics on a pace row would divide a whole cohort's spend by a fraction
+  // of its enrollments.
+  finals: CohortFinals[];
   keyedThrough: string | null;
   history: CommandHistoryRow[];
   // What closed-cohort history rows represent: true finals (Wharton V2 doc
@@ -487,14 +512,20 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
 
   if (family === 'wharton') {
     if (!sheetId || !wiring) return null;
-    const [pacing, today, leads] = await Promise.all([
+    const [pacing, today, leads, programGoals, channels, paid] = await Promise.all([
       getPacingDataV2(sheetId, { goalsTab: wiring.goalsTab, cohortLabels: [win!.termLabel, win!.label], asOf: now }).catch(() => null),
       readDeadlineTable(sheetId, wiring.deadlineTab, win!.label, now),
       readWoWLeads(sheetId, win!.label, asOfRes.isToday ? undefined : { asOf: now, opens: win!.opens }),
+      readProgramGoals(sheetId, wiring.goalsTab),
+      readChannelTable(sheetId),
+      readPaidWoW(sheetId),
     ]);
     const s = pacing?.summary[0];
     if (!s) return null;
     const cmp = pacing!.comparison.wharton;
+    // Which cohorts to look up isn't known until the comparison panel resolves,
+    // so this can't join the batch above.
+    const finals = await readCohortFinals(cmp.closedRows.map(r => r.label), 'wharton');
     return {
       family,
       label: win!.label,
@@ -504,6 +535,10 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
       daysRemaining: s.daysRemaining,
       totals: leads?.totals ?? null,
       leadsDetail: leads,
+      programGoals,
+      channels,
+      paid,
+      finals,
       keyedThrough: today?.updatedThrough ?? null,
       // The comparison reader says which basis its closed rows are on — early in
       // a cycle they are same-day-out pace values, not the cohorts' finals, and
@@ -518,13 +553,16 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
 
   // Columbia: enrollment summary from the pacing sheet; WoW + daily from the doc
   const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const [pacing, today, leads, docGoal] = await Promise.all([
+  const [pacing, today, leads, docGoal, programGoals, channels, paid] = await Promise.all([
     getPacingData(pacingSheetId, { asOfDay: { cbsee: win ? Math.max(0, daysOutAt(win, now)) : undefined } }).catch(() => null),
     sheetId && wiring ? readDeadlineTable(sheetId, wiring.deadlineTab, win?.label ?? 'CBS', now) : Promise.resolve(null),
     sheetId && win ? readWoWLeads(sheetId, win.label, asOfRes.isToday ? undefined : { asOf: now, opens: win.opens }) : Promise.resolve(null),
     sheetId && wiring && win
       ? readDocGoal(sheetId, wiring.goalsTab, [win.termLabel, win.label])
       : Promise.resolve(null),
+    sheetId && wiring ? readProgramGoals(sheetId, wiring.goalsTab) : Promise.resolve(null),
+    sheetId ? readChannelTable(sheetId) : Promise.resolve(null),
+    sheetId ? readPaidWoW(sheetId) : Promise.resolve(null),
   ]);
   const s = pacing?.summary.find(x => x.program === 'CBSEE');
   if (!win) return null;
@@ -540,6 +578,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
   // via historyBasis.
   const cmp = pacing?.comparison.cbsee;
   const closedRows = (cmp?.closedRows ?? []).map(r => toHistoryRow(r));
+  const finals = await readCohortFinals(closedRows.map(r => r.label), 'columbia');
 
   return {
     family,
@@ -550,6 +589,10 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
     daysRemaining: today?.daysRemaining ?? s?.daysRemaining ?? 0,
     totals: leads?.totals ?? null,
     leadsDetail: leads,
+    programGoals,
+    channels,
+    paid,
+    finals,
     keyedThrough: today?.updatedThrough ?? null,
     historyBasis: cmp?.basis ?? 'same-day-out',
     history: [

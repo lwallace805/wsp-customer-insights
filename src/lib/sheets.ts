@@ -101,6 +101,516 @@ export async function readDocGoal(sheetId: string, tab: string, labels: string[]
   }
 }
 
+// ─── Per-program goals from the same goals tab ────────────────────────────────
+// Below the cohort's headline goal, both docs carry a program-level breakdown —
+// but NOT at the same columns. Wharton's table is
+//   Program | % of Enrollments | Goal Enrollments | CVR | Goal Leads
+// and CBS drops the percentage column
+//   Program | Goal Enrollments | CVR | Goal Leads
+// so columns are resolved by header name, never by index.
+//
+// The goals tab lays several planning models side by side ("Past Cohort Model",
+// "3 Cohort CVR Avg. Model", ...). They agree on Goal Enrollments and differ only
+// on CVR / Goal Leads, so reading the leftmost block (cols A–F) is unambiguous for
+// enrollments and pins lead goals to the Past Cohort Model.
+
+export interface ProgramGoal {
+  program: string;
+  goalEnrollments: number | null;
+  goalLeads: number | null;
+  /** Planned lead→enroll CVR, as a percent. */
+  goalCvr: number | null;
+}
+
+export interface ProgramGoals {
+  rows: ProgramGoal[];
+  /** The sheet's own Total row, so callers can check the parts still sum to it. */
+  total: number | null;
+  source: string;
+}
+
+/** Per-program targets for the active cohort. Returns null on any miss (tab
+ *  absent, no "Program" header, non-numeric) so callers fall back rather than
+ *  render a partial breakdown. */
+export async function readProgramGoals(sheetId: string, tab: string): Promise<ProgramGoals | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:F40`,
+    });
+    const rows = res.data.values ?? [];
+    const hIdx = rows.findIndex(r => (r?.[0] ?? '').toString().trim().toLowerCase() === 'program');
+    if (hIdx < 0) return null;
+
+    const header = rows[hIdx].map(c => String(c ?? '').trim().toLowerCase());
+    const col = (...needles: string[]) =>
+      header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
+    const cEnroll = col('goal', 'enrollment');
+    const cLeads = col('goal', 'lead');
+    const cCvr = col('cvr');
+    if (cEnroll < 0) return null;
+
+    const at = (r: string[], i: number) => (i >= 0 ? N(r[i]) : null);
+    const out: ProgramGoal[] = [];
+    let total: number | null = null;
+    for (const r of rows.slice(hIdx + 1, hIdx + 12)) {
+      const label = (r?.[0] ?? '').toString().trim();
+      if (!label) break;
+      if (/^\*/.test(label)) continue;
+      // The Total row closes the block — capture it as the cross-check, don't
+      // emit it as a program.
+      if (/^total$/i.test(label)) { total = at(r, cEnroll); break; }
+      out.push({
+        program: label,
+        goalEnrollments: at(r, cEnroll),
+        goalLeads: at(r, cLeads),
+        goalCvr: at(r, cCvr),
+      });
+    }
+    if (out.length === 0) return null;
+    const n = out.length;
+    return { rows: out, total, source: `${tab}!A${hIdx + 1} (${n} program${n === 1 ? '' : 's'})` };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Channel attribution from "Overall Performance Tables" ───────────────────
+// Every Wharton cohort doc — active and historical — opens with the same block:
+//   Channel | Enrolls | % of Total | Leads | Leads per Enroll | Direct Spend |
+//   ROAS | Cost Per Lead | Cost Per Enrollment | Lead:Enroll
+// ending in a "Grand Total" row. Only the channels carrying direct spend have
+// spend/ROAS/CPL/CPE; the rest are enrollment+lead only, and their blanks are
+// read as null (unknown) rather than 0 (measured zero).
+//
+// ROAS is NOT comparable across rows as the sheet computes it: each cell is
+// `=(enrolls * <revenue per enrollment>) / spend`, and the constant varies —
+// the Ads row uses gross ARPU ($4,500) while the Grand Total uses the
+// net-of-university-rev-share figure ($2,700). Rather than silently mix bases we
+// pull the constant out of each formula and hand it to the UI to label. When the
+// formula shape changes the multiplier simply reads back null and the row is
+// shown without a basis rather than with a wrong one.
+
+export interface ChannelRowLive {
+  channel: string;
+  enrolls: number | null;
+  pct: number | null;      // % of total enrollments
+  leads: number | null;
+  spend: number | null;
+  roas: number | null;
+  cpl: number | null;
+  cpe: number | null;
+  cvr: number | null;      // Lead:Enroll, as a percent
+  /** Revenue-per-enrollment this row's ROAS formula used, when detectable. */
+  roasArpu: number | null;
+}
+
+export interface ChannelTable {
+  rows: ChannelRowLive[];
+  total: ChannelRowLive | null;
+  source: string;
+}
+
+/** Pull the revenue-per-enrollment constant out of `=(B3*4500)/F3`. */
+function arpuOf(formula: string | undefined): number | null {
+  const m = String(formula ?? '').match(/\*\s*(\d{3,6})\s*\)/);
+  return m ? Number(m[1]) : null;
+}
+
+/** Money-aware parse. The shared N() above deliberately leaves "$" alone, but
+ *  this block formats spend / CPL / CPE / ROAS as currency, so those cells need
+ *  the symbol stripped or every one of them reads back null. */
+function NUM(v: string | undefined | null): number | null {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  if (s === '' || s.startsWith('#')) return null;
+  const n = parseFloat(s.replace(/[$,%]/g, '').replace(/[()]/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+export async function readChannelTable(sheetId: string, tab = 'Overall Performance Tables'): Promise<ChannelTable | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const range = `'${tab}'!A1:J24`;
+    const [valRes, fmlRes] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range }),
+      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range, valueRenderOption: 'FORMULA' }),
+    ]);
+    const rows = valRes.data.values ?? [];
+    const fmls = fmlRes.data.values ?? [];
+
+    // Several docs stack a two-row summary block ("Traditional Paid Channels" /
+    // "Organic-Direct-Owned") above the real per-channel table, under an
+    // identical "Channel" header. Anchor on the Grand Total and walk back to the
+    // nearest header so we always land on the block that actually totals.
+    const isChannelHdr = (i: number) => (rows[i]?.[0] ?? '').toString().trim().toLowerCase() === 'channel';
+    const gtIdx = rows.findIndex(r => /^grand total$/i.test((r?.[0] ?? '').toString().trim()));
+    let hIdx = -1;
+    for (let i = gtIdx - 1; i >= 0; i--) if (isChannelHdr(i)) { hIdx = i; break; }
+    if (hIdx < 0) hIdx = rows.findIndex((_, i) => isChannelHdr(i));
+    if (hIdx < 0) return null;
+
+    const header = rows[hIdx].map(c => String(c ?? '').trim().toLowerCase());
+    const col = (...needles: string[]) =>
+      header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
+    const c = {
+      enrolls: col('enroll'),
+      pct: col('%'),
+      leads: header.findIndex(h => h === 'leads'),
+      spend: col('spend'),
+      roas: col('roas'),
+      cpl: col('cost per lead'),
+      cpe: col('cost per enrollment'),
+      cvr: col('lead:enroll'),
+    };
+    if (c.enrolls < 0) return null;
+
+    const at = (r: string[], i: number) => (i >= 0 ? NUM(r[i]) : null);
+    const build = (r: string[], f: string[], label: string): ChannelRowLive => ({
+      channel: label,
+      enrolls: at(r, c.enrolls),
+      pct: at(r, c.pct),
+      leads: at(r, c.leads),
+      spend: at(r, c.spend),
+      roas: at(r, c.roas),
+      cpl: at(r, c.cpl),
+      cpe: at(r, c.cpe),
+      cvr: at(r, c.cvr),
+      roasArpu: c.roas >= 0 ? arpuOf(f?.[c.roas]) : null,
+    });
+
+    const out: ChannelRowLive[] = [];
+    let total: ChannelRowLive | null = null;
+    for (let i = hIdx + 1; i < rows.length; i++) {
+      const label = (rows[i]?.[0] ?? '').toString().trim();
+      if (!label) break;
+      // "Grand Total" closes the block. The "Excl. B2B" variant that follows is a
+      // restatement of the same cohort, not another channel — stop at the first.
+      if (/^grand total/i.test(label)) {
+        if (!total) total = build(rows[i], fmls[i] ?? [], label);
+        break;
+      }
+      out.push(build(rows[i], fmls[i] ?? [], label));
+    }
+    if (out.length === 0) return null;
+    return { rows: out, total, source: `${tab}!A${hIdx + 1}` };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Paid-only performance from "Paid WoW Performance & Goals" ───────────────
+// This tab is the paid-media counterpart to Overall WoW, and its figures are
+// deliberately smaller: paid leads/enrollments only (5,572 / 54 for Wharton
+// Fall '26) against all-source (6,888 / 116). Four blocks matter:
+//
+//   "Overall Performance"      cols B–T   — all-paid totals by program, plus the
+//                                            CPL / CPE goals paid is held to
+//   Google | Bing | Meta | LinkedIn       — the same shape per channel; their
+//                                            "Total (All)" rows sum to the above
+//   "Paid Total Weekly"        cols CA–CO — the all-paid weekly series
+//
+// Blocks are located by their banner text and columns resolved by header name,
+// because the four channel blocks sit at different offsets and each has its own
+// slightly different column order. Weekly rows are every sixth line (indented
+// per-program sub-rows fill the gaps), so they're found by scanning for a date
+// range rather than by stride.
+
+export interface PaidWeek {
+  week: number;
+  dateRange: string;
+  spend: number | null; spendF: number | null;
+  leads: number | null; leadsF: number | null;
+  enrolls: number | null; enrollsF: number | null;
+  cpl: number | null; cpe: number | null; cvr: number | null;
+}
+
+export interface PaidRow {
+  label: string;
+  spend: number | null; spendF: number | null;
+  leads: number | null; leadsF: number | null;
+  enrolls: number | null; enrollsF: number | null;
+  cpl: number | null; cpe: number | null;
+  cplGoal: number | null; cpeGoal: number | null;
+  cvr: number | null; roas: number | null;
+}
+
+export interface PaidWoW {
+  /** "Total (All)" from the all-paid block. */
+  totals: PaidRow | null;
+  programs: PaidRow[];
+  /** Per-channel "Total (All)" rows — Google / Bing / Meta / LinkedIn / … */
+  channels: PaidRow[];
+  weeks: PaidWeek[];
+  source: string;
+}
+
+// CBS runs an "Open AI" line the Wharton doc doesn't; the list is the union.
+const PAID_CHANNELS = ['Google', 'Bing', 'Meta', 'LinkedIn', 'Open AI'];
+
+/** The block's grand-total row. Wharton labels it "Total (All)" and carries a
+ *  "Total (No RDI)" restatement beside it; CBS just says "Total". Matching both
+ *  while never matching the restatement keeps one reader over both layouts. */
+function isGrandTotal(label: string) {
+  return /^total\s*\(all\)\s*$/i.test(label) || /^total\s*$/i.test(label);
+}
+
+/** Column resolver scoped to one block, so "spend (actual)" in the Meta block
+ *  can't be satisfied by the Google block's identically-named column. */
+function blockCols(header: string[], base: number, end: number) {
+  return (...needles: string[]) => {
+    for (let i = base; i < end; i++) {
+      const h = String(header[i] ?? '').trim().toLowerCase();
+      if (h !== '' && needles.every(n => h.includes(n))) return i;
+    }
+    return -1;
+  };
+}
+
+export async function readPaidWoW(sheetId: string, tab = 'Paid WoW Performance & Goals'): Promise<PaidWoW | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:CZ220`,
+    });
+    const rows = (res.data.values ?? []) as string[][];
+    const cell = (r: number, c: number) => String(rows[r]?.[c] ?? '').trim();
+    const at = (r: string[], i: number) => (i >= 0 ? NUM(r?.[i]) : null);
+
+    const readRow = (r: string[], find: ReturnType<typeof blockCols>, label: string): PaidRow => ({
+      label,
+      spend: at(r, find('spend', 'actual')),
+      spendF: at(r, find('spend', 'forecast')),
+      leads: at(r, find('leads', 'actual')),
+      leadsF: at(r, find('leads', 'forecast')),
+      enrolls: at(r, find('enrollments', 'actual')),
+      enrollsF: at(r, find('enrollment', 'forecast')),
+      cpl: at(r, find('cpl', 'actual')),
+      cpe: at(r, find('cpe', 'actual')),
+      cplGoal: at(r, find('cpl', 'goal')),
+      cpeGoal: at(r, find('cpe', 'goal')),
+      cvr: at(r, find('cvr', 'actual')),
+      roas: at(r, find('roas', 'actual')),
+    });
+
+    // ── Per-channel blocks: banner row carrying the channel names ──
+    const banner = rows.findIndex(r =>
+      PAID_CHANNELS.filter(ch => (r ?? []).some(c => String(c ?? '').trim() === ch)).length >= 2);
+
+    // ── All-paid block: the first header row whose column B reads "Program" ──
+    // Wharton opens with a combined-paid block and puts the channels below it.
+    // CBS has no combined block at all, so its first "Program" header in column B
+    // belongs to the Google channel — reading it as all-paid would label one
+    // channel's numbers as the cohort's paid total. The banner directly above the
+    // header is what tells the two layouts apart.
+    let pHdr = rows.findIndex(r => String(r?.[1] ?? '').trim().toLowerCase() === 'program');
+    if (pHdr >= 0 && banner >= 0 && pHdr - 1 === banner) pHdr = -1;
+
+    let totals: PaidRow | null = null;
+    const programs: PaidRow[] = [];
+    if (pHdr >= 0) {
+      const pFind = blockCols(rows[pHdr], 1, 21);
+      for (let i = pHdr + 1; i < pHdr + 12 && i < rows.length; i++) {
+        const label = cell(i, 1);
+        if (!label) break;
+        if (isGrandTotal(label)) { totals = readRow(rows[i], pFind, 'Total'); continue; }
+        // "Total (No RDI)" is a restatement of the same paid spend, not a program.
+        if (/^total/i.test(label) || /^\*/.test(label)) continue;
+        programs.push(readRow(rows[i], pFind, label));
+      }
+    }
+
+    const channels: PaidRow[] = [];
+    if (banner >= 0) {
+      const spots = PAID_CHANNELS
+        .map(ch => ({ ch, col: rows[banner].findIndex(c => String(c ?? '').trim() === ch) }))
+        .filter(s => s.col >= 0)
+        .sort((a, b) => a.col - b.col);
+      spots.forEach((s, k) => {
+        const end = k + 1 < spots.length ? spots[k + 1].col : s.col + 21;
+        const hdr = banner + 1;
+        const find = blockCols(rows[hdr] ?? [], s.col, end);
+        // The block's own "Total (All)" — found by scanning its column, so an
+        // extra row inserted above it doesn't shift us onto a program row.
+        for (let i = hdr + 1; i < hdr + 12 && i < rows.length; i++) {
+          if (isGrandTotal(cell(i, s.col))) {
+            channels.push({ ...readRow(rows[i], find, s.ch) });
+            break;
+          }
+        }
+      });
+    }
+
+    // ── "Paid Total Weekly": all-paid weekly series ──
+    const weeks: PaidWeek[] = [];
+    let wCol = -1, wHdr = -1;
+    for (let r = 0; r < rows.length && wCol < 0; r++) {
+      const k = (rows[r] ?? []).findIndex(c => /paid total weekly/i.test(String(c ?? '')));
+      if (k >= 0) { wCol = k; wHdr = r + 1; }
+    }
+    if (wCol >= 0) {
+      const find = blockCols(rows[wHdr] ?? [], wCol, wCol + 20);
+      const c = {
+        spend: find('spend', 'actual'), spendF: find('spend', 'forecast'),
+        leads: find('leads', 'actual'), leadsF: find('leads', 'forecast'),
+        enrolls: find('enrollments', 'actual'), enrollsF: find('enrollment', 'forecast'),
+        cpl: find('cpl', 'actual'), cpe: find('cpe', 'actual'), cvr: find('cvr', 'actual'),
+      };
+      for (let r = wHdr + 1; r < rows.length; r++) {
+        const range = cell(r, wCol);
+        if (!/\d+\/\d+\s*-\s*\d+\/\d+/.test(range)) continue;
+        const row = rows[r];
+        weeks.push({
+          week: weeks.length + 1,   // no week-number column in this block; the
+          dateRange: range,         // rows run in order from the cohort's open
+          spend: at(row, c.spend), spendF: at(row, c.spendF),
+          leads: at(row, c.leads), leadsF: at(row, c.leadsF),
+          enrolls: at(row, c.enrolls), enrollsF: at(row, c.enrollsF),
+          cpl: at(row, c.cpl), cpe: at(row, c.cpe), cvr: at(row, c.cvr),
+        });
+      }
+    }
+
+    // Deliberately NOT synthesising a combined total by summing channels when the
+    // doc lacks one. CBS's Open AI line currently reports 57,339 enrollments
+    // against $0 spend and 0 leads, and rolling that into a headline would
+    // quietly corrupt every figure derived from it. Channels are shown as the
+    // sheet states them so a bad row stays visibly attributable to its channel.
+    if (!totals && channels.length === 0 && weeks.length === 0) return null;
+    return { totals, programs, channels, weeks, source: tab };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Closed-cohort finals from the Summary Cohort Tracker ────────────────────
+// "Professional Certificates Channel Performance" carries one tab per cohort
+// back to Spring 2023 for both schools, each using the SAME block shape as a
+// live cohort doc's "Overall Performance Tables" — so the same column-by-name
+// parse works over both, including the three oldest tabs which carry an extra
+// "Pre Affiliate Adj" column that shifts everything one to the right.
+//
+// This is the source for closed-cohort economics rather than the cohorts' own
+// docs: those degrade after close (Winter '26's own doc reports 5,578 leads and
+// a 1927% email CVR against the tracker's 19,487 and 63.6%, while agreeing on
+// spend to the cent).
+//
+// IMPORTANT: these are cohort FINALS. The comparison panel elsewhere reports
+// closed cohorts at the same day-out, which is a different question and a much
+// smaller number — the two must not share a row.
+
+export const COHORT_TRACKER_DOC_ID =
+  process.env.COHORT_TRACKER_DOC_ID ?? '16Me7guESIVYQsIUsVk2y9bWYYtMu9RbBm8X-dWtpZFk';
+
+export interface CohortFinals {
+  /** The dashboard's label for the cohort, e.g. "Wharton Winter '26". */
+  label: string;
+  /** Tracker tab the numbers came from, for provenance in the UI. */
+  tab: string;
+  enrolls: number | null;
+  leads: number | null;
+  spend: number | null;
+  roas: number | null;
+  cpl: number | null;
+  cpe: number | null;
+  cvr: number | null;
+  /** Revenue per enrollment the tab's ROAS formula used ($4,500 for the older
+   *  cohorts, $4,660 from Fall '25 on) — a price change, not an error. */
+  roasArpu: number | null;
+}
+
+/** Columbia's marketing label runs one term ahead of the tracker's academic
+ *  name for the same cohort (the "Summer '26" cycle is the tracker's
+ *  "CBS Spring 2026"). Only genuine divergences belong here. */
+const TRACKER_TAB_ALIASES: Record<string, string> = {
+  "cbsee summer '26": 'CBS Spring 2026 Cohort',
+};
+
+/** Candidate tracker tab names for a dashboard cohort label. Wharton's older
+ *  cohorts predate the school prefix, so the unprefixed form is tried too. */
+function trackerTabCandidates(label: string, family: 'wharton' | 'columbia'): string[] {
+  const alias = TRACKER_TAB_ALIASES[label.trim().toLowerCase()];
+  if (alias) return [alias];
+  const m = label.match(/(winter|spring|summer|fall)\s*'?(\d{2,4})/i);
+  if (!m) return [];
+  const season = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+  const year = m[2].length === 4 ? m[2] : `20${m[2]}`;
+  return family === 'columbia'
+    ? [`CBS ${season} ${year} Cohort`]
+    : [`Wharton ${season} ${year} Cohort`, `${season} ${year} Cohort`];
+}
+
+/** Finals for the given cohort labels. Labels with no matching tab are omitted
+ *  rather than guessed at, so the UI shows a gap instead of a wrong cohort. */
+export async function readCohortFinals(
+  labels: string[],
+  family: 'wharton' | 'columbia',
+  sheetId = COHORT_TRACKER_DOC_ID,
+): Promise<CohortFinals[]> {
+  try {
+    if (labels.length === 0) return [];
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId, fields: 'sheets.properties.title' });
+    const tabs = (meta.data.sheets ?? []).map(s => s.properties?.title ?? '');
+    const lower = new Map(tabs.map(t => [t.toLowerCase(), t]));
+
+    const wanted = labels
+      .map(label => {
+        const tab = trackerTabCandidates(label, family)
+          .map(c => lower.get(c.toLowerCase()))
+          .find(Boolean);
+        return tab ? { label, tab } : null;
+      })
+      .filter((x): x is { label: string; tab: string } => x !== null);
+    if (wanted.length === 0) return [];
+
+    const ranges = wanted.map(w => `'${w.tab}'!A1:K26`);
+    const [vals, fmls] = await Promise.all([
+      sheets.spreadsheets.values.batchGet({ spreadsheetId: sheetId, ranges }),
+      sheets.spreadsheets.values.batchGet({ spreadsheetId: sheetId, ranges, valueRenderOption: 'FORMULA' }),
+    ]);
+
+    const out: CohortFinals[] = [];
+    wanted.forEach((w, i) => {
+      const rows = (vals.data.valueRanges?.[i]?.values ?? []) as string[][];
+      const fRows = (fmls.data.valueRanges?.[i]?.values ?? []) as string[][];
+      const gtIdx = rows.findIndex(r => /^grand total$/i.test((r?.[0] ?? '').toString().trim()));
+      if (gtIdx < 0) return;
+      let hIdx = -1;
+      for (let j = gtIdx - 1; j >= 0; j--) {
+        if ((rows[j]?.[0] ?? '').toString().trim().toLowerCase() === 'channel') { hIdx = j; break; }
+      }
+      if (hIdx < 0) return;
+
+      const header = rows[hIdx].map(c => String(c ?? '').trim().toLowerCase());
+      const col = (...needles: string[]) =>
+        header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
+      const gt = rows[gtIdx];
+      const at = (idx: number) => (idx >= 0 ? NUM(gt[idx]) : null);
+      const roasCol = col('roas');
+      out.push({
+        label: w.label,
+        tab: w.tab,
+        // "Enrolls" precedes "Leads per Enroll" in every layout, so the first
+        // header containing "enroll" is the count, not the ratio.
+        enrolls: at(col('enroll')),
+        leads: at(header.findIndex(h => h === 'leads')),
+        spend: at(col('spend')),
+        roas: at(roasCol),
+        cpl: at(col('cost per lead')),
+        cpe: at(col('cost per enrollment')),
+        cvr: at(col('lead:enroll')),
+        roasArpu: roasCol >= 0 ? arpuOf(fRows[gtIdx]?.[roasCol]) : null,
+      });
+    });
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 export interface CohortSummary {
   cohort: string;
   program: string;
