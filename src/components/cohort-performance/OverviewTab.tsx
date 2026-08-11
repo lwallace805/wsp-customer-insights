@@ -208,7 +208,7 @@ export default function OverviewTab({ cohort, allCohorts, live }: Props) {
               {live && live.historyBasis === 'same-day-out' && (
                 <tr>
                   <td colSpan={8} className="px-5 py-2 text-[11px] text-yellow-400/80 bg-yellow-500/5 border-b border-white/5">
-                    Closed-cohort rows show enrollment at the <b>same day-out</b> (pace comparison), not final totals — final-vs-target history wires with historical economics.
+                    Closed-cohort rows show enrollment at the <b>same day-out</b> (pace comparison), not final totals — so {live.label} is being compared to where each cohort stood at this point, not to where it ended. Whole-cohort results are in <b>How Past Cohorts Finished</b> below.
                   </td>
                 </tr>
               )}
@@ -240,7 +240,9 @@ export default function OverviewTab({ cohort, allCohorts, live }: Props) {
                         <td className="px-4 py-3 text-right text-gray-300">{t.cvr != null ? fmtPct(t.cvr) : '—'}</td>
                       </>
                     ) : (
-                      <td colSpan={4} className="px-4 py-3 text-right text-gray-600 text-xs italic">wires with historical economics</td>
+                      <td colSpan={4} className="px-4 py-3 text-right text-gray-600 text-xs italic">
+                        finals below
+                      </td>
                     )}
                   </tr>
                 );
@@ -283,6 +285,69 @@ export default function OverviewTab({ cohort, allCohorts, live }: Props) {
           </table>
         </div>
       </div>
+
+      {/* Closed-cohort finals. Kept apart from the table above because that one
+          compares cohorts at the SAME DAY-OUT while these are whole-cohort
+          results — spend ÷ a pace figure would be a meaningless CPE. */}
+      {live && live.finals.length > 0 && (
+        <div className="bg-[#161b22] border border-white/10 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-white/10">
+            <h2 className="text-sm font-semibold text-white">
+              How Past Cohorts Finished
+              <span className="text-[10px] font-mono uppercase tracking-wide px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/30 ml-2">Live</span>
+            </h2>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Whole-cohort results from the Professional Certificates Channel Performance tracker — not the
+              same-day-out pace figures above. Enrollments include B2B, matching each cohort&apos;s grand total.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Cohort</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Final Enrolls</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Leads</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">CVR</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Spend</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">CPL</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">CPE</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">ROAS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {live.finals.map((f, i) => (
+                  <tr key={f.label} className={`border-b border-white/5 ${i % 2 === 1 ? 'bg-white/[0.02]' : ''}`}>
+                    <td className="px-5 py-3 text-white font-medium">
+                      {f.label}
+                      <span className="block text-[10px] text-gray-600 font-normal">{f.tab}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-300">{f.enrolls === null ? '—' : fmt(f.enrolls)}</td>
+                    <td className="px-4 py-3 text-right text-gray-300">{f.leads === null ? '—' : fmt(f.leads)}</td>
+                    <td className="px-4 py-3 text-right text-gray-300">{f.cvr === null ? '—' : fmtPct(f.cvr)}</td>
+                    <td className="px-4 py-3 text-right text-gray-300">{f.spend === null ? '—' : fmtDollar(f.spend)}</td>
+                    <td className="px-4 py-3 text-right text-gray-300">{f.cpl === null ? '—' : `$${f.cpl.toFixed(2)}`}</td>
+                    <td className={`px-4 py-3 text-right font-medium ${f.cpe === null ? 'text-gray-500' : f.cpe < 1000 ? 'text-emerald-400' : 'text-yellow-400'}`}>
+                      {f.cpe === null ? '—' : `$${Math.round(f.cpe).toLocaleString()}`}
+                    </td>
+                    <td className={`px-4 py-3 text-right font-medium ${(f.roas ?? 0) >= 2.5 ? 'text-emerald-400' : 'text-yellow-400'}`}>
+                      {f.roas === null ? '—' : `${f.roas.toFixed(1)}x`}
+                      {f.roasArpu !== null && (
+                        <span className="block text-[10px] text-gray-500 font-normal">@ ${f.roasArpu.toLocaleString()}/enr</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="px-5 py-3 text-[11px] text-gray-500 border-t border-white/5">
+            ROAS here is on the tracker&apos;s gross-price basis, which stepped from $4,500 to $4,660 per enrollment
+            with the price change — so it is not comparable to the {live.label} ROAS above, which the cohort doc
+            computes net of the university revenue share.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -20,11 +20,13 @@ import {
   readProgramGoals,
   readChannelTable,
   readPaidWoW,
+  readCohortFinals,
   type CohortSummary,
   type TodayCard,
   type ProgramGoals,
   type ChannelTable,
   type PaidWoW,
+  type CohortFinals,
 } from '@/lib/sheets';
 import {
   getActiveCohort,
@@ -489,6 +491,11 @@ export interface CommandLive {
   // figures everywhere else on the dashboard, by design — the Paid Media tab
   // says so rather than letting the smaller numbers read as a discrepancy.
   paid: PaidWoW | null;
+  // Closed-cohort FINALS from the summary tracker. Deliberately separate from
+  // `history`, whose closed rows are same-day-out pace values — putting final
+  // economics on a pace row would divide a whole cohort's spend by a fraction
+  // of its enrollments.
+  finals: CohortFinals[];
   keyedThrough: string | null;
   history: CommandHistoryRow[];
   // What closed-cohort history rows represent: true finals (Wharton V2 doc
@@ -516,6 +523,9 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
     const s = pacing?.summary[0];
     if (!s) return null;
     const cmp = pacing!.comparison.wharton;
+    // Which cohorts to look up isn't known until the comparison panel resolves,
+    // so this can't join the batch above.
+    const finals = await readCohortFinals(cmp.closedRows.map(r => r.label), 'wharton');
     return {
       family,
       label: win!.label,
@@ -528,6 +538,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
       programGoals,
       channels,
       paid,
+      finals,
       keyedThrough: today?.updatedThrough ?? null,
       // The comparison reader says which basis its closed rows are on — early in
       // a cycle they are same-day-out pace values, not the cohorts' finals, and
@@ -567,6 +578,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
   // via historyBasis.
   const cmp = pacing?.comparison.cbsee;
   const closedRows = (cmp?.closedRows ?? []).map(r => toHistoryRow(r));
+  const finals = await readCohortFinals(closedRows.map(r => r.label), 'columbia');
 
   return {
     family,
@@ -580,6 +592,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
     programGoals,
     channels,
     paid,
+    finals,
     keyedThrough: today?.updatedThrough ?? null,
     historyBasis: cmp?.basis ?? 'same-day-out',
     history: [

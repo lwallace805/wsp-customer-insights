@@ -485,6 +485,132 @@ export async function readPaidWoW(sheetId: string, tab = 'Paid WoW Performance &
   }
 }
 
+// ─── Closed-cohort finals from the Summary Cohort Tracker ────────────────────
+// "Professional Certificates Channel Performance" carries one tab per cohort
+// back to Spring 2023 for both schools, each using the SAME block shape as a
+// live cohort doc's "Overall Performance Tables" — so the same column-by-name
+// parse works over both, including the three oldest tabs which carry an extra
+// "Pre Affiliate Adj" column that shifts everything one to the right.
+//
+// This is the source for closed-cohort economics rather than the cohorts' own
+// docs: those degrade after close (Winter '26's own doc reports 5,578 leads and
+// a 1927% email CVR against the tracker's 19,487 and 63.6%, while agreeing on
+// spend to the cent).
+//
+// IMPORTANT: these are cohort FINALS. The comparison panel elsewhere reports
+// closed cohorts at the same day-out, which is a different question and a much
+// smaller number — the two must not share a row.
+
+export const COHORT_TRACKER_DOC_ID =
+  process.env.COHORT_TRACKER_DOC_ID ?? '16Me7guESIVYQsIUsVk2y9bWYYtMu9RbBm8X-dWtpZFk';
+
+export interface CohortFinals {
+  /** The dashboard's label for the cohort, e.g. "Wharton Winter '26". */
+  label: string;
+  /** Tracker tab the numbers came from, for provenance in the UI. */
+  tab: string;
+  enrolls: number | null;
+  leads: number | null;
+  spend: number | null;
+  roas: number | null;
+  cpl: number | null;
+  cpe: number | null;
+  cvr: number | null;
+  /** Revenue per enrollment the tab's ROAS formula used ($4,500 for the older
+   *  cohorts, $4,660 from Fall '25 on) — a price change, not an error. */
+  roasArpu: number | null;
+}
+
+/** Columbia's marketing label runs one term ahead of the tracker's academic
+ *  name for the same cohort (the "Summer '26" cycle is the tracker's
+ *  "CBS Spring 2026"). Only genuine divergences belong here. */
+const TRACKER_TAB_ALIASES: Record<string, string> = {
+  "cbsee summer '26": 'CBS Spring 2026 Cohort',
+};
+
+/** Candidate tracker tab names for a dashboard cohort label. Wharton's older
+ *  cohorts predate the school prefix, so the unprefixed form is tried too. */
+function trackerTabCandidates(label: string, family: 'wharton' | 'columbia'): string[] {
+  const alias = TRACKER_TAB_ALIASES[label.trim().toLowerCase()];
+  if (alias) return [alias];
+  const m = label.match(/(winter|spring|summer|fall)\s*'?(\d{2,4})/i);
+  if (!m) return [];
+  const season = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+  const year = m[2].length === 4 ? m[2] : `20${m[2]}`;
+  return family === 'columbia'
+    ? [`CBS ${season} ${year} Cohort`]
+    : [`Wharton ${season} ${year} Cohort`, `${season} ${year} Cohort`];
+}
+
+/** Finals for the given cohort labels. Labels with no matching tab are omitted
+ *  rather than guessed at, so the UI shows a gap instead of a wrong cohort. */
+export async function readCohortFinals(
+  labels: string[],
+  family: 'wharton' | 'columbia',
+  sheetId = COHORT_TRACKER_DOC_ID,
+): Promise<CohortFinals[]> {
+  try {
+    if (labels.length === 0) return [];
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId, fields: 'sheets.properties.title' });
+    const tabs = (meta.data.sheets ?? []).map(s => s.properties?.title ?? '');
+    const lower = new Map(tabs.map(t => [t.toLowerCase(), t]));
+
+    const wanted = labels
+      .map(label => {
+        const tab = trackerTabCandidates(label, family)
+          .map(c => lower.get(c.toLowerCase()))
+          .find(Boolean);
+        return tab ? { label, tab } : null;
+      })
+      .filter((x): x is { label: string; tab: string } => x !== null);
+    if (wanted.length === 0) return [];
+
+    const ranges = wanted.map(w => `'${w.tab}'!A1:K26`);
+    const [vals, fmls] = await Promise.all([
+      sheets.spreadsheets.values.batchGet({ spreadsheetId: sheetId, ranges }),
+      sheets.spreadsheets.values.batchGet({ spreadsheetId: sheetId, ranges, valueRenderOption: 'FORMULA' }),
+    ]);
+
+    const out: CohortFinals[] = [];
+    wanted.forEach((w, i) => {
+      const rows = (vals.data.valueRanges?.[i]?.values ?? []) as string[][];
+      const fRows = (fmls.data.valueRanges?.[i]?.values ?? []) as string[][];
+      const gtIdx = rows.findIndex(r => /^grand total$/i.test((r?.[0] ?? '').toString().trim()));
+      if (gtIdx < 0) return;
+      let hIdx = -1;
+      for (let j = gtIdx - 1; j >= 0; j--) {
+        if ((rows[j]?.[0] ?? '').toString().trim().toLowerCase() === 'channel') { hIdx = j; break; }
+      }
+      if (hIdx < 0) return;
+
+      const header = rows[hIdx].map(c => String(c ?? '').trim().toLowerCase());
+      const col = (...needles: string[]) =>
+        header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
+      const gt = rows[gtIdx];
+      const at = (idx: number) => (idx >= 0 ? NUM(gt[idx]) : null);
+      const roasCol = col('roas');
+      out.push({
+        label: w.label,
+        tab: w.tab,
+        // "Enrolls" precedes "Leads per Enroll" in every layout, so the first
+        // header containing "enroll" is the count, not the ratio.
+        enrolls: at(col('enroll')),
+        leads: at(header.findIndex(h => h === 'leads')),
+        spend: at(col('spend')),
+        roas: at(roasCol),
+        cpl: at(col('cost per lead')),
+        cpe: at(col('cost per enrollment')),
+        cvr: at(col('lead:enroll')),
+        roasArpu: roasCol >= 0 ? arpuOf(fRows[gtIdx]?.[roasCol]) : null,
+      });
+    });
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 export interface CohortSummary {
   cohort: string;
   program: string;
