@@ -176,6 +176,130 @@ export async function readProgramGoals(sheetId: string, tab: string): Promise<Pr
   }
 }
 
+// ─── Channel attribution from "Overall Performance Tables" ───────────────────
+// Every Wharton cohort doc — active and historical — opens with the same block:
+//   Channel | Enrolls | % of Total | Leads | Leads per Enroll | Direct Spend |
+//   ROAS | Cost Per Lead | Cost Per Enrollment | Lead:Enroll
+// ending in a "Grand Total" row. Only the channels carrying direct spend have
+// spend/ROAS/CPL/CPE; the rest are enrollment+lead only, and their blanks are
+// read as null (unknown) rather than 0 (measured zero).
+//
+// ROAS is NOT comparable across rows as the sheet computes it: each cell is
+// `=(enrolls * <revenue per enrollment>) / spend`, and the constant varies —
+// the Ads row uses gross ARPU ($4,500) while the Grand Total uses the
+// net-of-university-rev-share figure ($2,700). Rather than silently mix bases we
+// pull the constant out of each formula and hand it to the UI to label. When the
+// formula shape changes the multiplier simply reads back null and the row is
+// shown without a basis rather than with a wrong one.
+
+export interface ChannelRowLive {
+  channel: string;
+  enrolls: number | null;
+  pct: number | null;      // % of total enrollments
+  leads: number | null;
+  spend: number | null;
+  roas: number | null;
+  cpl: number | null;
+  cpe: number | null;
+  cvr: number | null;      // Lead:Enroll, as a percent
+  /** Revenue-per-enrollment this row's ROAS formula used, when detectable. */
+  roasArpu: number | null;
+}
+
+export interface ChannelTable {
+  rows: ChannelRowLive[];
+  total: ChannelRowLive | null;
+  source: string;
+}
+
+/** Pull the revenue-per-enrollment constant out of `=(B3*4500)/F3`. */
+function arpuOf(formula: string | undefined): number | null {
+  const m = String(formula ?? '').match(/\*\s*(\d{3,6})\s*\)/);
+  return m ? Number(m[1]) : null;
+}
+
+/** Money-aware parse. The shared N() above deliberately leaves "$" alone, but
+ *  this block formats spend / CPL / CPE / ROAS as currency, so those cells need
+ *  the symbol stripped or every one of them reads back null. */
+function NUM(v: string | undefined | null): number | null {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  if (s === '' || s.startsWith('#')) return null;
+  const n = parseFloat(s.replace(/[$,%]/g, '').replace(/[()]/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+export async function readChannelTable(sheetId: string, tab = 'Overall Performance Tables'): Promise<ChannelTable | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const range = `'${tab}'!A1:J24`;
+    const [valRes, fmlRes] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range }),
+      sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range, valueRenderOption: 'FORMULA' }),
+    ]);
+    const rows = valRes.data.values ?? [];
+    const fmls = fmlRes.data.values ?? [];
+
+    // Several docs stack a two-row summary block ("Traditional Paid Channels" /
+    // "Organic-Direct-Owned") above the real per-channel table, under an
+    // identical "Channel" header. Anchor on the Grand Total and walk back to the
+    // nearest header so we always land on the block that actually totals.
+    const isChannelHdr = (i: number) => (rows[i]?.[0] ?? '').toString().trim().toLowerCase() === 'channel';
+    const gtIdx = rows.findIndex(r => /^grand total$/i.test((r?.[0] ?? '').toString().trim()));
+    let hIdx = -1;
+    for (let i = gtIdx - 1; i >= 0; i--) if (isChannelHdr(i)) { hIdx = i; break; }
+    if (hIdx < 0) hIdx = rows.findIndex((_, i) => isChannelHdr(i));
+    if (hIdx < 0) return null;
+
+    const header = rows[hIdx].map(c => String(c ?? '').trim().toLowerCase());
+    const col = (...needles: string[]) =>
+      header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
+    const c = {
+      enrolls: col('enroll'),
+      pct: col('%'),
+      leads: header.findIndex(h => h === 'leads'),
+      spend: col('spend'),
+      roas: col('roas'),
+      cpl: col('cost per lead'),
+      cpe: col('cost per enrollment'),
+      cvr: col('lead:enroll'),
+    };
+    if (c.enrolls < 0) return null;
+
+    const at = (r: string[], i: number) => (i >= 0 ? NUM(r[i]) : null);
+    const build = (r: string[], f: string[], label: string): ChannelRowLive => ({
+      channel: label,
+      enrolls: at(r, c.enrolls),
+      pct: at(r, c.pct),
+      leads: at(r, c.leads),
+      spend: at(r, c.spend),
+      roas: at(r, c.roas),
+      cpl: at(r, c.cpl),
+      cpe: at(r, c.cpe),
+      cvr: at(r, c.cvr),
+      roasArpu: c.roas >= 0 ? arpuOf(f?.[c.roas]) : null,
+    });
+
+    const out: ChannelRowLive[] = [];
+    let total: ChannelRowLive | null = null;
+    for (let i = hIdx + 1; i < rows.length; i++) {
+      const label = (rows[i]?.[0] ?? '').toString().trim();
+      if (!label) break;
+      // "Grand Total" closes the block. The "Excl. B2B" variant that follows is a
+      // restatement of the same cohort, not another channel — stop at the first.
+      if (/^grand total/i.test(label)) {
+        if (!total) total = build(rows[i], fmls[i] ?? [], label);
+        break;
+      }
+      out.push(build(rows[i], fmls[i] ?? [], label));
+    }
+    if (out.length === 0) return null;
+    return { rows: out, total, source: `${tab}!A${hIdx + 1}` };
+  } catch {
+    return null;
+  }
+}
+
 export interface CohortSummary {
   cohort: string;
   program: string;

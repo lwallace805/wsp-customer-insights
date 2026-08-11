@@ -98,7 +98,7 @@ export default function CohortDashboard({ cohorts, title, subtitle }: Props) {
       {activeTab === 'Leads'        && <LeadsTab family={cohort.family} live={cohort.status === 'active' ? live : null} />}
       {activeTab === 'Lower Funnel' && <LowerFunnelTab family={cohort.family} />}
       {activeTab === 'By Program'   && <ProgramTab cohort={cohort} live={cohort.status === 'active' ? live : null} />}
-      {activeTab === 'By Channel'   && <ChannelTab cohort={cohort} />}
+      {activeTab === 'By Channel'   && <ChannelTab cohort={cohort} live={cohort.status === 'active' ? live : null} />}
       {activeTab === 'Paid Media'   && <PaidMediaTab cohort={cohort} />}
     </div>
   );

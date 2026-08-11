@@ -18,9 +18,11 @@ import {
   readDocGoal,
   readDeadlineTable,
   readProgramGoals,
+  readChannelTable,
   type CohortSummary,
   type TodayCard,
   type ProgramGoals,
+  type ChannelTable,
 } from '@/lib/sheets';
 import {
   getActiveCohort,
@@ -477,6 +479,10 @@ export interface CommandLive {
   // per-program actuals in leadsDetail.programs to give the By Program view a
   // real goal instead of a hardcoded one.
   programGoals: ProgramGoals | null;
+  // Channel attribution from the doc's "Overall Performance Tables". Its Grand
+  // Total is keyed on its own cadence and can trail the deadline table by a day,
+  // so the UI reconciles the two rather than presenting them as one figure.
+  channels: ChannelTable | null;
   keyedThrough: string | null;
   history: CommandHistoryRow[];
   // What closed-cohort history rows represent: true finals (Wharton V2 doc
@@ -493,11 +499,12 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
 
   if (family === 'wharton') {
     if (!sheetId || !wiring) return null;
-    const [pacing, today, leads, programGoals] = await Promise.all([
+    const [pacing, today, leads, programGoals, channels] = await Promise.all([
       getPacingDataV2(sheetId, { goalsTab: wiring.goalsTab, cohortLabels: [win!.termLabel, win!.label], asOf: now }).catch(() => null),
       readDeadlineTable(sheetId, wiring.deadlineTab, win!.label, now),
       readWoWLeads(sheetId, win!.label, asOfRes.isToday ? undefined : { asOf: now, opens: win!.opens }),
       readProgramGoals(sheetId, wiring.goalsTab),
+      readChannelTable(sheetId),
     ]);
     const s = pacing?.summary[0];
     if (!s) return null;
@@ -512,6 +519,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
       totals: leads?.totals ?? null,
       leadsDetail: leads,
       programGoals,
+      channels,
       keyedThrough: today?.updatedThrough ?? null,
       // The comparison reader says which basis its closed rows are on — early in
       // a cycle they are same-day-out pace values, not the cohorts' finals, and
@@ -526,7 +534,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
 
   // Columbia: enrollment summary from the pacing sheet; WoW + daily from the doc
   const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const [pacing, today, leads, docGoal, programGoals] = await Promise.all([
+  const [pacing, today, leads, docGoal, programGoals, channels] = await Promise.all([
     getPacingData(pacingSheetId, { asOfDay: { cbsee: win ? Math.max(0, daysOutAt(win, now)) : undefined } }).catch(() => null),
     sheetId && wiring ? readDeadlineTable(sheetId, wiring.deadlineTab, win?.label ?? 'CBS', now) : Promise.resolve(null),
     sheetId && win ? readWoWLeads(sheetId, win.label, asOfRes.isToday ? undefined : { asOf: now, opens: win.opens }) : Promise.resolve(null),
@@ -534,6 +542,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
       ? readDocGoal(sheetId, wiring.goalsTab, [win.termLabel, win.label])
       : Promise.resolve(null),
     sheetId && wiring ? readProgramGoals(sheetId, wiring.goalsTab) : Promise.resolve(null),
+    sheetId ? readChannelTable(sheetId) : Promise.resolve(null),
   ]);
   const s = pacing?.summary.find(x => x.program === 'CBSEE');
   if (!win) return null;
@@ -560,6 +569,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
     totals: leads?.totals ?? null,
     leadsDetail: leads,
     programGoals,
+    channels,
     keyedThrough: today?.updatedThrough ?? null,
     historyBasis: cmp?.basis ?? 'same-day-out',
     history: [
