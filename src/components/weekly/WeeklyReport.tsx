@@ -5,9 +5,12 @@ import Link from 'next/link';
 import AsOfPicker from '@/components/AsOfPicker';
 import type { WeeklyReport, WeeklyFamily, WeeklyProgramRow } from '@/lib/weeklyReport';
 
-// The page is built to be SCREENSHOT, not browsed: everything below the header
-// sits inside one fixed-width card so a phone-sized crop of it stays legible.
-const SHOT_WIDTH = 'max-w-[760px]';
+// The page is built to be SCREENSHOT, not browsed. The card is capped rather
+// than fluid so the crop is a predictable shape week to week — a full-bleed
+// card would stretch the tables into unreadable whitespace on a wide monitor
+// and change the screenshot's proportions with the window. It still shrinks
+// freely below the cap, which is what keeps it usable on a phone.
+const SHOT_WIDTH = 'max-w-[880px]';
 
 function fmt(n: number | null | undefined) {
   return n === null || n === undefined ? '—' : n.toLocaleString();
@@ -72,44 +75,70 @@ interface ProgramCell {
   enrolls: number | null;
   enrollsPace: number | null;
   enrollDelta: number | null;
-  pctOfGoal: number | null;
+  goal: number | null;
 }
 
-function ProgramRow({ r, blendedPct, isTotal }: { r: ProgramCell; blendedPct: number; isTotal?: boolean }) {
+/** Enrollments ahead of / behind that program's OWN pace, drawn from a centre
+ *  line. Length is the ABSOLUTE gap in enrollments, not a percentage, so the
+ *  bars are directly comparable and the eye lands on whichever program is
+ *  actually moving the cohort total — a +64% AVI is only 7 enrollments, while
+ *  a −40% FP&A is 19. */
+function PaceBar({ delta, max }: { delta: number | null; max: number }) {
+  if (delta === null || max <= 0) return <div className="h-1.5" />;
+  const width = Math.min(Math.abs(delta) / max, 1) * 50;
+  const ahead = delta >= 0;
+  return (
+    <div className="relative h-1.5 w-full min-w-[70px] bg-white/5 rounded-full">
+      <div className="absolute inset-y-[-3px] left-1/2 w-px bg-white/25" />
+      <div
+        className={`absolute inset-y-0 rounded-full ${ahead ? 'bg-emerald-400' : 'bg-red-400'}`}
+        style={ahead ? { left: '50%', width: `${width}%` } : { right: '50%', width: `${width}%` }}
+      />
+    </div>
+  );
+}
+
+function ProgramRow({ r, maxDelta, isTotal }: { r: ProgramCell; maxDelta: number; isTotal?: boolean }) {
+  // Attainment against the program's own plan. This is the number the bar
+  // encodes the direction of; % of the full-cohort goal is NOT comparable
+  // across programs, because the plan expects each to sit at a different
+  // share of its goal at any given day (9%–16% for Wharton right now).
+  const attainment =
+    r.enrolls !== null && r.enrollsPace !== null && r.enrollsPace > 0
+      ? +(r.enrolls / r.enrollsPace * 100).toFixed(0)
+      : null;
+
   return (
     <tr className={isTotal ? 'border-t border-white/15' : 'border-t border-white/5'}>
-      <td className={`py-2 text-sm ${isTotal ? 'text-white font-medium' : 'text-gray-200'}`}>{r.program}</td>
-      <td className="py-2 text-sm text-right font-mono text-white">{fmt(r.enrolls)}</td>
-      <td className="py-2 text-sm text-right font-mono text-gray-500">{fmt(r.enrollsPace)}</td>
-      <td className={`py-2 text-sm text-right font-mono ${tone(r.enrollDelta)}`}>{signed(r.enrollDelta)}</td>
-      <td className="py-2 pl-4">
+      <td className={`py-2 text-xs sm:text-sm ${isTotal ? 'text-white font-medium' : 'text-gray-200'}`}>{r.program}</td>
+      <td className="py-2 text-xs sm:text-sm text-right font-mono text-white">{fmt(r.enrolls)}</td>
+      <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(r.enrollsPace)}</td>
+      <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(r.goal)}</td>
+      <td className={`py-2 text-xs sm:text-sm text-right font-mono ${tone(r.enrollDelta)}`}>{signed(r.enrollDelta)}</td>
+      <td className="py-2 pl-3 sm:pl-4">
         <div className="flex items-center gap-2 justify-end">
-          <div className="flex-1 h-1.5 bg-white/5 rounded-full min-w-[60px]">
-            <div
-              className={`h-1.5 rounded-full ${(r.enrollDelta ?? 0) >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`}
-              style={{ width: `${Math.min(((r.pctOfGoal ?? 0) / Math.max(blendedPct, 0.1)) * 50, 100)}%` }}
-            />
-          </div>
-          <span className="text-[11px] font-mono text-gray-500 w-11 text-right">{pct(r.pctOfGoal)}</span>
+          <PaceBar delta={r.enrollDelta} max={maxDelta} />
+          <span className={`text-[11px] font-mono w-9 text-right ${tone(attainment === null ? null : attainment - 100)}`}>
+            {attainment === null ? '—' : `${attainment}%`}
+          </span>
         </div>
       </td>
     </tr>
   );
 }
 
-/** Bars are scaled against the cohort's own blended % of goal so a program that
- *  is simply early in the cycle doesn't read as failing — the signal is each
- *  program's position RELATIVE to the blended pace, not its raw share of goal. */
-function ProgramTable({ rows, blendedPct }: { rows: WeeklyProgramRow[]; blendedPct: number }) {
+function ProgramTable({ rows }: { rows: WeeklyProgramRow[] }) {
   if (!rows.length) {
     return <p className="text-sm text-gray-600 italic">No per-program rows in this cohort&apos;s WoW tab.</p>;
   }
-  const sorted = [...rows].sort((a, b) => (b.enrolls ?? 0) - (a.enrolls ?? 0));
+  // Worst-first: the email's job is to put the gap at the top of the block.
+  const sorted = [...rows].sort((a, b) => (a.enrollDelta ?? 0) - (b.enrollDelta ?? 0));
   const total = {
     enrolls: sorted.reduce((s, r) => s + (r.enrolls ?? 0), 0),
     pace: sorted.reduce((s, r) => s + (r.enrollsPace ?? 0), 0),
     goal: sorted.reduce((s, r) => s + (r.goal ?? 0), 0),
   };
+  const maxDelta = Math.max(...sorted.map(r => Math.abs(r.enrollDelta ?? 0)), 1);
 
   return (
     <table className="w-full">
@@ -118,21 +147,22 @@ function ProgramTable({ rows, blendedPct }: { rows: WeeklyProgramRow[]; blendedP
           <th className="text-left font-normal pb-1.5">Program</th>
           <th className="text-right font-normal pb-1.5">Enrolled</th>
           <th className="text-right font-normal pb-1.5">Pace</th>
+          <th className="text-right font-normal pb-1.5">Goal</th>
           <th className="text-right font-normal pb-1.5">Δ</th>
-          <th className="text-right font-normal pb-1.5 pl-4">% of goal</th>
+          <th className="text-right font-normal pb-1.5 pl-3 sm:pl-4">Behind / ahead of pace</th>
         </tr>
       </thead>
       <tbody>
-        {sorted.map(r => <ProgramRow key={r.program} r={r} blendedPct={blendedPct} />)}
+        {sorted.map(r => <ProgramRow key={r.program} r={r} maxDelta={maxDelta} />)}
         <ProgramRow
           isTotal
-          blendedPct={blendedPct}
+          maxDelta={maxDelta}
           r={{
             program: 'Total',
             enrolls: total.enrolls,
             enrollsPace: total.pace,
             enrollDelta: total.enrolls - total.pace,
-            pctOfGoal: total.goal > 0 ? +(total.enrolls / total.goal * 100).toFixed(1) : null,
+            goal: total.goal || null,
           }}
         />
       </tbody>
@@ -168,12 +198,12 @@ function LeadsTable({ rows, cohortCvr, cohortCpl }: { rows: WeeklyProgramRow[]; 
       <tbody>
         {sorted.map(r => (
           <tr key={r.program} className="border-t border-white/5">
-            <td className="py-2 text-sm text-gray-200">{r.program}</td>
-            <td className="py-2 text-sm text-right font-mono text-white">{fmt(r.leads)}</td>
-            <td className="py-2 text-sm text-right font-mono text-gray-500">{fmt(r.leadsForecast)}</td>
-            <td className={`py-2 text-sm text-right font-mono ${tone(r.leadsDeltaPct)}`}>{signedPct(r.leadsDeltaPct, 0)}</td>
-            <td className="py-2 text-sm text-right font-mono text-gray-300">{money(r.cpl)}</td>
-            <td className={`py-2 text-sm text-right font-mono ${
+            <td className="py-2 text-xs sm:text-sm text-gray-200">{r.program}</td>
+            <td className="py-2 text-xs sm:text-sm text-right font-mono text-white">{fmt(r.leads)}</td>
+            <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(r.leadsForecast)}</td>
+            <td className={`py-2 text-xs sm:text-sm text-right font-mono ${tone(r.leadsDeltaPct)}`}>{signedPct(r.leadsDeltaPct, 0)}</td>
+            <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-300">{money(r.cpl)}</td>
+            <td className={`py-2 text-xs sm:text-sm text-right font-mono ${
               r.cvr !== null && r.cvrForecast !== null ? tone(r.cvr - r.cvrForecast) : 'text-gray-300'
             }`}>
               {pct(r.cvr, 2)}
@@ -181,12 +211,12 @@ function LeadsTable({ rows, cohortCvr, cohortCpl }: { rows: WeeklyProgramRow[]; 
           </tr>
         ))}
         <tr className="border-t border-white/15">
-          <td className="py-2 text-sm text-white font-medium">Total</td>
-          <td className="py-2 text-sm text-right font-mono text-white">{fmt(total.leads)}</td>
-          <td className="py-2 text-sm text-right font-mono text-gray-500">{fmt(total.forecast)}</td>
-          <td className={`py-2 text-sm text-right font-mono ${tone(totalDelta)}`}>{signedPct(totalDelta, 0)}</td>
-          <td className="py-2 text-sm text-right font-mono text-gray-300">{money(cohortCpl)}</td>
-          <td className="py-2 text-sm text-right font-mono text-gray-300">{pct(cohortCvr, 2)}</td>
+          <td className="py-2 text-xs sm:text-sm text-white font-medium">Total</td>
+          <td className="py-2 text-xs sm:text-sm text-right font-mono text-white">{fmt(total.leads)}</td>
+          <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(total.forecast)}</td>
+          <td className={`py-2 text-xs sm:text-sm text-right font-mono ${tone(totalDelta)}`}>{signedPct(totalDelta, 0)}</td>
+          <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-300">{money(cohortCpl)}</td>
+          <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-300">{pct(cohortCvr, 2)}</td>
         </tr>
       </tbody>
     </table>
@@ -243,7 +273,11 @@ export default function WeeklyReportPage() {
   const team = data.team;
 
   return (
-    <div className="w-full">
+    // Header and card share ONE centred column at the same width. Previously the
+    // header spanned the full page while the card was pinned left at 760px, so
+    // on a wide monitor the "as of" control floated ~700px away from the thing
+    // it controlled and the layout read as broken rather than deliberate.
+    <div className={`${SHOT_WIDTH} mx-auto w-full`}>
       {/* Controls live OUTSIDE the screenshot card so they never land in the crop */}
       <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
         <div>
@@ -255,7 +289,7 @@ export default function WeeklyReportPage() {
         <AsOfPicker value={data.asOfDate} max={data.today} onChange={changeAsOf} />
       </div>
 
-      <div className={`${SHOT_WIDTH} bg-[#0d1117] border border-white/10 rounded-2xl p-6`}>
+      <div className="bg-[#0d1117] border border-white/10 rounded-2xl p-4 sm:p-6">
         <div className="flex items-baseline justify-between gap-3 border-b border-white/15 pb-2.5">
           <p className="text-base font-semibold text-white">Certificates weekly</p>
           <p className="text-xs font-mono text-gray-400">
@@ -286,12 +320,14 @@ export default function WeeklyReportPage() {
 
         {wharton && (
           <Section title={`Enrollments by program — ${wharton.label}`}>
-            <ProgramTable rows={wharton.programs} blendedPct={wharton.pctOfGoal} />
+            <ProgramTable rows={wharton.programs} />
             <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-              Pace is forecast-to-date from the cohort doc, not the full-cohort goal, and is read at the
-              PRIOR day because enrollment counts land a day late — so the Δ is &ldquo;as of yesterday&rdquo;
-              even where a figure is keyed through today. Bars are scaled against the{' '}
-              {pct(wharton.pctOfGoal)} blended pace — half-width is on pace.
+              Pace is each program&apos;s own forecast-to-date from the cohort doc, read at the PRIOR day
+              because enrollment counts land a day late — so the Δ is &ldquo;as of yesterday&rdquo; even
+              where a figure is keyed through today. Bars run from the centre line and are sized by the
+              gap in ENROLLMENTS, so their lengths add up to the cohort&apos;s {signed(wharton.vsPace)};
+              the trailing % is against each program&apos;s own pace, not the full-cohort goal, which the
+              plan never expects every program to reach at the same time.
               {columbia && ` ${columbia.label} is a single program — ${fmt(columbia.enrolls)} of ${fmt(columbia.goal)}.`}
             </p>
           </Section>
@@ -419,17 +455,17 @@ export default function WeeklyReportPage() {
               </thead>
               <tbody>
                 <tr className="border-t border-white/5">
-                  <td className="py-2 text-sm text-white font-medium">{wharton.label} (now)</td>
-                  <td className="py-2 text-sm text-right font-mono text-white">{fmt(wharton.enrolls)}</td>
-                  <td className="py-2 text-sm text-right font-mono text-white">{pct(wharton.pctOfGoal)}</td>
-                  <td className="py-2 text-sm text-right font-mono text-gray-600">—</td>
+                  <td className="py-2 text-xs sm:text-sm text-white font-medium">{wharton.label} (now)</td>
+                  <td className="py-2 text-xs sm:text-sm text-right font-mono text-white">{fmt(wharton.enrolls)}</td>
+                  <td className="py-2 text-xs sm:text-sm text-right font-mono text-white">{pct(wharton.pctOfGoal)}</td>
+                  <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-600">—</td>
                 </tr>
                 {wharton.history.map(h => (
                   <tr key={h.label} className="border-t border-white/5">
-                    <td className="py-2 text-sm text-gray-200">{h.label}</td>
-                    <td className="py-2 text-sm text-right font-mono text-gray-300">{fmt(h.enrolled)}</td>
-                    <td className="py-2 text-sm text-right font-mono text-gray-300">{pct(h.pctOfGoal)}</td>
-                    <td className={`py-2 text-sm text-right font-mono ${
+                    <td className="py-2 text-xs sm:text-sm text-gray-200">{h.label}</td>
+                    <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-300">{fmt(h.enrolled)}</td>
+                    <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-300">{pct(h.pctOfGoal)}</td>
+                    <td className={`py-2 text-xs sm:text-sm text-right font-mono ${
                       h.hitGoal === null ? 'text-gray-600' : h.hitGoal ? 'text-emerald-400' : 'text-red-400'
                     }`}>
                       {h.finalEnrolls !== null ? `${fmt(h.finalEnrolls)} / ${fmt(h.finalGoal)}` : '—'}
