@@ -1282,10 +1282,20 @@ const V2 = {
   daysBeforeDeadline: 1, // "Day before Deadline"
   totalEnrollments: 21, // "Total Enrollments" (running cumulative actual)
   forecastEnrollments: 22, // "Forecast Enrollments"
-  // Secondary section (repeated at far right for cleaner charting)
-  goalCumulative:   28, // "Daily Goals" = cumulative goal by this day
-  plus10:           30, // "Plus 10%"
-  minus10:          31, // "Minus 10%"
+  // Cumulative goal curve. This USED to point at col 28 — the "Daily Goals"
+  // column of the secondary block repeated at the far right for charting. That
+  // block was never rescaled when Fall '26's target moved 1,225 → 1,100: it
+  // still tops out at 1,225 (with Plus/Minus 10% at 1,347.5/1,102.5), while the
+  // operative per-day plan (col D) and its cumulative (col 22) were both rebuilt
+  // on the new target — col D sums to 1,098, col 22 tops out at 1,103.
+  // Reading the stale block made goalPlanTotal report 1,225, which fired a false
+  // "per-day goals are on the prior target" warning on Pulse and drew the Goal
+  // Pace line from the retired plan's shape. Point both at col 22 instead, which
+  // is the same curve the vs-pace delta already uses. If Jon rescales the
+  // far-right block, this can go back to 28.
+  goalCumulative:   22, // "Forecast Enrollments" = cumulative goal by this day
+  plus10:           30, // "Plus 10%"  (still on the retired 1,225 basis)
+  minus10:          31, // "Minus 10%" (still on the retired 1,225 basis)
 } as const;
 
 export async function getPacingDataV2(

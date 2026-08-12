@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home, BarChart2, MessageSquare, Lightbulb,
   GraduationCap, TrendingUp, ChevronDown, Layers,
-  Phone, Mic, Gauge, GitBranch, Globe, ShoppingCart, Target, Megaphone,
+  Phone, Mic, Gauge, GitBranch, Globe, ShoppingCart, Target, Megaphone, Mail,
 } from 'lucide-react';
 
 const CUSTOMER_INSIGHTS = [
@@ -22,6 +22,7 @@ const TOOLS = [
 
 const PERFORMANCE_V2 = [
   { href: '/pulse',                       label: 'Pulse',                     icon: Gauge },
+  { href: '/weekly',                      label: 'Weekly Report',             icon: Mail },
   { href: '/cohort-performance/wharton',  label: 'Cohort Command — Wharton',  icon: GraduationCap },
   { href: '/cohort-performance/columbia', label: 'Cohort Command — Columbia', icon: GraduationCap },
   { href: '/enrollment-team',             label: 'Enrollment Team',           icon: Phone },

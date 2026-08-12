@@ -104,6 +104,15 @@ function FamilyRow({ f }: { f: PulseFamilyLive }) {
     ? f.today.yesterdayActual >= f.today.yesterdayGoal
     : null;
 
+  // The cumulative daily-goal curve is hand-rebuilt when a target moves, so it
+  // lands a few enrollments off the goal by rounding (Fall '26: 1,103 vs 1,100).
+  // Only flag a drift big enough to mean the curve is still on the OLD target —
+  // an exact-equality check cried wolf on every rounding remainder.
+  const curveDrifted =
+    c.goalPlanTotal !== undefined &&
+    c.goal > 0 &&
+    Math.abs(c.goalPlanTotal - c.goal) / c.goal > 0.02;
+
   return (
     <div>
       {/* Family context line — calendar-driven */}
@@ -139,8 +148,8 @@ function FamilyRow({ f }: { f: PulseFamilyLive }) {
               </div>
               <p className="text-[10px] text-gray-600 mt-3 leading-relaxed">
                 Goal source: {c.goalSource ?? '—'}.
-                {c.goalPlanTotal !== undefined && c.goalPlanTotal !== c.goal && (
-                  <> Daily-goal curve still sums to {fmt(c.goalPlanTotal)} — per-day goals are on the prior target.</>
+                {curveDrifted && (
+                  <> Daily-goal curve still sums to {fmt(c.goalPlanTotal!)} — per-day goals are on the prior target.</>
                 )}
               </p>
             </>
