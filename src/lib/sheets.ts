@@ -1378,7 +1378,18 @@ export async function getPacingDataV2(
   }, null);
   const currentGoalAtDay = N(yesterdayRow?.[V2.forecastEnrollments]) ?? N(todayRow?.[V2.forecastEnrollments]) ?? 0;
 
-  // --- Historical cohort comparison, at the SAME days-remaining point Fall '26 is at now ---
+  // The day `currentEnrolled` actually represents. The cumulative column carries
+  // the running total forward into rows that aren't keyed yet — on Aug 13 the
+  // Aug 13 row read 130 with a pre-filled 0 daily actual, while Aug 12 (day 62)
+  // was the last day with a real figure, also 130. Reading the prior-cohort rows
+  // at TODAY's days-out therefore gave them a day of enrollments ours hadn't had
+  // yet: at day 61 they showed 139/132/104, at the aligned day 62 they show
+  // 134/127/98, which made Fall '26 look ~5 behind per cohort purely from the
+  // misalignment. Anchoring to the same row the pace figure uses keeps both
+  // halves of the comparison on one day.
+  const comparisonDay = N(yesterdayRow?.[V2.daysBeforeDeadline]) ?? daysRemaining;
+
+  // --- Historical cohort comparison, at the days-out the CURRENT figure is on ---
   // Pulled from the V1 sheet's per-day historical columns (see fetchHistoricalWhartonMap)
   // so "Closed Cohorts" and "vs. Last 3 cohort avg" are apples-to-apples with Fall '26's
   // current pace, not each cohort's fully-finished final total.
@@ -1392,7 +1403,7 @@ export async function getPacingDataV2(
     }
     return bestDay !== null ? historicalMap.get(bestDay)! : [];
   };
-  const last3AtDay = findHistEntriesAtDay(daysRemaining).slice(-3);
+  const last3AtDay = findHistEntriesAtDay(comparisonDay).slice(-3);
 
   // Fallback (V1 sheet unreachable, or fewer than 3 cohorts found there): use each
   // cohort's fully-finished final total from the V2 sheet's summary block. Since these
@@ -1518,7 +1529,11 @@ export async function getPacingDataV2(
   // --- Comparison panel ---
   const wComparison: ComparisonPanel = {
     program: 'Wharton Online',
-    daysRemaining,
+    // The day the panel is actually compared AT, which the UI labels ("Compared
+    // at N days out"). Deliberately not the summary card's countdown: that is a
+    // true days-to-deadline figure, while this is the day the enrollment numbers
+    // on both sides of the comparison are keyed to.
+    daysRemaining: comparisonDay,
     activeRow: {
       label: "Fall '26",
       enrolled: currentEnrolled,

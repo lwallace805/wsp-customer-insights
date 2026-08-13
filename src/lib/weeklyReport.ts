@@ -215,7 +215,10 @@ export interface WeeklyTeam {
   consults: { completed: number | null; baseline: number | null; enrollees: number | null; baselineEnrollees: number | null; cvr: number | null; baselineCvr: number | null; comparisonNote: string | null } | null;
   ta: { apps: number | null; baselineApps: number | null; enrollees: number | null; baselineEnrollees: number | null; cvr: number | null; baselineCvr: number | null; dataPulled: string | null } | null;
   infoSessions: { held: number; registrations: number; attendance: number; priorLabel: string | null; priorAttendance: number | null } | null;
-  pipeline: { sent: number; closed: number; advisors: number; cohortLabel: string } | null;
+  /** The advisors' live close list, from the Funnel Health tab. Replaces the
+   *  old outreach-volume tile: emails-sent said how busy the team was, not who
+   *  is actually in play. */
+  pipeline: { forecastToClose: number | null; forecastClosed: number | null; forecastCvr: number | null; contacted: number | null; dateRange: string | null } | null;
 }
 
 /** Combines Wharton + Columbia into the single aggregate figure Andrew asked
@@ -224,7 +227,7 @@ export interface WeeklyTeam {
  *  equal W + C), so that column is used rather than adding the two. */
 function buildTeam(data: Awaited<ReturnType<typeof getEnrollmentTeamData>>): WeeklyTeam | null {
   if (!data.ok) return null;
-  const { consults, ta, infoSessions, outreach } = data.data;
+  const { consults, ta, infoSessions, funnelHealth } = data.data;
 
   const total = consults?.advisors.find(a => a.advisor.toLowerCase() === 'total') ?? null;
   const sum = (a: number | null, b: number | null) => (a === null && b === null ? null : (a ?? 0) + (b ?? 0));
@@ -242,9 +245,6 @@ function buildTeam(data: Awaited<ReturnType<typeof getEnrollmentTeamData>>): Wee
   const priorAttendance = prior
     ? prior.values.slice(0, held.length).reduce<number | null>((s, v) => (v === null ? s : (s ?? 0) + v), null)
     : null;
-
-  const block = outreach?.blocks[0] ?? null;
-  const active = block?.totals.filter(t => (t.totalSent ?? 0) > 0) ?? [];
 
   return {
     dataPulled: consults?.dataPulled ?? null,
@@ -279,12 +279,13 @@ function buildTeam(data: Awaited<ReturnType<typeof getEnrollmentTeamData>>): Wee
           priorAttendance,
         }
       : null,
-    pipeline: block
+    pipeline: funnelHealth
       ? {
-          sent: active.reduce((s, a) => s + (a.totalSent ?? 0), 0),
-          closed: active.reduce((s, a) => s + (a.closed ?? 0), 0),
-          advisors: active.length,
-          cohortLabel: block.cohortLabel,
+          forecastToClose: funnelHealth.forecastToClose,
+          forecastClosed: funnelHealth.forecastClosed,
+          forecastCvr: funnelHealth.forecastCvr,
+          contacted: funnelHealth.contacted,
+          dateRange: funnelHealth.dateRange,
         }
       : null,
   };

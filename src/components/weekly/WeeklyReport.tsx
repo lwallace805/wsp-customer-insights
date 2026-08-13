@@ -379,11 +379,25 @@ function LeadsTable({
   );
 }
 
-function Tile({ label, value, sub, subTone }: { label: string; value: string; sub?: string; subTone?: string }) {
+/** `compare` puts the baseline next to the headline number in ABSOLUTE terms.
+ *  A lone "125" with a rate underneath gave a reader no way to tell whether 125
+ *  was good; "125 vs 110" answers it without them having to look anything up. */
+function Tile({
+  label, value, compare, sub, subTone,
+}: {
+  label: string;
+  value: string;
+  compare?: string;
+  sub?: string;
+  subTone?: string;
+}) {
   return (
     <div className="bg-[#161b22] border border-white/10 rounded-xl p-3.5 flex-1 min-w-[150px]">
       <p className="text-[11px] text-gray-500">{label}</p>
-      <p className="text-xl font-bold text-white font-mono mt-0.5">{value}</p>
+      <p className="text-xl font-bold text-white font-mono mt-0.5">
+        {value}
+        {compare && <span className="text-xs font-normal text-gray-500"> vs {compare}</span>}
+      </p>
       {sub && <p className={`text-[11px] font-mono mt-0.5 ${subTone ?? 'text-gray-500'}`}>{sub}</p>}
     </div>
   );
@@ -554,7 +568,8 @@ export default function WeeklyReportPage() {
                 <Tile
                   label="Consults completed"
                   value={fmt(team.consults.completed)}
-                  sub={`${pct(team.consults.cvr)} CVR vs ${pct(team.consults.baselineCvr)} baseline`}
+                  compare={`${fmt(team.consults.baseline)} baseline`}
+                  sub={`${fmt(team.consults.enrollees)} enrolled vs ${fmt(team.consults.baselineEnrollees)} · CVR ${pct(team.consults.cvr)} vs ${pct(team.consults.baselineCvr)}`}
                   subTone={tone(
                     team.consults.cvr !== null && team.consults.baselineCvr !== null
                       ? team.consults.cvr - team.consults.baselineCvr
@@ -564,9 +579,10 @@ export default function WeeklyReportPage() {
               )}
               {team.ta && (
                 <Tile
-                  label="Tuition assistance"
+                  label="TA applications"
                   value={fmt(team.ta.apps)}
-                  sub={`${fmt(team.ta.enrollees)} enrolled · ${pct(team.ta.cvr)} vs ${pct(team.ta.baselineCvr)}`}
+                  compare={`${fmt(team.ta.baselineApps)} baseline`}
+                  sub={`${fmt(team.ta.enrollees)} enrolled vs ${fmt(team.ta.baselineEnrollees)} · CVR ${pct(team.ta.cvr)} vs ${pct(team.ta.baselineCvr)}`}
                   subTone={tone(
                     team.ta.cvr !== null && team.ta.baselineCvr !== null ? team.ta.cvr - team.ta.baselineCvr : null
                   )}
@@ -574,13 +590,14 @@ export default function WeeklyReportPage() {
               )}
               {team.infoSessions && (
                 <Tile
-                  label={`Info sessions (${team.infoSessions.held} held)`}
+                  label={`Info sessions attended (${team.infoSessions.held} held)`}
                   value={fmt(team.infoSessions.attendance)}
-                  sub={
+                  compare={
                     team.infoSessions.priorAttendance !== null
-                      ? `attended · vs ${fmt(team.infoSessions.priorAttendance)} ${team.infoSessions.priorLabel ?? 'prior'}`
-                      : `attended · ${fmt(team.infoSessions.registrations)} registered`
+                      ? `${fmt(team.infoSessions.priorAttendance)} ${team.infoSessions.priorLabel ?? 'prior'}`
+                      : undefined
                   }
+                  sub={`${fmt(team.infoSessions.registrations)} registered`}
                   subTone={tone(
                     team.infoSessions.priorAttendance !== null
                       ? team.infoSessions.attendance - team.infoSessions.priorAttendance
@@ -590,9 +607,9 @@ export default function WeeklyReportPage() {
               )}
               {team.pipeline && (
                 <Tile
-                  label="Advisor pipeline"
-                  value={fmt(team.pipeline.sent)}
-                  sub={`sent · ${fmt(team.pipeline.closed)} closed · ${team.pipeline.advisors} advisors`}
+                  label="Forecast to close"
+                  value={fmt(team.pipeline.forecastToClose)}
+                  sub={`${fmt(team.pipeline.forecastClosed)} closed so far · ${pct(team.pipeline.forecastCvr, 0)} hit rate`}
                 />
               )}
             </div>
@@ -605,8 +622,12 @@ export default function WeeklyReportPage() {
           )}
           {team?.ta?.dataPulled && (
             <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-              Consults use the sheet&apos;s own de-duplicated Wharton + Columbia column, so it will not equal
-              the two added together. TA is summed across both. TA tab stamped &ldquo;{team.ta.dataPulled}&rdquo;
+              Consults and TA show actual vs the team&apos;s own baseline window. Consults use the
+              sheet&apos;s de-duplicated Wharton + Columbia column, so it will not equal the two added
+              together; TA is summed across both. Forecast to close is the advisors&apos; live list from
+              the Funnel Health tab
+              {team.pipeline?.dateRange ? `, covering ${team.pipeline.dateRange}` : ''}{' '}
+              — leads they expect to enroll, not outbound volume. TA tab stamped &ldquo;{team.ta.dataPulled}&rdquo;
               {team.dataPulled && ` while the consult tab is stamped “${team.dataPulled}” — confirm the TA figures are current.`}
             </p>
           )}
@@ -620,7 +641,7 @@ export default function WeeklyReportPage() {
                   <th className="text-left font-normal pb-1.5">Cohort</th>
                   <th className="text-right font-normal pb-1.5">Enrolled</th>
                   <th className="text-right font-normal pb-1.5">% of goal</th>
-                  <th className="text-right font-normal pb-1.5">Finished</th>
+                  <th className="text-right font-normal pb-1.5">Cohort total</th>
                 </tr>
               </thead>
               <tbody>
@@ -638,15 +659,16 @@ export default function WeeklyReportPage() {
                     <td className={`py-2 text-xs sm:text-sm text-right font-mono ${
                       h.hitGoal === null ? 'text-gray-600' : h.hitGoal ? 'text-emerald-400' : 'text-red-400'
                     }`}>
-                      {h.finalEnrolls !== null ? `${fmt(h.finalEnrolls)} / ${fmt(h.finalGoal)}` : '—'}
+                      {fmt(h.finalEnrolls)}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-              Closed rows are enrollment at the same days-remaining, paired with how each cohort actually
-              finished — matching a cohort that missed its goal is not the same as being on track.
+              Enrolled is each cohort at the SAME days-remaining Fall &apos;26 is at now; cohort total is
+              what it finished with, green where that beat its goal. Matching a cohort that missed is not
+              the same as being on track.
             </p>
           </Section>
         )}
