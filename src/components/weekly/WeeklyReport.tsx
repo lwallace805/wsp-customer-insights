@@ -116,57 +116,88 @@ function ProgramRow({ r, maxDelta, isTotal }: { r: ProgramCell; maxDelta: number
       <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(r.goal)}</td>
       <td className={`py-2 text-xs sm:text-sm text-right font-mono ${tone(r.enrollDelta)}`}>{signed(r.enrollDelta)}</td>
       <td className="py-2 pl-3 sm:pl-4">
-        <div className="flex items-center gap-2 justify-end">
-          <PaceBar delta={r.enrollDelta} max={maxDelta} />
-          <span className={`text-[11px] font-mono w-9 text-right ${tone(attainment === null ? null : attainment - 100)}`}>
-            {attainment === null ? '—' : `${attainment}%`}
-          </span>
-        </div>
+        <PaceBar delta={r.enrollDelta} max={maxDelta} />
+      </td>
+      <td className={`py-2 pl-2 text-xs sm:text-sm text-right font-mono ${tone(attainment === null ? null : attainment - 100)}`}>
+        {attainment === null ? '—' : `${attainment}%`}
       </td>
     </tr>
   );
 }
 
-function ProgramTable({ rows }: { rows: WeeklyProgramRow[] }) {
+function ProgramTable({
+  rows,
+  cohortEnrolls,
+  cohortPace,
+  cohortGoal,
+}: {
+  rows: WeeklyProgramRow[];
+  cohortEnrolls: number;
+  cohortPace: number;
+  cohortGoal: number;
+}) {
   if (!rows.length) {
     return <p className="text-sm text-gray-600 italic">No per-program rows in this cohort&apos;s WoW tab.</p>;
   }
   // Worst-first: the email's job is to put the gap at the top of the block.
   const sorted = [...rows].sort((a, b) => (a.enrollDelta ?? 0) - (b.enrollDelta ?? 0));
-  const total = {
-    enrolls: sorted.reduce((s, r) => s + (r.enrolls ?? 0), 0),
-    pace: sorted.reduce((s, r) => s + (r.enrollsPace ?? 0), 0),
-    goal: sorted.reduce((s, r) => s + (r.goal ?? 0), 0),
-  };
-  const maxDelta = Math.max(...sorted.map(r => Math.abs(r.enrollDelta ?? 0)), 1);
+
+  // The Total row is the COHORT figure (deadline pacing table), not the sum of
+  // the rows above it. The sheet's per-program forecast column carries rounding
+  // that doesn't always close: on Aug 12 the parts summed to the cohort's 142
+  // exactly, on Aug 13 they came to 148 against a cohort pace of 147 — which
+  // read as the headline and the table contradicting each other. The deadline
+  // table and the WoW block's OWN Total row agree on 147, so that's the
+  // authoritative pair; the parts are the outlier and the gap is disclosed
+  // below rather than silently absorbed into the total.
+  const partsPace = sorted.reduce((s, r) => s + (r.enrollsPace ?? 0), 0);
+  const partsEnrolls = sorted.reduce((s, r) => s + (r.enrolls ?? 0), 0);
+  const paceGap = partsPace - cohortPace;
+  const enrollGap = partsEnrolls - cohortEnrolls;
+
+  const totalDelta = cohortEnrolls - cohortPace;
+  const maxDelta = Math.max(...sorted.map(r => Math.abs(r.enrollDelta ?? 0)), Math.abs(totalDelta), 1);
 
   return (
-    <table className="w-full">
-      <thead>
-        <tr className="text-[11px] text-gray-500">
-          <th className="text-left font-normal pb-1.5">Program</th>
-          <th className="text-right font-normal pb-1.5">Enrolled</th>
-          <th className="text-right font-normal pb-1.5">Pace</th>
-          <th className="text-right font-normal pb-1.5">Goal</th>
-          <th className="text-right font-normal pb-1.5">Δ</th>
-          <th className="text-right font-normal pb-1.5 pl-3 sm:pl-4">Behind / ahead of pace</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sorted.map(r => <ProgramRow key={r.program} r={r} maxDelta={maxDelta} />)}
-        <ProgramRow
-          isTotal
-          maxDelta={maxDelta}
-          r={{
-            program: 'Total',
-            enrolls: total.enrolls,
-            enrollsPace: total.pace,
-            enrollDelta: total.enrolls - total.pace,
-            goal: total.goal || null,
-          }}
-        />
-      </tbody>
-    </table>
+    <>
+      <table className="w-full">
+        <thead>
+          <tr className="text-[11px] text-gray-500">
+            <th className="text-left font-normal pb-1.5">Program</th>
+            <th className="text-right font-normal pb-1.5">Enrolled</th>
+            <th className="text-right font-normal pb-1.5">Pace</th>
+            <th className="text-right font-normal pb-1.5">Goal</th>
+            <th className="text-right font-normal pb-1.5">Δ</th>
+            <th className="text-right font-normal pb-1.5 pl-3 sm:pl-4">Behind / ahead of pace</th>
+            <th className="text-right font-normal pb-1.5 pl-2 whitespace-nowrap">% of pace</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map(r => <ProgramRow key={r.program} r={r} maxDelta={maxDelta} />)}
+          <ProgramRow
+            isTotal
+            maxDelta={maxDelta}
+            r={{
+              program: 'Total',
+              enrolls: cohortEnrolls,
+              enrollsPace: cohortPace,
+              enrollDelta: totalDelta,
+              goal: cohortGoal || null,
+            }}
+          />
+        </tbody>
+      </table>
+      {(paceGap !== 0 || enrollGap !== 0) && (
+        <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
+          Total is the cohort figure from the deadline pacing table, which the WoW block&apos;s own Total
+          row matches. The per-program rows above carry rounding and sum to{' '}
+          {paceGap !== 0 && <>a pace of {fmt(partsPace)}</>}
+          {paceGap !== 0 && enrollGap !== 0 && ' and '}
+          {enrollGap !== 0 && <>{fmt(partsEnrolls)} enrolled</>}
+          , so they don&apos;t close exactly against it.
+        </p>
+      )}
+    </>
   );
 }
 
@@ -320,14 +351,21 @@ export default function WeeklyReportPage() {
 
         {wharton && (
           <Section title={`Enrollments by program — ${wharton.label}`}>
-            <ProgramTable rows={wharton.programs} />
+            <ProgramTable
+              rows={wharton.programs}
+              cohortEnrolls={wharton.enrolls}
+              cohortPace={wharton.pace}
+              cohortGoal={wharton.goal}
+            />
             <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
               Pace is each program&apos;s own forecast-to-date from the cohort doc, read at the PRIOR day
               because enrollment counts land a day late — so the Δ is &ldquo;as of yesterday&rdquo; even
               where a figure is keyed through today. Bars run from the centre line and are sized by the
-              gap in ENROLLMENTS, so their lengths add up to the cohort&apos;s {signed(wharton.vsPace)};
-              the trailing % is against each program&apos;s own pace, not the full-cohort goal, which the
-              plan never expects every program to reach at the same time.
+              gap in ENROLLMENTS, so the longest bar is whichever program is moving the cohort total
+              most. &ldquo;% of pace&rdquo; is how much of its OWN plan a program has enrolled — 100% is
+              exactly on plan, 65% is a third short of it, 150% is half again ahead. It is not a share
+              of the full-cohort goal, which the plan never expects every program to reach at the same
+              time.
               {columbia && ` ${columbia.label} is a single program — ${fmt(columbia.enrolls)} of ${fmt(columbia.goal)}.`}
             </p>
           </Section>
