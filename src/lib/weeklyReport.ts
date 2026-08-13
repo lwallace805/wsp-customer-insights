@@ -139,6 +139,13 @@ export interface WeeklyFamily {
   spend: number | null;
   spendForecast: number | null;
   cpl: number | null;
+  /** Cohort-to-date leads from the WoW Total ROW — the same basis as the
+   *  per-program rows (it carries the current partial week), unlike `leads`
+   *  below which is completed-weeks-only. Kept separate so the two never get
+   *  mixed in one table: the sheet's own Total is authoritative where the
+   *  per-program column carries rounding that doesn't always close. */
+  leadsCtd: number | null;
+  leadsCtdForecast: number | null;
   leads: LeadPacing;
   programs: WeeklyProgramRow[];
   /** Prior cohorts at the SAME days-remaining, with how each one finished —
@@ -176,6 +183,8 @@ function buildFamily(
     spend: t?.spend ?? null,
     spendForecast: t?.spendF ?? null,
     cpl: t?.cpl ?? null,
+    leadsCtd: t?.leads ?? null,
+    leadsCtdForecast: t?.leadsF ?? null,
     leads: leadPacing(live.leadsDetail?.weeks, asOf),
     programs: programRows(live),
     history: live.history

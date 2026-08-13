@@ -98,7 +98,19 @@ function PaceBar({ delta, max }: { delta: number | null; max: number }) {
   );
 }
 
-function ProgramRow({ r, maxDelta, isTotal }: { r: ProgramCell; maxDelta: number; isTotal?: boolean }) {
+function ProgramRow({
+  r,
+  maxDelta,
+  isTotal,
+  isSubtotal,
+  note,
+}: {
+  r: ProgramCell;
+  maxDelta: number;
+  isTotal?: boolean;
+  isSubtotal?: boolean;
+  note?: string;
+}) {
   // Attainment against the program's own plan. This is the number the bar
   // encodes the direction of; % of the full-cohort goal is NOT comparable
   // across programs, because the plan expects each to sit at a different
@@ -108,9 +120,13 @@ function ProgramRow({ r, maxDelta, isTotal }: { r: ProgramCell; maxDelta: number
       ? +(r.enrolls / r.enrollsPace * 100).toFixed(0)
       : null;
 
+  const emphasised = isTotal || isSubtotal;
   return (
-    <tr className={isTotal ? 'border-t border-white/15' : 'border-t border-white/5'}>
-      <td className={`py-2 text-xs sm:text-sm ${isTotal ? 'text-white font-medium' : 'text-gray-200'}`}>{r.program}</td>
+    <tr className={emphasised ? 'border-t border-white/15' : 'border-t border-white/5'}>
+      <td className={`py-2 text-xs sm:text-sm ${emphasised ? 'text-white font-medium' : 'text-gray-200'}`}>
+        {r.program}
+        {note && <span className="text-[10px] text-gray-600 font-normal"> · {note}</span>}
+      </td>
       <td className="py-2 text-xs sm:text-sm text-right font-mono text-white">{fmt(r.enrolls)}</td>
       <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(r.enrollsPace)}</td>
       <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(r.goal)}</td>
@@ -125,16 +141,32 @@ function ProgramRow({ r, maxDelta, isTotal }: { r: ProgramCell; maxDelta: number
   );
 }
 
+/** AI (the CBS certificate) is a single-program cohort, so its WoW tab has no
+ *  per-program rows at all — `programs` comes back empty. Its row here is built
+ *  from the cohort's own figures, which is the same thing the Wharton Total row
+ *  uses, so the two are on one basis. */
+function aiRow(columbia: WeeklyFamily): ProgramCell {
+  return {
+    program: 'AI',
+    enrolls: columbia.enrolls,
+    enrollsPace: columbia.pace,
+    enrollDelta: columbia.vsPace,
+    goal: columbia.goal,
+  };
+}
+
 function ProgramTable({
   rows,
   cohortEnrolls,
   cohortPace,
   cohortGoal,
+  columbia,
 }: {
   rows: WeeklyProgramRow[];
   cohortEnrolls: number;
   cohortPace: number;
   cohortGoal: number;
+  columbia: WeeklyFamily | null;
 }) {
   if (!rows.length) {
     return <p className="text-sm text-gray-600 italic">No per-program rows in this cohort&apos;s WoW tab.</p>;
@@ -156,7 +188,23 @@ function ProgramTable({
   const enrollGap = partsEnrolls - cohortEnrolls;
 
   const totalDelta = cohortEnrolls - cohortPace;
-  const maxDelta = Math.max(...sorted.map(r => Math.abs(r.enrollDelta ?? 0)), Math.abs(totalDelta), 1);
+  const ai = columbia ? aiRow(columbia) : null;
+  const combined = ai
+    ? {
+        program: 'All programs',
+        enrolls: cohortEnrolls + (ai.enrolls ?? 0),
+        enrollsPace: cohortPace + (ai.enrollsPace ?? 0),
+        enrollDelta: totalDelta + (ai.enrollDelta ?? 0),
+        goal: cohortGoal + (ai.goal ?? 0),
+      }
+    : null;
+
+  const maxDelta = Math.max(
+    ...sorted.map(r => Math.abs(r.enrollDelta ?? 0)),
+    Math.abs(totalDelta),
+    Math.abs(ai?.enrollDelta ?? 0),
+    1,
+  );
 
   return (
     <>
@@ -175,16 +223,18 @@ function ProgramTable({
         <tbody>
           {sorted.map(r => <ProgramRow key={r.program} r={r} maxDelta={maxDelta} />)}
           <ProgramRow
-            isTotal
+            isSubtotal
             maxDelta={maxDelta}
             r={{
-              program: 'Total',
+              program: 'Wharton total',
               enrolls: cohortEnrolls,
               enrollsPace: cohortPace,
               enrollDelta: totalDelta,
               goal: cohortGoal || null,
             }}
           />
+          {ai && <ProgramRow r={ai} maxDelta={maxDelta} note={columbia!.label} />}
+          {combined && <ProgramRow isTotal maxDelta={maxDelta} r={combined} />}
         </tbody>
       </table>
       {(paceGap !== 0 || enrollGap !== 0) && (
@@ -201,20 +251,66 @@ function ProgramTable({
   );
 }
 
-function LeadsTable({ rows, cohortCvr, cohortCpl }: { rows: WeeklyProgramRow[]; cohortCvr: number | null; cohortCpl: number | null }) {
+function LeadRow({
+  label, leads, forecast, cpl, cvr, cvrForecast, emphasised, note,
+}: {
+  label: string;
+  leads: number | null;
+  forecast: number | null;
+  cpl: number | null;
+  cvr: number | null;
+  cvrForecast: number | null;
+  emphasised?: boolean;
+  note?: string;
+}) {
+  const deltaPct = leads !== null && forecast ? +((leads - forecast) / forecast * 100).toFixed(1) : null;
+  return (
+    <tr className={emphasised ? 'border-t border-white/15' : 'border-t border-white/5'}>
+      <td className={`py-2 text-xs sm:text-sm ${emphasised ? 'text-white font-medium' : 'text-gray-200'}`}>
+        {label}
+        {note && <span className="text-[10px] text-gray-600 font-normal"> · {note}</span>}
+      </td>
+      <td className="py-2 text-xs sm:text-sm text-right font-mono text-white">{fmt(leads)}</td>
+      <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(forecast)}</td>
+      <td className={`py-2 text-xs sm:text-sm text-right font-mono ${tone(deltaPct)}`}>{signedPct(deltaPct, 0)}</td>
+      <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-300">{money(cpl)}</td>
+      <td className={`py-2 text-xs sm:text-sm text-right font-mono ${
+        cvr !== null && cvrForecast !== null ? tone(cvr - cvrForecast) : 'text-gray-300'
+      }`}>
+        {pct(cvr, 2)}
+      </td>
+    </tr>
+  );
+}
+
+function LeadsTable({
+  rows, wharton, columbia,
+}: {
+  rows: WeeklyProgramRow[];
+  wharton: WeeklyFamily;
+  columbia: WeeklyFamily | null;
+}) {
   if (!rows.length) return null;
   const sorted = [...rows].sort((a, b) => (b.leads ?? 0) - (a.leads ?? 0));
-  // Totalled on the TABLE's basis (cohort-to-date, partial week included) rather
-  // than reusing the completed-weeks tile above — mixing the two bases in one
-  // block is how a reader ends up with two different "total leads".
-  const total = {
-    leads: sorted.reduce((s, r) => s + (r.leads ?? 0), 0),
-    forecast: sorted.reduce((s, r) => s + (r.leadsForecast ?? 0), 0),
-  };
-  const totalDelta = total.forecast > 0
-    ? +((total.leads - total.forecast) / total.forecast * 100).toFixed(1)
+
+  // Same rule as the enrollments table: the subtotal is the WoW Total ROW, not
+  // the sum of the program rows, because that column carries rounding that
+  // doesn't always close (7,045 against a Total row of 7,044 on Aug 13). The
+  // gap is disclosed below rather than absorbed.
+  const partsLeads = sorted.reduce((s, r) => s + (r.leads ?? 0), 0);
+  const partsForecast = sorted.reduce((s, r) => s + (r.leadsForecast ?? 0), 0);
+  const leadsGap = partsLeads - (wharton.leadsCtd ?? partsLeads);
+  const forecastGap = partsForecast - (wharton.leadsCtdForecast ?? partsForecast);
+
+  const combined = columbia
+    ? {
+        leads: (wharton.leadsCtd ?? 0) + (columbia.leadsCtd ?? 0),
+        forecast: (wharton.leadsCtdForecast ?? 0) + (columbia.leadsCtdForecast ?? 0),
+      }
     : null;
+
   return (
+    <>
     <table className="w-full mt-3">
       <thead>
         <tr className="text-[11px] text-gray-500">
@@ -228,29 +324,58 @@ function LeadsTable({ rows, cohortCvr, cohortCpl }: { rows: WeeklyProgramRow[]; 
       </thead>
       <tbody>
         {sorted.map(r => (
-          <tr key={r.program} className="border-t border-white/5">
-            <td className="py-2 text-xs sm:text-sm text-gray-200">{r.program}</td>
-            <td className="py-2 text-xs sm:text-sm text-right font-mono text-white">{fmt(r.leads)}</td>
-            <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(r.leadsForecast)}</td>
-            <td className={`py-2 text-xs sm:text-sm text-right font-mono ${tone(r.leadsDeltaPct)}`}>{signedPct(r.leadsDeltaPct, 0)}</td>
-            <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-300">{money(r.cpl)}</td>
-            <td className={`py-2 text-xs sm:text-sm text-right font-mono ${
-              r.cvr !== null && r.cvrForecast !== null ? tone(r.cvr - r.cvrForecast) : 'text-gray-300'
-            }`}>
-              {pct(r.cvr, 2)}
-            </td>
-          </tr>
+          <LeadRow
+            key={r.program}
+            label={r.program}
+            leads={r.leads}
+            forecast={r.leadsForecast}
+            cpl={r.cpl}
+            cvr={r.cvr}
+            cvrForecast={r.cvrForecast}
+          />
         ))}
-        <tr className="border-t border-white/15">
-          <td className="py-2 text-xs sm:text-sm text-white font-medium">Total</td>
-          <td className="py-2 text-xs sm:text-sm text-right font-mono text-white">{fmt(total.leads)}</td>
-          <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(total.forecast)}</td>
-          <td className={`py-2 text-xs sm:text-sm text-right font-mono ${tone(totalDelta)}`}>{signedPct(totalDelta, 0)}</td>
-          <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-300">{money(cohortCpl)}</td>
-          <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-300">{pct(cohortCvr, 2)}</td>
-        </tr>
+        <LeadRow
+          emphasised
+          label="Wharton total"
+          leads={wharton.leadsCtd}
+          forecast={wharton.leadsCtdForecast}
+          cpl={wharton.cpl}
+          cvr={wharton.cvr}
+          cvrForecast={wharton.cvrForecast}
+        />
+        {columbia && (
+          <LeadRow
+            label="AI"
+            note={columbia.label}
+            leads={columbia.leadsCtd}
+            forecast={columbia.leadsCtdForecast}
+            cpl={columbia.cpl}
+            cvr={columbia.cvr}
+            cvrForecast={columbia.cvrForecast}
+          />
+        )}
+        {combined && (
+          <LeadRow
+            emphasised
+            label="All programs"
+            leads={combined.leads}
+            forecast={combined.forecast}
+            cpl={null}
+            cvr={null}
+            cvrForecast={null}
+          />
+        )}
       </tbody>
     </table>
+    {(leadsGap !== 0 || forecastGap !== 0) && (
+      <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
+        Wharton total is the WoW block&apos;s own Total row; its per-program rows carry rounding and sum
+        to {fmt(partsLeads)} leads against a forecast of {fmt(partsForecast)}, so they don&apos;t close
+        exactly against it. CPL and CVR are cohort-level and don&apos;t combine across the two, so the
+        All-programs row leaves them blank rather than printing a blended figure nobody planned to.
+      </p>
+    )}
+    </>
   );
 }
 
@@ -350,12 +475,13 @@ export default function WeeklyReportPage() {
         </Section>
 
         {wharton && (
-          <Section title={`Enrollments by program — ${wharton.label}`}>
+          <Section title="Enrollments by program">
             <ProgramTable
               rows={wharton.programs}
               cohortEnrolls={wharton.enrolls}
               cohortPace={wharton.pace}
               cohortGoal={wharton.goal}
+              columbia={columbia}
             />
             <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
               Pace is each program&apos;s own forecast-to-date from the cohort doc, read at the PRIOR day
@@ -366,7 +492,13 @@ export default function WeeklyReportPage() {
               exactly on plan, 65% is a third short of it, 150% is half again ahead. It is not a share
               of the full-cohort goal, which the plan never expects every program to reach at the same
               time.
-              {columbia && ` ${columbia.label} is a single program — ${fmt(columbia.enrolls)} of ${fmt(columbia.goal)}.`}
+              {columbia && (
+                <> AI is {columbia.label}, a single-program cohort, so it has no per-program breakdown of
+                its own. It sits {columbia.daysRemaining - (wharton?.daysRemaining ?? 0)}{' '}
+                days further from its deadline than Wharton, so All programs adds two cohorts at points in
+                their cycles — each row&apos;s pace is already its own cohort&apos;s plan for today, which
+                is what makes the sum meaningful.</>
+              )}
             </p>
           </Section>
         )}
@@ -398,7 +530,7 @@ export default function WeeklyReportPage() {
               />
             )}
           </div>
-          {wharton && <LeadsTable rows={wharton.programs} cohortCvr={wharton.cvr} cohortCpl={wharton.cpl} />}
+          {wharton && <LeadsTable rows={wharton.programs} wharton={wharton} columbia={columbia} />}
           <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
             Cards use COMPLETED weeks only — a part-week actual against a whole-week forecast always
             reads behind. The per-program table is the cohort-to-date block, which carries the current
