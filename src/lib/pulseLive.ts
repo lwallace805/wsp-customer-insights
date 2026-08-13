@@ -497,6 +497,9 @@ export interface CommandLive {
   // of its enrollments.
   finals: CohortFinals[];
   keyedThrough: string | null;
+  /** Last genuinely keyed day as YYYY-MM-DD, so a date control can default to
+   *  the last COMPLETE day rather than to a today the sheet hasn't reached. */
+  keyedThroughYmd: string | null;
   history: CommandHistoryRow[];
   // What closed-cohort history rows represent: true finals (Wharton V2 doc
   // summary) vs enrollment at the same day-out (Columbia AN-summary panel).
@@ -540,6 +543,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
       paid,
       finals,
       keyedThrough: today?.updatedThrough ?? null,
+      keyedThroughYmd: today?.updatedThroughYmd ?? null,
       // The comparison reader says which basis its closed rows are on — early in
       // a cycle they are same-day-out pace values, not the cohorts' finals, and
       // mislabeling them makes "Spring '26: 91" read as a finished total of 91.
@@ -594,6 +598,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
     paid,
     finals,
     keyedThrough: today?.updatedThrough ?? null,
+    keyedThroughYmd: today?.updatedThroughYmd ?? null,
     historyBasis: cmp?.basis ?? 'same-day-out',
     history: [
       { label: win.label, enrolled: enrolls, goal, pctDone: goal > 0 ? +(enrolls / goal * 100).toFixed(1) : 0, isActive: true },

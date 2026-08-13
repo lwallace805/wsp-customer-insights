@@ -5,7 +5,8 @@
 //   1. enrollments total + by program, relative to goal
 //   2. lead volume by program + in total, relative to forecast
 //   3. consults / TA / info sessions — in AGGREGATE, not by program
-//   4. the enrollment team's outreach pipeline
+//   4. the enrollment team's pipeline — HELD BACK until Aubrey's HubSpot
+//      pipeline report exists; the sheet has no trustworthy open-pipeline figure
 //   5. a short callouts block, with everything else linking to the dashboards
 //
 // This file adds no new sheet readers. It reshapes what Cohort Command and the
@@ -152,6 +153,8 @@ export interface WeeklyFamily {
    *  "in line with history" means little when the cohort we match missed. */
   history: Array<{ label: string; enrolled: number; goal: number; pctOfGoal: number; finalEnrolls: number | null; finalGoal: number | null; hitGoal: boolean | null }>;
   keyedThrough: string | null;
+  /** Last genuinely keyed day, YYYY-MM-DD. */
+  keyedThroughYmd: string | null;
 }
 
 function buildFamily(
@@ -205,6 +208,7 @@ function buildFamily(
         };
       }),
     keyedThrough: live.keyedThrough,
+    keyedThroughYmd: live.keyedThroughYmd,
   };
 }
 
@@ -215,10 +219,9 @@ export interface WeeklyTeam {
   consults: { completed: number | null; baseline: number | null; enrollees: number | null; baselineEnrollees: number | null; cvr: number | null; baselineCvr: number | null; comparisonNote: string | null } | null;
   ta: { apps: number | null; baselineApps: number | null; enrollees: number | null; baselineEnrollees: number | null; cvr: number | null; baselineCvr: number | null; dataPulled: string | null } | null;
   infoSessions: { held: number; registrations: number; attendance: number; priorLabel: string | null; priorAttendance: number | null } | null;
-  /** The advisors' live close list, from the Funnel Health tab. Replaces the
-   *  old outreach-volume tile: emails-sent said how busy the team was, not who
-   *  is actually in play. */
-  pipeline: { forecastToClose: number | null; forecastClosed: number | null; forecastCvr: number | null; contacted: number | null; dateRange: string | null } | null;
+  /** Deliberately absent until Aubrey's HubSpot pipeline report exists. The
+   *  Email Data tab only measured outbound volume, and the Funnel Health tab's
+   *  figures don't reconcile against the cohort. */
 }
 
 /** Combines Wharton + Columbia into the single aggregate figure Andrew asked
@@ -227,7 +230,7 @@ export interface WeeklyTeam {
  *  equal W + C), so that column is used rather than adding the two. */
 function buildTeam(data: Awaited<ReturnType<typeof getEnrollmentTeamData>>): WeeklyTeam | null {
   if (!data.ok) return null;
-  const { consults, ta, infoSessions, funnelHealth } = data.data;
+  const { consults, ta, infoSessions } = data.data;
 
   const total = consults?.advisors.find(a => a.advisor.toLowerCase() === 'total') ?? null;
   const sum = (a: number | null, b: number | null) => (a === null && b === null ? null : (a ?? 0) + (b ?? 0));
@@ -279,15 +282,6 @@ function buildTeam(data: Awaited<ReturnType<typeof getEnrollmentTeamData>>): Wee
           priorAttendance,
         }
       : null,
-    pipeline: funnelHealth
-      ? {
-          forecastToClose: funnelHealth.forecastToClose,
-          forecastClosed: funnelHealth.forecastClosed,
-          forecastCvr: funnelHealth.forecastCvr,
-          contacted: funnelHealth.contacted,
-          dateRange: funnelHealth.dateRange,
-        }
-      : null,
   };
 }
 
@@ -296,9 +290,13 @@ function buildTeam(data: Awaited<ReturnType<typeof getEnrollmentTeamData>>): Wee
 export interface WeeklyReport {
   asOf: string;
   asOfDate: string;
-  /** Today in ET, YYYY-MM-DD — the date picker's ceiling. Resolved server-side
-   *  so a viewer in another timezone can't be offered a day with no data. */
+  /** Today in ET, YYYY-MM-DD. */
   today: string;
+  /** The latest day with COMPLETE data across the wired cohorts — the date
+   *  control's default and ceiling. The pacing tabs pre-fill a 0 into today's
+   *  row until someone keys it, so defaulting the picker to today showed
+   *  "Aug 13" above numbers that only ran through Aug 12. */
+  dataThrough: string;
   isToday: boolean;
   families: WeeklyFamily[];
   team: WeeklyTeam | null;
@@ -343,6 +341,13 @@ export async function getWeeklyReport(asOfInput?: AsOf): Promise<WeeklyReport> {
     asOf: now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
     asOfDate: at.ymd,
     today: todayET(),
+    // Earliest of the wired cohorts' last-keyed days, so the control never
+    // claims a day that one of the two hasn't reached.
+    dataThrough:
+      families
+        .map(f => f.keyedThroughYmd)
+        .filter((d): d is string => !!d)
+        .sort()[0] ?? at.ymd,
     isToday: at.isToday,
     families,
     team: buildTeam(team),

@@ -344,65 +344,6 @@ async function readInfoSessions(activeLabelHints: string[]): Promise<InfoSession
   }
 }
 
-// ─── 4b · Funnel health ("Funnel Health") ─────────────────────────────────────
-//
-// The advisors' own working pipeline: leads they've contacted, and the ones
-// they've flagged as expected to enroll ("Forecasted Enrollments") with how
-// many of those have actually closed. This is the "who are we trying to close
-// right now" view — distinct from the Email Data tab, which only counts
-// outbound volume.
-
-export interface FunnelHealth {
-  /** The tab's own stated window, e.g. "6/16 - 8/9". Shown verbatim because it
-   *  is maintained by hand and can lag the rest of the sheet. */
-  dateRange: string | null;
-  totalLeads: number | null;
-  contacted: number | null;
-  contactRate: number | null;
-  /** Leads advisors expect to enroll. */
-  forecastToClose: number | null;
-  /** How many of those have enrolled so far. */
-  forecastClosed: number | null;
-  forecastCvr: number | null;
-}
-
-async function readFunnelHealth(): Promise<FunnelHealth | null> {
-  try {
-    const rows = await readTab('Funnel Health', 'A1:N40');
-    const hIdx = rows.findIndex(r => r.some(c => /total contacted leads/i.test(S(c))));
-    if (hIdx < 0) return null;
-    const header = rows[hIdx].map(c => S(c).toLowerCase());
-    const col = (...needles: string[]) =>
-      header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
-
-    const totalRow = rows.slice(hIdx + 1).find(r => /^total\b/i.test(S(r[0])));
-    if (!totalRow) return null;
-    const at = (i: number) => (i >= 0 ? N(totalRow[i]) : null);
-
-    // "Actual Forecasted Enrollments" also contains "forecast" + "enrollments",
-    // so the plain forecast column is matched by excluding the actual one.
-    // The tab spells it "Acutal" — match both, since correcting the typo in the
-    // sheet would otherwise silently blank this column.
-    const isActual = (h: string) => /ac[ut]{2}al/.test(h);
-    const cForecast = header.findIndex(
-      h => h.includes('forecast') && h.includes('enrollment') && !isActual(h),
-    );
-    const cActual = header.findIndex(h => h.includes('forecast') && isActual(h));
-
-    return {
-      dateRange: S(rows[0]?.[1]) || null,
-      totalLeads: at(col('total leads')),
-      contacted: at(col('contacted')),
-      contactRate: at(col('contact rate')),
-      forecastToClose: at(cForecast),
-      forecastClosed: at(cActual),
-      forecastCvr: at(col('forecast cvr')),
-    };
-  } catch {
-    return null;
-  }
-}
-
 // ─── 5 · Advisor KPIs ("Enrollment KPIs/Goal Tracking - *") ───────────────────
 
 export interface AdvisorKpiRow {
@@ -496,7 +437,6 @@ export interface EnrollmentTeamData {
   ta: TAData | null;
   infoSessions: InfoSessionsData | null;
   advisorKpis: AdvisorKpisData | null;
-  funnelHealth: FunnelHealth | null;
 }
 
 export async function getEnrollmentTeamData(activeLabelHints: string[]): Promise<
@@ -513,14 +453,13 @@ export async function getEnrollmentTeamData(activeLabelHints: string[]): Promise
     return { ok: false, needsAccess: /permission|PERMISSION_DENIED|403/i.test(msg), error: msg };
   }
 
-  const [outreach, consults, ta, infoSessions, advisorKpis, funnelHealth] = await Promise.all([
+  const [outreach, consults, ta, infoSessions, advisorKpis] = await Promise.all([
     readOutreach(),
     readConsults(),
     readTA(),
     readInfoSessions(activeLabelHints),
     readAdvisorKpis(activeLabelHints),
-    readFunnelHealth(),
   ]);
 
-  return { ok: true, data: { outreach, consults, ta, infoSessions, advisorKpis, funnelHealth } };
+  return { ok: true, data: { outreach, consults, ta, infoSessions, advisorKpis } };
 }

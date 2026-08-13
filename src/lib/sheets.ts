@@ -627,6 +627,11 @@ export interface CohortSummary {
   // the curve has been rebuilt for the current target; when it doesn't, the daily
   // goals are still on the old plan and that's worth showing.
   goalPlanTotal?: number;
+  // Last day with a genuinely keyed actual, YYYY-MM-DD. `enrolled` and `forecast`
+  // are both read at this day, which is normally YESTERDAY — the tab pre-fills a
+  // 0 into today's row until someone enters it. Surfaced so a date control can
+  // default to the last COMPLETE day instead of to a today that has no data.
+  dataThrough?: string;
 }
 
 export interface PacingDataPoint {
@@ -1110,6 +1115,9 @@ export interface TodayCard {
   /** Cumulative enrollments as of the last keyed day. */
   cohortToDate: number | null;
   updatedThrough: string | null;
+  /** The same day as YYYY-MM-DD, so a date control can default to the last day
+   *  with complete data rather than to today. */
+  updatedThroughYmd: string | null;
   /** Days to the enrollment deadline as of today (ET), from today's row. */
   daysRemaining: number | null;
   /** Cumulative goal the plan expected by the last keyed day. */
@@ -1173,19 +1181,32 @@ export async function readDeadlineTable(
     const todayRow = rowAt(todayMs);
     const yRow = rowAt(yesterdayMs);
 
-    // "Updated through" = the most recent past day that has a keyed daily actual.
-    // The cumulative column carries the current total forward into future rows, so
-    // it must be read at that day, not at whatever the last row happens to be.
+    // "Updated through" = the most recent past day that has a GENUINELY keyed
+    // daily actual. The tab pre-fills 0 into rows that haven't been keyed yet —
+    // Aug 13, 14 and 15 all read 0 on Aug 13 — so a plain non-null test counted
+    // today as keyed and reported "keyed through Aug 13" when the last real
+    // figure was Aug 12's. A positive actual is the only reliable signal the
+    // day has been entered.
+    //
+    // A day with a true zero is therefore attributed to the prior day. That is
+    // the safe direction: the cumulative column doesn't move on a zero day, so
+    // cohortToDate is identical either way and only the label is a day earlier.
+    // Claiming a day is complete when it isn't is the error that matters, since
+    // this figure drives which day the prior-cohort comparison aligns to.
     let updatedThrough: string | null = null;
     let updatedMs = -Infinity;
+    let updatedYmd: string | null = null;
     let cohortToDate: number | null = null;
     let goalToDate: number | null = null;
     for (const r of dataRows) {
       const ms = dayMsOf(r[0])!;
       if (ms > todayMs) continue;
-      if (N(r[cDailyReal]) !== null && ms > updatedMs) {
+      const daily = N(r[cDailyReal]);
+      if (daily !== null && daily > 0 && ms > updatedMs) {
         updatedMs = ms;
-        updatedThrough = new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const d = new Date(ms);
+        updatedThrough = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        updatedYmd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (cCumulative >= 0) {
           const cumulative = N(r[cCumulative]);
           if (cumulative !== null) cohortToDate = cumulative;
@@ -1201,6 +1222,7 @@ export async function readDeadlineTable(
       yesterdayActual: N(yRow?.[cDailyReal]),
       cohortToDate,
       updatedThrough,
+      updatedThroughYmd: updatedYmd,
       daysRemaining: cDay >= 0 ? N(todayRow?.[cDay]) : null,
       goalToDate,
       goalYesterday: cCumGoal >= 0 ? N(yRow?.[cCumGoal]) : null,
@@ -1276,10 +1298,18 @@ async function fetchHistoricalWhartonMap(
 
 const V2_TAB = 'Deadline Pacing Table V2';
 
+/** "M/D/YYYY" from the sheet → "YYYY-MM-DD" for a date input. */
+function ymdOf(raw: string): string | undefined {
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return undefined;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 // Column indices (0-based) in each data row of the V2 table
 const V2 = {
   date:             0,  // "Current Date" — "M/D/YYYY"
   daysBeforeDeadline: 1, // "Day before Deadline"
+  dailyActual:      4,  // "Total Daily Enrollments Actuals" (0 = pre-filled, not keyed)
   totalEnrollments: 21, // "Total Enrollments" (running cumulative actual)
   forecastEnrollments: 22, // "Forecast Enrollments"
   // Cumulative goal curve. This USED to point at col 28 — the "Daily Goals"
@@ -1359,35 +1389,41 @@ export async function getPacingDataV2(
     return rowMs > bestMs ? r : best;
   }, null);
 
+  // daysRemaining stays on TODAY's row — it's a genuine countdown to the
+  // deadline, distinct from the day the data runs through.
   const daysRemaining = N(todayRow?.[V2.daysBeforeDeadline]) ?? 0;
-  const currentEnrolled = N(todayRow?.[V2.totalEnrollments]) ?? 0;
   const currentForecast = N(todayRow?.[V2.forecastEnrollments]) ?? 0;
 
-  // Enrollment counts reflect prior-day totals (1-day data lag). Compare against
-  // yesterday's Forecast Enrollments (col 22) — what the model predicted would be
-  // enrolled by end of that day — so the vs-pace delta is apples-to-apples.
-  // Col 28 (Daily Goals) is a separate cumulative plan used only for the pacing chart.
-  const yesterdayMs = todayMs - 86400000;
-  const yesterdayRow = dataRows.reduce<string[] | null>((best, r) => {
+  // The last row that has actually been KEYED. The tab pre-fills 0 into future
+  // and not-yet-entered rows while the cumulative column carries the running
+  // total forward, so on Aug 13 the Aug 13 row read 130 with a 0 daily actual
+  // and Aug 12 (day 62) was the last real figure, also 130.
+  //
+  // Everything the comparison needs is read from THIS row — the enrolled total,
+  // the pace it's measured against, and the days-out the prior cohorts are
+  // looked up at — so all three are on one day by construction. Previously the
+  // pace used "yesterday" as a stand-in for this and the historical lookup used
+  // today, which is what put the prior cohorts a day ahead of us: at day 61 they
+  // showed 139/132/104, at the aligned day 62 they show 134/127/98.
+  const keyedRow = dataRows.reduce<string[] | null>((best, r) => {
     const raw = r[V2.date];
     if (!raw) return best;
     const rowMs = new Date(raw).setHours(0, 0, 0, 0);
-    if (isNaN(rowMs) || rowMs > yesterdayMs) return best;
+    if (isNaN(rowMs) || rowMs > todayMs) return best;
+    const daily = N(r[V2.dailyActual]);
+    if (daily === null || daily <= 0) return best;
     if (!best) return r;
     return rowMs > new Date(best[V2.date]).setHours(0, 0, 0, 0) ? r : best;
   }, null);
-  const currentGoalAtDay = N(yesterdayRow?.[V2.forecastEnrollments]) ?? N(todayRow?.[V2.forecastEnrollments]) ?? 0;
 
-  // The day `currentEnrolled` actually represents. The cumulative column carries
-  // the running total forward into rows that aren't keyed yet — on Aug 13 the
-  // Aug 13 row read 130 with a pre-filled 0 daily actual, while Aug 12 (day 62)
-  // was the last day with a real figure, also 130. Reading the prior-cohort rows
-  // at TODAY's days-out therefore gave them a day of enrollments ours hadn't had
-  // yet: at day 61 they showed 139/132/104, at the aligned day 62 they show
-  // 134/127/98, which made Fall '26 look ~5 behind per cohort purely from the
-  // misalignment. Anchoring to the same row the pace figure uses keeps both
-  // halves of the comparison on one day.
-  const comparisonDay = N(yesterdayRow?.[V2.daysBeforeDeadline]) ?? daysRemaining;
+  const currentGoalAtDay = N(keyedRow?.[V2.forecastEnrollments]) ?? N(todayRow?.[V2.forecastEnrollments]) ?? 0;
+  const comparisonDay = N(keyedRow?.[V2.daysBeforeDeadline]) ?? daysRemaining;
+  const dataThrough = keyedRow?.[V2.date] ?? null;
+  // Read at the keyed row for the same reason. The cumulative column carries
+  // forward, so this equals today's row whenever today is unkeyed — but it stays
+  // correct on a day that IS keyed, where the old todayRow read silently paired
+  // a fresh total against a stale pace.
+  const currentEnrolled = N(keyedRow?.[V2.totalEnrollments]) ?? N(todayRow?.[V2.totalEnrollments]) ?? 0;
 
   // --- Historical cohort comparison, at the days-out the CURRENT figure is on ---
   // Pulled from the V1 sheet's per-day historical columns (see fetchHistoricalWhartonMap)
@@ -1466,6 +1502,7 @@ export async function getPacingDataV2(
     keyTakeaway,
     goalSource,
     goalPlanTotal: goalPlanTotal ?? undefined,
+    dataThrough: dataThrough ? ymdOf(dataThrough) : undefined,
   }];
 
   // --- Pacing data points ---

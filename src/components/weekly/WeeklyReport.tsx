@@ -78,15 +78,20 @@ interface ProgramCell {
   goal: number | null;
 }
 
-/** Enrollments ahead of / behind that program's OWN pace, drawn from a centre
- *  line. Length is the ABSOLUTE gap in enrollments, not a percentage, so the
- *  bars are directly comparable and the eye lands on whichever program is
- *  actually moving the cohort total — a +64% AVI is only 7 enrollments, while
- *  a −40% FP&A is 19. */
-function PaceBar({ delta, max }: { delta: number | null; max: number }) {
-  if (delta === null || max <= 0) return <div className="h-1.5" />;
-  const width = Math.min(Math.abs(delta) / max, 1) * 50;
-  const ahead = delta >= 0;
+/** Distance from 100% of a program's OWN pace, drawn from a centre line.
+ *
+ *  This encodes the SAME quantity as the "% of pace" column beside it. It used
+ *  to be sized by the absolute enrollment gap instead, which meant the bar and
+ *  the number were two different measures sitting in one row: FP&A drew a
+ *  longer bar than PE (−17 vs −13 enrollments) while reading closer to plan on
+ *  a percentage basis, so the picture contradicted the figure. Absolute impact
+ *  is still on the row — it's the Δ column — but it no longer competes with the
+ *  percentage for the same visual channel. */
+function PaceBar({ attainment, max }: { attainment: number | null; max: number }) {
+  if (attainment === null || max <= 0) return <div className="h-1.5" />;
+  const deviation = attainment - 100;
+  const width = Math.min(Math.abs(deviation) / max, 1) * 50;
+  const ahead = deviation >= 0;
   return (
     <div className="relative h-1.5 w-full min-w-[70px] bg-white/5 rounded-full">
       <div className="absolute inset-y-[-3px] left-1/2 w-px bg-white/25" />
@@ -98,28 +103,30 @@ function PaceBar({ delta, max }: { delta: number | null; max: number }) {
   );
 }
 
+/** How much of its own plan a row has enrolled. 100 = exactly on pace. */
+function attainmentOf(r: { enrolls: number | null; enrollsPace: number | null }): number | null {
+  return r.enrolls !== null && r.enrollsPace !== null && r.enrollsPace > 0
+    ? +(r.enrolls / r.enrollsPace * 100).toFixed(0)
+    : null;
+}
+
 function ProgramRow({
   r,
-  maxDelta,
+  maxDeviation,
   isTotal,
   isSubtotal,
   note,
 }: {
   r: ProgramCell;
-  maxDelta: number;
+  maxDeviation: number;
   isTotal?: boolean;
   isSubtotal?: boolean;
   note?: string;
 }) {
-  // Attainment against the program's own plan. This is the number the bar
-  // encodes the direction of; % of the full-cohort goal is NOT comparable
-  // across programs, because the plan expects each to sit at a different
-  // share of its goal at any given day (9%–16% for Wharton right now).
-  const attainment =
-    r.enrolls !== null && r.enrollsPace !== null && r.enrollsPace > 0
-      ? +(r.enrolls / r.enrollsPace * 100).toFixed(0)
-      : null;
-
+  // % of the full-cohort goal is NOT comparable across programs — the plan
+  // expects each to sit at a different share of its goal on any given day
+  // (9%–16% for Wharton right now) — so attainment is against own pace.
+  const attainment = attainmentOf(r);
   const emphasised = isTotal || isSubtotal;
   return (
     <tr className={emphasised ? 'border-t border-white/15' : 'border-t border-white/5'}>
@@ -132,7 +139,7 @@ function ProgramRow({
       <td className="py-2 text-xs sm:text-sm text-right font-mono text-gray-500">{fmt(r.goal)}</td>
       <td className={`py-2 text-xs sm:text-sm text-right font-mono ${tone(r.enrollDelta)}`}>{signed(r.enrollDelta)}</td>
       <td className="py-2 pl-3 sm:pl-4">
-        <PaceBar delta={r.enrollDelta} max={maxDelta} />
+        <PaceBar attainment={attainment} max={maxDeviation} />
       </td>
       <td className={`py-2 pl-2 text-xs sm:text-sm text-right font-mono ${tone(attainment === null ? null : attainment - 100)}`}>
         {attainment === null ? '—' : `${attainment}%`}
@@ -171,8 +178,10 @@ function ProgramTable({
   if (!rows.length) {
     return <p className="text-sm text-gray-600 italic">No per-program rows in this cohort&apos;s WoW tab.</p>;
   }
-  // Worst-first: the email's job is to put the gap at the top of the block.
-  const sorted = [...rows].sort((a, b) => (a.enrollDelta ?? 0) - (b.enrollDelta ?? 0));
+  // Worst-first by % of pace, which is what the bars now encode — sorting by
+  // absolute Δ while drawing relative bars would leave the bar lengths jumping
+  // around the column instead of stepping in order.
+  const sorted = [...rows].sort((a, b) => (attainmentOf(a) ?? 0) - (attainmentOf(b) ?? 0));
 
   // The Total row is the COHORT figure (deadline pacing table), not the sum of
   // the rows above it. The sheet's per-program forecast column carries rounding
@@ -199,10 +208,12 @@ function ProgramTable({
       }
     : null;
 
-  const maxDelta = Math.max(
-    ...sorted.map(r => Math.abs(r.enrollDelta ?? 0)),
-    Math.abs(totalDelta),
-    Math.abs(ai?.enrollDelta ?? 0),
+  // Scale every bar to the largest deviation from 100% of pace on the table, so
+  // the widest bar is the furthest-from-plan program in either direction.
+  const totalRow = { enrolls: cohortEnrolls, enrollsPace: cohortPace };
+  const maxDeviation = Math.max(
+    ...[...sorted, totalRow, ...(ai ? [ai] : []), ...(combined ? [combined] : [])]
+      .map(r => Math.abs((attainmentOf(r) ?? 100) - 100)),
     1,
   );
 
@@ -221,10 +232,10 @@ function ProgramTable({
           </tr>
         </thead>
         <tbody>
-          {sorted.map(r => <ProgramRow key={r.program} r={r} maxDelta={maxDelta} />)}
+          {sorted.map(r => <ProgramRow key={r.program} r={r} maxDeviation={maxDeviation} />)}
           <ProgramRow
             isSubtotal
-            maxDelta={maxDelta}
+            maxDeviation={maxDeviation}
             r={{
               program: 'Wharton total',
               enrolls: cohortEnrolls,
@@ -233,8 +244,8 @@ function ProgramTable({
               goal: cohortGoal || null,
             }}
           />
-          {ai && <ProgramRow r={ai} maxDelta={maxDelta} note={columbia!.label} />}
-          {combined && <ProgramRow isTotal maxDelta={maxDelta} r={combined} />}
+          {ai && <ProgramRow r={ai} maxDeviation={maxDeviation} note={columbia!.label} />}
+          {combined && <ProgramRow isTotal maxDeviation={maxDeviation} r={combined} />}
         </tbody>
       </table>
       {(paceGap !== 0 || enrollGap !== 0) && (
@@ -425,13 +436,14 @@ export default function WeeklyReportPage() {
     return () => { cancelled = true; };
   }, [asOf]);
 
-  // Selecting today clears the param entirely, so the URL of a live view stays
-  // clean and reloads as live rather than pinned to a date that ages out.
+  // Selecting the latest complete day clears the param entirely, so the URL of a
+  // live view stays clean and reloads as live rather than pinned to a date that
+  // ages out.
   const changeAsOf = (ymd: string) => {
-    const isToday = !!data && ymd === data.today;
+    const isLatest = !!data && ymd === data.dataThrough;
     setLoading(true);
-    setAsOf(isToday ? '' : ymd);
-    window.history.replaceState(null, '', isToday ? window.location.pathname : `${window.location.pathname}?asOf=${ymd}`);
+    setAsOf(isLatest ? '' : ymd);
+    window.history.replaceState(null, '', isLatest ? window.location.pathname : `${window.location.pathname}?asOf=${ymd}`);
   };
 
   if (loading) return <p className="text-gray-500 text-sm">Loading weekly report…</p>;
@@ -453,10 +465,17 @@ export default function WeeklyReportPage() {
         <div>
           <h1 className="text-xl font-bold text-white">Weekly report</h1>
           <p className="text-sm text-gray-400">
-            Screenshot this card for the weekly email · {data.isToday ? 'live' : 'rewound view'}
+            Screenshot this card for the weekly email · through the last full day of data
           </p>
         </div>
-        <AsOfPicker value={data.asOfDate} max={data.today} onChange={changeAsOf} />
+        {/* Defaults and caps at the last COMPLETE day, not today. The pacing tabs
+            pre-fill a 0 into today's row until someone keys it, so offering today
+            would put a date above numbers that don't run that far. */}
+        <AsOfPicker
+          value={data.asOfDate > data.dataThrough ? data.dataThrough : data.asOfDate}
+          max={data.dataThrough}
+          onChange={changeAsOf}
+        />
       </div>
 
       <div className="bg-[#0d1117] border border-white/10 rounded-2xl p-4 sm:p-6">
@@ -500,12 +519,13 @@ export default function WeeklyReportPage() {
             <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
               Pace is each program&apos;s own forecast-to-date from the cohort doc, read at the PRIOR day
               because enrollment counts land a day late — so the Δ is &ldquo;as of yesterday&rdquo; even
-              where a figure is keyed through today. Bars run from the centre line and are sized by the
-              gap in ENROLLMENTS, so the longest bar is whichever program is moving the cohort total
-              most. &ldquo;% of pace&rdquo; is how much of its OWN plan a program has enrolled — 100% is
-              exactly on plan, 65% is a third short of it, 150% is half again ahead. It is not a share
-              of the full-cohort goal, which the plan never expects every program to reach at the same
-              time.
+              where a figure is keyed through today. &ldquo;% of pace&rdquo; is how much of its OWN plan
+              a program has enrolled — 100% is exactly on plan, 65% is a third short of it, 150% is half
+              again ahead — and the bar is that same figure drawn from the centre line, so rows are
+              ranked by how far off plan they are rather than by size. The Δ column carries the absolute
+              impact: a small program can be far off plan while costing few enrollments. Neither is a
+              share of the full-cohort goal, which the plan never expects every program to reach at the
+              same time.
               {columbia && (
                 <> AI is {columbia.label}, a single-program cohort, so it has no per-program breakdown of
                 its own. It sits {columbia.daysRemaining - (wharton?.daysRemaining ?? 0)}{' '}
@@ -605,13 +625,12 @@ export default function WeeklyReportPage() {
                   )}
                 />
               )}
-              {team.pipeline && (
-                <Tile
-                  label="Forecast to close"
-                  value={fmt(team.pipeline.forecastToClose)}
-                  sub={`${fmt(team.pipeline.forecastClosed)} closed so far · ${pct(team.pipeline.forecastCvr, 0)} hit rate`}
-                />
-              )}
+              {/* No pipeline tile: the Funnel Health tab's figures don't reconcile
+                  (its Total Enrollments reads 1 against a cohort of 130), and
+                  Aubrey's HubSpot pipeline report is the intended source. Left out
+                  entirely rather than shown with a caveat — a number on this card
+                  gets screenshotted into an exec email, where a caveat travels
+                  badly. Add it back when the HubSpot report lands. */}
             </div>
           ) : (
             <p className="text-sm text-gray-600 italic">
@@ -624,10 +643,8 @@ export default function WeeklyReportPage() {
             <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
               Consults and TA show actual vs the team&apos;s own baseline window. Consults use the
               sheet&apos;s de-duplicated Wharton + Columbia column, so it will not equal the two added
-              together; TA is summed across both. Forecast to close is the advisors&apos; live list from
-              the Funnel Health tab
-              {team.pipeline?.dateRange ? `, covering ${team.pipeline.dateRange}` : ''}{' '}
-              — leads they expect to enroll, not outbound volume. TA tab stamped &ldquo;{team.ta.dataPulled}&rdquo;
+              together; TA is summed across both. Pipeline is deliberately absent until Aubrey&apos;s
+              HubSpot report exists. TA tab stamped &ldquo;{team.ta.dataPulled}&rdquo;
               {team.dataPulled && ` while the consult tab is stamped “${team.dataPulled}” — confirm the TA figures are current.`}
             </p>
           )}
