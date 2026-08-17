@@ -1128,7 +1128,29 @@ export interface TodayCard {
    *  the plan expected by the end of that prior day. Kept as its own field so
    *  Wharton and Columbia can't drift onto two different definitions. */
   goalYesterday: number | null;
+  /** The cumulative enrollment curve, one point per day, ending on the last
+   *  KEYED day — never on today, because the cumulative column carries the
+   *  running total forward into unkeyed rows and would draw a flat tail that
+   *  reads as "enrolment stopped". By construction the last point's `total`
+   *  equals `cohortToDate`. Empty when the table has no cumulative column. */
+  series: Array<{ date: string; total: number }>;
+  /** Per-program cumulative curves, from the table's own "<PROGRAM> Total
+   *  Enrollment" columns — the same rows `series` and `cohortToDate` come from,
+   *  which is why the parts sum to the whole. Read here rather than in a second
+   *  reader so no surface can disagree with another about the keyed day, the
+   *  cohort total, or the split. Empty for single-program cohorts (CBS). */
+  programs: Array<{ program: string; total: number | null; series: Array<{ date: string; total: number }> }>;
+  /** Whether the per-program totals actually sum to `cohortToDate` at the keyed
+   *  day. False means a column moved or a program was added without its
+   *  cumulative column — the breakdown must then be withheld, not shown with a
+   *  quietly wrong split. Null when there are no program columns to check. */
+  programsSumToTotal: boolean | null;
 }
+
+/** The deadline table's column headers shorten one program to "RD" where the
+ *  goals tab and the WoW block both write "RDI". Normalised here so a program
+ *  can't appear under two names across surfaces. */
+const PROGRAM_ALIASES: Record<string, string> = { RD: 'RDI' };
 
 function dayMsOf(raw: string | undefined): number | null {
   if (!raw) return null;
@@ -1163,13 +1185,37 @@ export async function readDeadlineTable(
     const cDay        = findFirst(h => h.includes('day before deadline'));
     const cDailyGoal  = findFirst(h => h === 'daily goals');
     const cDailyReal  = findFirst(h => h.includes('daily enrollments actuals'));
-    const cCumulative = findLast(h => /total enrollments?$/.test(h) && !h.includes('daily'));
+    // The cohort's own cumulative column is the UNPREFIXED "Total Enrollments";
+    // the per-program columns ("PE   Total Enrollment") match the same suffix,
+    // and this used to be resolved by taking the last of them — which is only
+    // right while the grand total sits to the right of every program column.
+    // Match the bare header first so a program column added at the far right
+    // can't quietly become the cohort total.
+    const cCumulativeExact = findFirst(h => /^total enrollments?$/.test(h));
+    const cCumulative = cCumulativeExact >= 0
+      ? cCumulativeExact
+      : findLast(h => /total enrollments?$/.test(h) && !h.includes('daily'));
     // Wharton repeats "Forecasted Goal" once per program (col 8 is PE's), and carries
     // the all-program plan in "Forecast Enrollments" — so that name is tried first.
     // CBS has a single program and only the "Forecasted Goal" column.
     const cCumGoalFc  = findFirst(h => h === 'forecast enrollments');
     const cCumGoal    = cCumGoalFc >= 0 ? cCumGoalFc : findFirst(h => h === 'forecasted goal');
     if (cDailyGoal < 0 || cDailyReal < 0) return null;
+
+    // ── Per-program cumulative columns ──
+    // Discovered from the header, never by position: the Wharton table carries
+    // "<PROGRAM>  Daily Enrollment | <PROGRAM>  Total Enrollment | forecast" per
+    // program, and a program launching or retiring shifts every index after it.
+    // Spacing inside the headers is inconsistent ("AVI    Total Enrollment"), so
+    // whitespace is collapsed before matching.
+    const programCols = header
+      .map((h, i) => ({ h: h.replace(/\s+/g, ' ').trim(), i }))
+      .filter(({ i }) => i !== cCumulative)
+      .map(({ h, i }) => {
+        const m = h.match(/^(.+?) total enrollments?$/);
+        return m ? { program: PROGRAM_ALIASES[m[1].toUpperCase()] ?? m[1].toUpperCase(), col: i } : null;
+      })
+      .filter((x): x is { program: string; col: number } => x !== null);
 
     const dataRows = rows.slice(hIdx + 1).filter(r => dayMsOf(r[0]) !== null);
 
@@ -1198,9 +1244,24 @@ export async function readDeadlineTable(
     let updatedYmd: string | null = null;
     let cohortToDate: number | null = null;
     let goalToDate: number | null = null;
+    const pastCumulative: Array<{ ms: number; date: string; total: number }> = [];
+    const pastByProgram = new Map<string, Array<{ ms: number; date: string; total: number }>>();
     for (const r of dataRows) {
       const ms = dayMsOf(r[0])!;
       if (ms > todayMs) continue;
+      const d0 = new Date(ms);
+      const ymd = `${d0.getFullYear()}-${String(d0.getMonth() + 1).padStart(2, '0')}-${String(d0.getDate()).padStart(2, '0')}`;
+      if (cCumulative >= 0) {
+        const cumulative = N(r[cCumulative]);
+        if (cumulative !== null) pastCumulative.push({ ms, date: ymd, total: cumulative });
+      }
+      for (const { program, col } of programCols) {
+        const v = N(r[col]);
+        if (v === null) continue;
+        const bucket = pastByProgram.get(program) ?? [];
+        bucket.push({ ms, date: ymd, total: v });
+        pastByProgram.set(program, bucket);
+      }
       const daily = N(r[cDailyReal]);
       if (daily !== null && daily > 0 && ms > updatedMs) {
         updatedMs = ms;
@@ -1215,6 +1276,31 @@ export async function readDeadlineTable(
       }
     }
 
+    // Everything below the keyed day is dropped for the reason given on the
+    // `series` field: later rows repeat the running total and would draw a flat
+    // tail that reads as "enrollment stopped".
+    const throughKeyed = (pts: Array<{ ms: number; date: string; total: number }>) =>
+      pts
+        .filter(p => p.ms <= updatedMs)
+        .sort((a, b) => a.ms - b.ms)
+        .map(({ date, total }) => ({ date, total }));
+
+    const programs = programCols.map(({ program }) => {
+      const series = throughKeyed(pastByProgram.get(program) ?? []);
+      return { program, total: series.length ? series[series.length - 1].total : null, series };
+    });
+
+    // The parts must add up to the whole — both are read from the same row of
+    // the same table, so any mismatch means a column moved or a program lost its
+    // cumulative column. Callers withhold the breakdown rather than publish a
+    // split that doesn't reconcile.
+    const partsSum = programs.reduce<number | null>(
+      (s, p) => (s === null || p.total === null ? null : s + p.total),
+      0,
+    );
+    const programsSumToTotal =
+      programs.length === 0 ? null : partsSum !== null && cohortToDate !== null && partsSum === cohortToDate;
+
     return {
       cohortLabel,
       todayGoal: N(todayRow?.[cDailyGoal]) ?? 0,
@@ -1226,6 +1312,9 @@ export async function readDeadlineTable(
       daysRemaining: cDay >= 0 ? N(todayRow?.[cDay]) : null,
       goalToDate,
       goalYesterday: cCumGoal >= 0 ? N(yRow?.[cCumGoal]) : null,
+      series: throughKeyed(pastCumulative),
+      programs,
+      programsSumToTotal,
     };
   } catch {
     return null;
