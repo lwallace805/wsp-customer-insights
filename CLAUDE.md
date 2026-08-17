@@ -38,6 +38,35 @@ A third static data source lives in `src/data/historicalNPS.json` — pre-Airtab
 
 NextAuth v4 with Google OAuth, JWT sessions. `src/middleware.ts` protects every route except static assets and redirects unauthenticated users to `/login`. The `signIn` callback in `src/lib/auth.ts` blocks any email not ending in `@wallstreetprep.com`. Required env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`.
 
+### The Wharton partner surface (`/wharton`)
+
+One external, password-gated dashboard for the Wharton Online team — enrollments
+for the current Wharton cohort, total and by program. It is the **only** route
+outside the internal Google gate, and it is deliberately narrow:
+
+- **Scope is enforced in the payload**, not the UI. `src/lib/whartonPartner.ts`
+  returns enrollments only — no goal, pace, forecast, leads, spend, Columbia
+  data or cohort-over-cohort comparison. Anything absent there cannot leak onto
+  the page through a later UI edit. Keep it that way when adding to this surface.
+- **Access** (`src/lib/partnerAccess.ts`): a shared password is exchanged at
+  `POST /api/wharton/session` for an HMAC-signed, HttpOnly cookie
+  (`wsp_partner_wharton`) valid 30 days. The token embeds a fingerprint of the
+  password that minted it, so **changing `WHARTON_ACCESS_PASSWORD` immediately
+  revokes every cookie already issued** — that is the revocation mechanism.
+  The gate fails closed: no password or no signing secret configured → nobody in.
+- **Middleware** runs the partner branch before NextAuth. The partner cookie is
+  accepted on `/wharton` and `/api/wharton` only; an internal Google session also
+  works, so staff following the nav link aren't asked for the partner password.
+- **Env vars**: `WHARTON_ACCESS_PASSWORD` (required), `WHARTON_COOKIE_SECRET`
+  (recommended; falls back to `NEXTAUTH_SECRET`), `WHARTON_HOST` (optional — a
+  hostname that serves only this dashboard, e.g. `wharton.example.com`, with `/`
+  mapped to `/wharton` and every other path mapped into it).
+- **Data** comes from `readDeadlineTable()` — the same reader Pulse, Weekly and
+  Cohort Command use — so the partner page cannot disagree with an internal
+  surface. Per-program figures are the table's own `<PROGRAM> Total Enrollment`
+  columns; the reader asserts they sum to the cohort total and the page withholds
+  the breakdown rather than showing a split that doesn't reconcile.
+
 ### Page / API Structure
 
 Each dashboard section has a page under `src/app/` and a corresponding API route under `src/app/api/`:
@@ -51,6 +80,7 @@ Each dashboard section has a page under `src/app/` and a corresponding API route
 | `/surveys` | `/api/surveys` | Airtable survey meta table |
 | `/insights` | `/api/learner-intelligence` | Airtable NPS (cert programs only) |
 | `/explore` | `/api/explore` | Airtable schema introspection |
+| `/wharton` | `/api/wharton/enrollments` | Wharton cohort doc (external, password-gated) |
 
 Pages are a mix of Server Components (homepage) and client components that fetch their own `/api/*` routes. The root layout sets `export const dynamic = 'force-dynamic'` to prevent static caching.
 

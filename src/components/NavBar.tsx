@@ -6,6 +6,7 @@ import {
   Home, BarChart2, MessageSquare, Lightbulb,
   GraduationCap, TrendingUp, ChevronDown, Layers,
   Phone, Mic, Gauge, GitBranch, Globe, ShoppingCart, Target, Megaphone, Mail,
+  ExternalLink,
 } from 'lucide-react';
 
 const CUSTOMER_INSIGHTS = [
@@ -26,6 +27,10 @@ const PERFORMANCE_V2 = [
   { href: '/cohort-performance/wharton',  label: 'Cohort Command — Wharton',  icon: GraduationCap },
   { href: '/cohort-performance/columbia', label: 'Cohort Command — Columbia', icon: GraduationCap },
   { href: '/enrollment-team',             label: 'Enrollment Team',           icon: Phone },
+  // The external Wharton view. Opens in a new tab and is marked `external` so it
+  // never highlights as the active internal page — it's a different audience's
+  // surface that we keep a door to, not a section of the hub.
+  { href: '/wharton',                     label: 'Wharton (external view)',   icon: ExternalLink, external: true },
 ];
 
 const PERFORMANCE_DASHBOARDS = [
@@ -42,7 +47,14 @@ const PERFORMANCE_DASHBOARDS = [
 ];
 
 
-type NavItem = { href: string; label: string; icon: React.ElementType; static?: boolean };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  static?: boolean;
+  /** Opens in a new tab and never renders as the active item. */
+  external?: boolean;
+};
 
 function DropdownMenu({
   label,
@@ -53,7 +65,7 @@ function DropdownMenu({
   items: NavItem[];
   activePath: string;
 }) {
-  const isGroupActive = items.some(i => !i.static && activePath.startsWith(i.href));
+  const isGroupActive = items.some(i => !i.static && !i.external && activePath.startsWith(i.href));
 
   return (
     <div className="relative group">
@@ -75,14 +87,23 @@ function DropdownMenu({
       {/* Dropdown panel — visible on hover */}
       <div className="absolute left-0 top-full pt-1 z-50 hidden group-hover:block">
         <div className="bg-white border border-gray-100 rounded-xl shadow-lg py-1 min-w-[200px]">
-          {items.map(({ href, label: itemLabel, icon: Icon, static: isStatic }) => {
-            const isActive = !isStatic && (activePath === href || activePath.startsWith(href + '/'));
+          {items.map(({ href, label: itemLabel, icon: Icon, static: isStatic, external }) => {
+            const isActive =
+              !isStatic && !external && (activePath === href || activePath.startsWith(href + '/'));
             const className = `flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${
               isActive
                 ? 'text-gray-900 bg-gray-50 font-medium'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`;
             const icon = <Icon size={14} className={isActive ? 'text-emerald-600' : 'text-gray-400'} />;
+            if (external) {
+              return (
+                <a key={href} href={href} target="_blank" rel="noopener noreferrer" className={className}>
+                  {icon}
+                  {itemLabel}
+                </a>
+              );
+            }
             return isStatic ? (
               <a key={href} href={href} className={className}>
                 {icon}
