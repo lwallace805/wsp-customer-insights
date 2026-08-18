@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "wsp-dashboard-noauth",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
+      "autoPort": true,
+      "env": { "DISABLE_AUTH": "1" }
     }
   ]
 }

@@ -27,6 +27,7 @@ const PERFORMANCE_V2 = [
   { href: '/cohort-performance/wharton',  label: 'Cohort Command — Wharton',  icon: GraduationCap },
   { href: '/cohort-performance/columbia', label: 'Cohort Command — Columbia', icon: GraduationCap },
   { href: '/enrollment-team',             label: 'Enrollment Team',           icon: Phone },
+  { href: '/paid-aggregate',              label: 'Paid Marketing Aggregate',  icon: Megaphone },
   // The external Wharton view. Opens in a new tab and is marked `external` so it
   // never highlights as the active internal page — it's a different audience's
   // surface that we keep a door to, not a section of the hub.
