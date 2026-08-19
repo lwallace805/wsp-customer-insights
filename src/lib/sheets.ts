@@ -368,7 +368,63 @@ function blockCols(header: string[], base: number, end: number) {
   };
 }
 
-export async function readPaidWoW(sheetId: string, tab = 'Paid WoW Performance & Goals'): Promise<PaidWoW | null> {
+// ─── Versioned tab resolution ─────────────────────────────────────────────────
+//
+// The cohort docs keep a reworked copy of a tab alongside the original rather
+// than replacing it — the Wharton Fall 2026 doc carries BOTH
+// "Paid WoW Performance & Goals" and "… V2", and likewise for "Overall WoW".
+// Actuals match across the pair, but the FORECAST/goal columns differ (paid
+// leads 7,180 in the original vs 6,791 in V2), so reading the original silently
+// serves a superseded goal while every actual looks right — which is exactly
+// how this went unnoticed.
+//
+// The highest-numbered version wins, so a future V3 is picked up without a code
+// change, and docs that only have the original (CBS, closed cohorts) are
+// unaffected.
+
+const tabCache = new Map<string, string[]>();
+
+async function listTabs(sheetId: string): Promise<string[]> {
+  const hit = tabCache.get(sheetId);
+  if (hit) return hit;
+  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const titles = (meta.data.sheets ?? [])
+    .map(s => s.properties?.title)
+    .filter((t): t is string => !!t);
+  tabCache.set(sheetId, titles);
+  return titles;
+}
+
+/** Newest "<base>" / "<base> V2" / "<base> V3"… present in the doc.
+ *  Falls back to `base` when the doc can't be listed, so a metadata failure
+ *  degrades to today's behaviour rather than throwing. */
+export async function resolveVersionedTab(sheetId: string, base: string): Promise<string> {
+  try {
+    const titles = await listTabs(sheetId);
+    const re = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+V(\\d+))?$`, 'i');
+    let best = base;
+    let bestV = 0;
+    for (const t of titles) {
+      const m = t.trim().match(re);
+      if (!m) continue;
+      const v = m[1] ? parseInt(m[1], 10) : 1;
+      if (v >= bestV) { bestV = v; best = t; }
+    }
+    return best;
+  } catch {
+    return base;
+  }
+}
+
+export const PAID_WOW_BASE_TAB = 'Paid WoW Performance & Goals';
+
+export async function readPaidWoW(sheetId: string, tab?: string): Promise<PaidWoW | null> {
+  const resolved = tab ?? await resolveVersionedTab(sheetId, PAID_WOW_BASE_TAB);
+  return readPaidWoWFrom(sheetId, resolved);
+}
+
+async function readPaidWoWFrom(sheetId: string, tab: string): Promise<PaidWoW | null> {
   try {
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
     const res = await sheets.spreadsheets.values.get({

@@ -17,6 +17,7 @@ import {
   getPacingDataV2,
   readDocGoal,
   readDeadlineTable,
+  resolveVersionedTab,
   readProgramGoals,
   readChannelTable,
   readPaidWoW,
@@ -140,7 +141,11 @@ async function readWoWLeads(
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `'Overall WoW Performance & Goals'!A1:R150`,
+      // Same versioned-tab trap as Paid WoW: the Fall 2026 doc carries both
+      // "Overall WoW Performance & Goals" and "… V2" with identical actuals but
+      // different forecasts (total leads forecast 9,082 vs 9,954). Read the
+      // newest.
+      range: `'${await resolveVersionedTab(sheetId, 'Overall WoW Performance & Goals')}'!A1:R150`,
     });
     const rows = res.data.values ?? [];
 
