@@ -15,7 +15,7 @@ import {
 import { ExternalLink, AlertTriangle } from 'lucide-react';
 import type {
   ChannelTablesData, ChannelMetricKey, ChannelScope, ProgramKey,
-  ProgramChannelBlock, ChannelSeriesRow,
+  ProgramChannelBlock, ChannelSeriesRow, ForecastSide, ProgramForecast,
 } from '@/lib/performance/channelTablesTypes';
 import {
   CHANNEL_METRIC_KEYS, PROGRAM_DISPLAY, PROGRAM_ORDER,
@@ -62,6 +62,28 @@ function coc(current: number | null, prior: number | null): number | null {
 function deltaClass(n: number | null): string {
   if (n === null || !isFinite(n)) return 'text-gray-400';
   return n >= 0 ? 'text-emerald-400' : 'text-red-400';
+}
+
+/** Attainment: actual as a share of forecast-to-date. 100% is on plan. */
+function attainment(actual: number | null, forecast: number | null): number | null {
+  if (actual === null || forecast === null || forecast === 0) return null;
+  const r = actual / forecast;
+  return isFinite(r) ? r : null;
+}
+
+function attainStr(r: number | null): string {
+  return r === null ? '—' : `${(r * 100).toFixed(0)}%`;
+}
+
+function attainClass(r: number | null): string {
+  if (r === null) return 'text-gray-400';
+  return r >= 1 ? 'text-emerald-400' : 'text-red-400';
+}
+
+/** The forecast slice matching the current scope. */
+function sideForScope(f: ProgramForecast | undefined, scope: ChannelScope): ForecastSide | null {
+  if (!f) return null;
+  return scope === 'all' ? f.overall : scope === 'paid' ? f.paid : f.nonpaid;
 }
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -166,11 +188,12 @@ function buildMatrixRows(
 // ─── KPI tiles ────────────────────────────────────────────────────────────────
 
 function ChannelKpiTile({
-  metricKey, block, scope, active, onClick,
+  metricKey, block, scope, forecastSide, active, onClick,
 }: {
   metricKey: ChannelMetricKey;
   block: ProgramChannelBlock;
   scope: ChannelScope;
+  forecastSide: ForecastSide | null;
   active: boolean;
   onClick: () => void;
 }) {
@@ -189,6 +212,17 @@ function ChannelKpiTile({
   const priorLabel = n >= 2 ? block.cohorts[n - 2] : null;
   const vsPrior = coc(current, prior);
 
+  // Attainment is WoW-actual ÷ WoW-forecast — the two live on the same tab, so
+  // the ratio is self-consistent even though the tile's headline number comes
+  // from the channel matrix (bases drift slightly; see the footnotes).
+  const att = forecastSide === null ? null :
+    metricKey === 'leads' ? attainment(forecastSide.leads, forecastSide.leadsF) :
+    metricKey === 'enrollments' ? attainment(forecastSide.enrolls, forecastSide.enrollsF) :
+    attainment(
+      ratio(forecastSide.enrolls, forecastSide.leads),
+      ratio(forecastSide.enrollsF, forecastSide.leadsF),
+    );
+
   return (
     <button
       onClick={onClick}
@@ -204,6 +238,10 @@ function ChannelKpiTile({
       <div className="text-2xl font-semibold text-white mt-1 tabular-nums">{m.fmt(current)}</div>
       <div className="mt-2 space-y-0.5 text-[11px]">
         <div className="flex justify-between gap-3">
+          <span className="text-gray-500">of forecast</span>
+          <span className={`tabular-nums font-medium ${attainClass(att)}`}>{attainStr(att)}</span>
+        </div>
+        <div className="flex justify-between gap-3">
           <span className="text-gray-500">vs {priorLabel ?? 'prior'}</span>
           <span className={`tabular-nums font-medium ${deltaClass(vsPrior)}`}>{pctStr(vsPrior)}</span>
         </div>
@@ -213,6 +251,77 @@ function ChannelKpiTile({
         </div>
       </div>
     </button>
+  );
+}
+
+// ─── Actual vs forecast (to date) ─────────────────────────────────────────────
+
+function ForecastCard({ forecast, programKey, source }: {
+  forecast: ProgramForecast | undefined;
+  programKey: ProgramKey;
+  source: string | null;
+}) {
+  if (!forecast) return null;
+  const slices: { label: string; side: ForecastSide | null }[] = [
+    { label: 'Paid (PPC)', side: forecast.paid },
+    { label: 'Non-paid', side: forecast.nonpaid },
+    { label: 'Total', side: forecast.overall },
+  ];
+  if (slices.every(s => s.side === null)) return null;
+  const fmtN = (v: number | null) => (v === null ? '—' : Math.round(v).toLocaleString());
+
+  return (
+    <Card>
+      <div className="px-5 py-4 border-b border-white/10">
+        <h2 className="text-sm font-semibold text-white">
+          Actual vs forecast, to date — {PROGRAM_DISPLAY[programKey]}
+        </h2>
+        <p className="text-[11px] text-gray-500 mt-0.5">
+          {source ? <>From &ldquo;{source}&rdquo;. </> : null}
+          Forecasts are cumulative through the current cohort week. Non-paid is derived as
+          Overall − Paid; per-channel forecasts exist only for the paid platforms, on the
+          Paid Marketing Aggregate page.
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10">
+              <th className={THL}></th>
+              <th className={TH}>Leads — actual</th>
+              <th className={TH}>Leads — forecast</th>
+              <th className={TH}>% of forecast</th>
+              <th className={TH}>Enrolls — actual</th>
+              <th className={TH}>Enrolls — forecast</th>
+              <th className={TH}>% of forecast</th>
+            </tr>
+          </thead>
+          <tbody>
+            {slices.map((s, i) => {
+              const lAtt = s.side ? attainment(s.side.leads, s.side.leadsF) : null;
+              const eAtt = s.side ? attainment(s.side.enrolls, s.side.enrollsF) : null;
+              const isTotal = s.label === 'Total';
+              return (
+                <tr
+                  key={s.label}
+                  className={`border-b border-white/5 ${
+                    isTotal ? 'bg-white/5 font-semibold' : i % 2 ? 'bg-white/[0.02]' : ''
+                  }`}
+                >
+                  <td className="px-5 py-2.5 text-gray-200">{s.label}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-white">{fmtN(s.side?.leads ?? null)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{fmtN(s.side?.leadsF ?? null)}</td>
+                  <td className={`px-4 py-2.5 text-right tabular-nums ${attainClass(lAtt)}`}>{attainStr(lAtt)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-white">{fmtN(s.side?.enrolls ?? null)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{fmtN(s.side?.enrollsF ?? null)}</td>
+                  <td className={`px-4 py-2.5 text-right tabular-nums ${attainClass(eAtt)}`}>{attainStr(eAtt)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
@@ -418,6 +527,8 @@ export function ChannelMatrixSection({
   const block =
     data.programs.find(p => p.program === programKey) ?? data.programs[0] ?? null;
   if (!block) return null;
+  const forecast = data.forecasts.find(f => f.program === block.program);
+  const forecastSide = sideForScope(forecast, scope);
 
   return (
     <div className="space-y-5">
@@ -428,11 +539,14 @@ export function ChannelMatrixSection({
             metricKey={k}
             block={block}
             scope={scope}
+            forecastSide={forecastSide}
             active={k === metric}
             onClick={() => setMetric(k)}
           />
         ))}
       </div>
+
+      <ForecastCard forecast={forecast} programKey={block.program} source={data.forecastSource} />
 
       <Card>
         <div className="px-5 py-4 border-b border-white/10">
@@ -481,9 +595,14 @@ export function ChannelMatrixSection({
             cohort-to-date window — identical to the source tab&apos;s Conversions block.
           </li>
           <li>
-            <span className="text-gray-400">No forecast exists for non-paid channels.</span>{' '}
-            Paid channels have week-aligned forecast and prior-cohort comparisons by platform on
-            the Paid Marketing Aggregate page.
+            <span className="text-gray-400">Forecast figures come from the doc&apos;s WoW tabs</span>{' '}
+            (all-channel and paid, newest version), cumulative through the current week;
+            Non-paid forecast is derived as Overall − Paid. They sit on a slightly different
+            basis than the matrix — the WoW paid rows count the four ad platforms while the
+            matrix&apos;s PPC row is the doc&apos;s &ldquo;Ads&rdquo; line, and refresh timing
+            differs — so &ldquo;% of forecast&rdquo; is always WoW-actual ÷ WoW-forecast, never
+            a mix. Per-channel forecasts exist only for paid platforms, on the Paid Marketing
+            Aggregate page.
           </li>
           <li>
             <span className="text-gray-400">Overall spend includes brand/generic spend</span>{' '}
