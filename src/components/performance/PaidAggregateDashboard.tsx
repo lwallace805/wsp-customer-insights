@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
@@ -9,6 +9,11 @@ import type {
   PaidAggregateData, MetricKey, MetricRow, ProgramBlock,
 } from '@/lib/performance/paidAggregateTypes';
 import { METRIC_KEYS } from '@/lib/performance/paidAggregateTypes';
+import type { ChannelScope, ProgramKey } from '@/lib/performance/channelTablesTypes';
+import { programKeyFor, PROGRAM_DISPLAY, PROGRAM_ORDER } from '@/lib/performance/channelTablesTypes';
+import {
+  ChannelMatrixSection, ScopePills, type ChannelsApiResponse,
+} from './ChannelPerformanceDashboard';
 
 interface ApiResponse {
   live: PaidAggregateData | null;
@@ -268,8 +273,14 @@ function ProgramTable({
 export default function PaidAggregateDashboard() {
   const [res, setRes] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [programName, setProgramName] = useState<string | null>(null);
+  const [programKey, setProgramKey] = useState<ProgramKey | null>(null);
   const [metric, setMetric] = useState<MetricKey>('leads');
+  // Paid vs Non-paid scope. "paid" is this page's original funnel-doc view;
+  // the other scopes render the Channel Tables view (same data as /channels)
+  // so the program filter can be sliced by paid / non-paid / all channels.
+  const [scope, setScope] = useState<ChannelScope>('paid');
+  const [chRes, setChRes] = useState<ChannelsApiResponse | null>(null);
+  const chFetchStarted = useRef(false);
 
   useEffect(() => {
     fetch('/api/performance/paid-aggregate')
@@ -279,9 +290,25 @@ export default function PaidAggregateDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Channel-tables data is only needed once the user leaves the paid scope.
+  useEffect(() => {
+    if (scope === 'paid' || chFetchStarted.current) return;
+    chFetchStarted.current = true;
+    fetch('/api/performance/channels')
+      .then(r => r.json())
+      .then((j: ChannelsApiResponse) => setChRes(j))
+      .catch((e: unknown) => setChRes({ live: null, needsAccess: false, error: String(e) }));
+  }, [scope]);
+
   const data = res?.live ?? null;
+  const chData = chRes?.live ?? null;
   const programs = useMemo(() => data?.programs ?? [], [data]);
-  const program = programs.find(p => p.name === programName) ?? programs[0] ?? null;
+  const program =
+    programs.find(p => programKeyFor(p.name) === programKey) ?? programs[0] ?? null;
+  const channelProgramKeys = useMemo(() => {
+    const have = new Set((chData?.programs ?? []).map(p => p.program));
+    return PROGRAM_ORDER.filter(k => have.has(k));
+  }, [chData]);
 
   const chartData = useMemo(() => {
     if (!program) return [];
@@ -325,7 +352,14 @@ export default function PaidAggregateDashboard() {
 
   const priorLabels = data.priorLabels;
   const metricLabel = program?.metrics[metric]?.label ?? META[metric].short;
-  const sheetUrl = `https://docs.google.com/spreadsheets/d/${data.sheetId}/edit`;
+  const paidView = scope === 'paid';
+  const sheetUrl = paidView || !chData
+    ? `https://docs.google.com/spreadsheets/d/${data.sheetId}/edit`
+    : `https://docs.google.com/spreadsheets/d/${chData.sheetId}/edit`;
+  // The channel view resolves its program from the shared key, so switching
+  // scope keeps the selected program.
+  const activeKey: ProgramKey =
+    programKey ?? (program ? programKeyFor(program.name) ?? 'overall' : 'overall');
 
   return (
     <div className="space-y-5">
@@ -333,12 +367,23 @@ export default function PaidAggregateDashboard() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-semibold text-white">Paid Marketing Aggregate</h1>
+            <h1 className="text-xl font-semibold text-white">
+              {paidView ? 'Paid Marketing Aggregate' : 'Marketing Aggregate — all channels'}
+            </h1>
             <LiveChip />
           </div>
           <p className="text-[13px] text-gray-500 mt-1">
-            {data.docTitle} · {data.cohortLabel}
-            {data.week !== null && <> · through week {data.week}</>} · prior cohorts week-aligned to the same point
+            {paidView ? (
+              <>
+                {data.docTitle} · {data.cohortLabel}
+                {data.week !== null && <> · through week {data.week}</>} · prior cohorts week-aligned to the same point
+              </>
+            ) : (
+              <>
+                {chData?.docTitle ?? 'Cohort performance doc'} · paid and non-paid channels ·
+                prior cohorts aligned to the same point in cohort
+              </>
+            )}
           </p>
         </div>
         <a
@@ -351,28 +396,73 @@ export default function PaidAggregateDashboard() {
         </a>
       </div>
 
-      {/* Program selector */}
-      <div className="flex flex-wrap gap-1.5">
-        {programs.map(p => {
-          const active = p.name === (program?.name ?? '');
-          return (
-            <button
-              key={p.name}
-              onClick={() => setProgramName(p.name)}
-              className={`px-3.5 py-1.5 rounded-lg text-[13px] border transition-colors ${
-                active
-                  ? 'bg-white text-gray-900 border-white font-medium'
-                  : 'bg-[#161b22] text-gray-400 border-white/10 hover:text-white hover:border-white/25'
-              }`}
-            >
-              {p.name}
-            </button>
-          );
-        })}
+      {/* Program + scope selectors */}
+      <div className="flex flex-wrap items-center gap-3 justify-between">
+        <div className="flex flex-wrap gap-1.5">
+          {paidView
+            ? programs.map(p => {
+                const active = p.name === (program?.name ?? '');
+                return (
+                  <button
+                    key={p.name}
+                    onClick={() => setProgramKey(programKeyFor(p.name))}
+                    className={`px-3.5 py-1.5 rounded-lg text-[13px] border transition-colors ${
+                      active
+                        ? 'bg-white text-gray-900 border-white font-medium'
+                        : 'bg-[#161b22] text-gray-400 border-white/10 hover:text-white hover:border-white/25'
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                );
+              })
+            : channelProgramKeys.map(k => (
+                <button
+                  key={k}
+                  onClick={() => setProgramKey(k)}
+                  className={`px-3.5 py-1.5 rounded-lg text-[13px] border transition-colors ${
+                    k === activeKey
+                      ? 'bg-white text-gray-900 border-white font-medium'
+                      : 'bg-[#161b22] text-gray-400 border-white/10 hover:text-white hover:border-white/25'
+                  }`}
+                >
+                  {PROGRAM_DISPLAY[k]}
+                </button>
+              ))}
+        </div>
+        {/* "Paid (PPC)" here is the funnel-doc view (per-platform, with
+            forecast); All / Non-paid slice the cohort doc's channel tables. */}
+        <ScopePills scope={scope} onChange={setScope} scopes={['paid', 'nonpaid', 'all']} />
       </div>
 
+      {/* Non-paid / all-channels scope: the channel-tables view */}
+      {!paidView && (
+        chData ? (
+          <ChannelMatrixSection data={chData} programKey={activeKey} scope={scope} />
+        ) : chRes === null ? (
+          <div className="text-gray-500 text-sm py-16 text-center">Loading channel tables…</div>
+        ) : (
+          <Card className="p-6 max-w-2xl">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={18} className="text-amber-400 mt-0.5 shrink-0" />
+              <div className="text-sm text-gray-300 space-y-2">
+                <p className="font-semibold text-white">Channel tables unavailable</p>
+                {chRes?.needsAccess ? (
+                  <p>
+                    The service account can&apos;t open the cohort performance doc. Share it
+                    (Viewer) with <code className="text-emerald-400">{chRes.serviceAccount}</code>.
+                  </p>
+                ) : (
+                  <p className="text-gray-400">{chRes?.error ?? 'Unknown error.'}</p>
+                )}
+              </div>
+            </div>
+          </Card>
+        )
+      )}
+
       {/* KPI tiles — also the metric switcher for everything below */}
-      {program && (
+      {paidView && program && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {METRIC_KEYS.map(k => (
             <KpiTile
@@ -388,7 +478,7 @@ export default function PaidAggregateDashboard() {
       )}
 
       {/* Channel breakdown */}
-      {program && (
+      {paidView && program && (
         <Card>
           <div className="px-5 py-4 border-b border-white/10">
             <h2 className="text-sm font-semibold text-white">
@@ -408,7 +498,7 @@ export default function PaidAggregateDashboard() {
       )}
 
       {/* Chart */}
-      {program && chartData.length > 0 && (
+      {paidView && program && chartData.length > 0 && (
         <Card className="p-5">
           <h2 className="text-sm font-semibold text-white mb-4">
             {metricLabel} — channel vs cohort
@@ -441,6 +531,8 @@ export default function PaidAggregateDashboard() {
       )}
 
       {/* All programs */}
+      {paidView && (
+      <>
       <Card>
         <div className="px-5 py-4 border-b border-white/10">
           <h2 className="text-sm font-semibold text-white">{metricLabel} — all programs</h2>
@@ -488,6 +580,8 @@ export default function PaidAggregateDashboard() {
           </li>
         </ul>
       </Card>
+      </>
+      )}
     </div>
   );
 }
