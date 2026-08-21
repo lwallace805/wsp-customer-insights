@@ -14,7 +14,7 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true,
-      "env": { "DISABLE_AUTH": "1" }
+      "env": { "DISABLE_AUTH": "1", "NEXTAUTH_SECRET": "local-dev-only" }
     }
   ]
 }
