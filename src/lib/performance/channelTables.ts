@@ -31,9 +31,11 @@
 //     enrollments ÷ leads, which is exactly what the sheet's own block does.
 
 import { google } from 'googleapis';
+import { readPaidWoW, resolveVersionedTab } from '@/lib/sheets';
+import { readWoWLeads } from '@/lib/pulseLive';
 import type {
   ChannelTablesData, ProgramChannelBlock, ChannelSeriesRow,
-  ProgramEconBlock, ChannelEconRow,
+  ProgramEconBlock, ChannelEconRow, ProgramForecast, ForecastSide, ProgramKey,
 } from './channelTablesTypes';
 import { programKeyFor } from './channelTablesTypes';
 export type {
@@ -300,6 +302,91 @@ function parseEcon(grid: Grid): ProgramEconBlock[] {
   return out;
 }
 
+// ─── Forecast sides from the WoW tabs ─────────────────────────────────────────
+//
+// The channel matrix has no forecast — the source tab carries none. To-date
+// forecasts live in the same doc's WoW tabs: "Overall WoW Performance & Goals"
+// (all channels, by program) and "Paid WoW Performance & Goals" (paid, by
+// program), newest version of each. Non-paid = overall − paid, field by field.
+// "Overall (No RDI)" = Total − RDI, matching the tabs' own No-RDI rows.
+//
+// NOTE these are a slightly different basis than the matrix: the WoW paid rows
+// count the four ad platforms (funnel-doc basis) while the matrix's PPC row is
+// the doc's "Ads - Google / FB / LI / Other" line, and refresh timing differs.
+// Forecast attainment is therefore computed WoW-actual ÷ WoW-forecast — never
+// matrix-actual ÷ WoW-forecast — and surfaced with its own actual column.
+
+function sub(a: number | null, b: number | null): number | null {
+  if (a === null || b === null) return null;
+  const d = a - b;
+  // Volumes can't be negative — a negative difference means the two source
+  // tabs contradict each other (PE's all-channel leads forecast currently sits
+  // BELOW its paid leads forecast). Show a gap, not a nonsense number.
+  return d < 0 ? null : d;
+}
+
+function subSides(a: ForecastSide | null, b: ForecastSide | null): ForecastSide | null {
+  if (!a || !b) return null;
+  return {
+    leads: sub(a.leads, b.leads),
+    leadsF: sub(a.leadsF, b.leadsF),
+    enrolls: sub(a.enrolls, b.enrolls),
+    enrollsF: sub(a.enrollsF, b.enrollsF),
+  };
+}
+
+async function readForecasts(sheetId: string): Promise<{
+  forecasts: ProgramForecast[];
+  source: string | null;
+}> {
+  try {
+    const [overall, paid, overallTab, paidTab] = await Promise.all([
+      readWoWLeads(sheetId, 'current'),
+      readPaidWoW(sheetId),
+      resolveVersionedTab(sheetId, 'Overall WoW Performance & Goals'),
+      resolveVersionedTab(sheetId, 'Paid WoW Performance & Goals'),
+    ]);
+    if (!overall && !paid) return { forecasts: [], source: null };
+
+    const side = (r: { leads: number | null; leadsF: number | null; enrolls: number | null; enrollsF: number | null } | null | undefined): ForecastSide | null =>
+      r ? { leads: r.leads, leadsF: r.leadsF, enrolls: r.enrolls, enrollsF: r.enrollsF } : null;
+
+    const overallByKey = new Map<ProgramKey, ForecastSide | null>();
+    const paidByKey = new Map<ProgramKey, ForecastSide | null>();
+    for (const p of overall?.programs ?? []) {
+      const k = programKeyFor(p.program);
+      if (k) overallByKey.set(k, side(p));
+    }
+    for (const p of paid?.programs ?? []) {
+      const k = programKeyFor(p.label);
+      if (k) paidByKey.set(k, side(p));
+    }
+    overallByKey.set('overall', side(overall?.totals));
+    paidByKey.set('overall', side(paid?.totals));
+    overallByKey.set('overall-no-rdi',
+      subSides(side(overall?.totals), overallByKey.get('rdi') ?? null));
+    paidByKey.set('overall-no-rdi',
+      subSides(side(paid?.totals), paidByKey.get('rdi') ?? null));
+
+    const keys: ProgramKey[] = ['overall', 'overall-no-rdi', 'pe', 're', 'fpa', 'avi', 'rdi'];
+    const forecasts: ProgramForecast[] = keys
+      .map(program => {
+        const o = overallByKey.get(program) ?? null;
+        const p = paidByKey.get(program) ?? null;
+        if (!o && !p) return null;
+        return { program, overall: o, paid: p, nonpaid: subSides(o, p) };
+      })
+      .filter((f): f is ProgramForecast => f !== null);
+
+    return {
+      forecasts,
+      source: forecasts.length ? `${overallTab} + ${paidTab}` : null,
+    };
+  } catch {
+    return { forecasts: [], source: null };
+  }
+}
+
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 export async function getChannelTables(): Promise<ChannelsResult> {
@@ -308,13 +395,14 @@ export async function getChannelTables(): Promise<ChannelsResult> {
   }
   try {
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
-    const [meta, values] = await Promise.all([
+    const [meta, values, wow] = await Promise.all([
       sheets.spreadsheets.get({ spreadsheetId: CHANNEL_TABLES_DOC_ID, fields: 'properties.title' }),
       sheets.spreadsheets.values.batchGet({
         spreadsheetId: CHANNEL_TABLES_DOC_ID,
         ranges: [`'${MATRIX_TAB}'!A1:BZ70`, `'${ECON_TAB}'!A1:J120`],
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
+      readForecasts(CHANNEL_TABLES_DOC_ID),
     ]);
 
     const matrixGrid = (values.data.valueRanges?.[0]?.values ?? []) as Grid;
@@ -339,6 +427,8 @@ export async function getChannelTables(): Promise<ChannelsResult> {
       data: {
         programs,
         econ: parseEcon(econGrid),
+        forecasts: wow.forecasts,
+        forecastSource: wow.source,
         currentLabel,
         docTitle: meta.data.properties?.title ?? 'Cohort Performance Doc',
         sheetId: CHANNEL_TABLES_DOC_ID,

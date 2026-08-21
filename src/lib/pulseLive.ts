@@ -129,7 +129,7 @@ function weekStartMs(opens: string, week: number): number {
   return new Date(y, m - 1, d).getTime() + (week - 1) * 7 * 86400000;
 }
 
-async function readWoWLeads(
+export async function readWoWLeads(
   sheetId: string,
   cohortLabel: string,
   /** When rewinding, weeks starting after this day are dropped and the cohort

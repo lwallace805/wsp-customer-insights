@@ -63,9 +63,33 @@ export interface ProgramEconBlock {
   total: ChannelEconRow | null;
 }
 
+/** To-date actual + forecast for one slice (all / paid / non-paid) of one
+ *  program, from the cohort doc's WoW tabs. */
+export interface ForecastSide {
+  leads: number | null;
+  leadsF: number | null;
+  enrolls: number | null;
+  enrollsF: number | null;
+}
+
+export interface ProgramForecast {
+  program: ProgramKey;
+  /** All channels — "Overall WoW Performance & Goals" (newest version). */
+  overall: ForecastSide | null;
+  /** Paid — "Paid WoW Performance & Goals" (newest version). */
+  paid: ForecastSide | null;
+  /** Derived: overall − paid, field by field, when both sides are present. */
+  nonpaid: ForecastSide | null;
+}
+
 export interface ChannelTablesData {
   programs: ProgramChannelBlock[];
   econ: ProgramEconBlock[];
+  /** Empty when either WoW tab couldn't be read — the UI omits forecast rows
+   *  rather than showing a partial or mixed-basis comparison. */
+  forecasts: ProgramForecast[];
+  /** Provenance of the forecast figures, e.g. the resolved tab names. */
+  forecastSource: string | null;
   /** Label of the current-cohort column, e.g. "Current Cohort". */
   currentLabel: string;
   docTitle: string;
