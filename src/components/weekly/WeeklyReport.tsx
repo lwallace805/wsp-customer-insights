@@ -44,6 +44,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/** Methodology fine print, collapsed by default. The page is screenshot for the
+ *  weekly email, and five paragraphs of caveats made the crop denser than the
+ *  numbers — so the notes fold to a one-line toggle and stay out of the shot
+ *  unless someone opens them. Warnings that affect whether the numbers can be
+ *  trusted (the "do not send" banner, the not-rewound notice) stay outside this,
+ *  always visible. */
+function Footnote({ children }: { children: React.ReactNode }) {
+  return (
+    <details className="mt-2 group">
+      <summary className="text-[10px] text-gray-600 hover:text-gray-400 cursor-pointer select-none w-fit list-none [&::-webkit-details-marker]:hidden">
+        <span className="inline-block transition-transform group-open:rotate-90 mr-1">▸</span>
+        How to read this
+      </summary>
+      <div className="mt-1.5 space-y-1.5">{children}</div>
+    </details>
+  );
+}
+
+/** One paragraph inside a Footnote — the same fine-print style the notes had
+ *  when they sat directly on the page. */
+function Fine({ children }: { children: React.ReactNode }) {
+  return <p className="text-[10px] text-gray-600 leading-relaxed">{children}</p>;
+}
+
 function HeadlineCard({ f }: { f: WeeklyFamily }) {
   const behind = f.vsPace < 0;
   return (
@@ -168,12 +192,14 @@ function ProgramTable({
   cohortPace,
   cohortGoal,
   columbia,
+  children,
 }: {
   rows: WeeklyProgramRow[];
   cohortEnrolls: number;
   cohortPace: number;
   cohortGoal: number;
   columbia: WeeklyFamily | null;
+  children?: React.ReactNode;
 }) {
   if (!rows.length) {
     return <p className="text-sm text-gray-600 italic">No per-program rows in this cohort&apos;s WoW tab.</p>;
@@ -248,16 +274,19 @@ function ProgramTable({
           {combined && <ProgramRow isTotal maxDeviation={maxDeviation} r={combined} />}
         </tbody>
       </table>
-      {(paceGap !== 0 || enrollGap !== 0) && (
-        <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-          Total is the cohort figure from the deadline pacing table, which the WoW block&apos;s own Total
-          row matches. The per-program rows above carry rounding and sum to{' '}
-          {paceGap !== 0 && <>a pace of {fmt(partsPace)}</>}
-          {paceGap !== 0 && enrollGap !== 0 && ' and '}
-          {enrollGap !== 0 && <>{fmt(partsEnrolls)} enrolled</>}
-          , so they don&apos;t close exactly against it.
-        </p>
-      )}
+      <Footnote>
+        {(paceGap !== 0 || enrollGap !== 0) && (
+          <Fine>
+            Total is the cohort figure from the deadline pacing table, which the WoW block&apos;s own Total
+            row matches. The per-program rows above carry rounding and sum to{' '}
+            {paceGap !== 0 && <>a pace of {fmt(partsPace)}</>}
+            {paceGap !== 0 && enrollGap !== 0 && ' and '}
+            {enrollGap !== 0 && <>{fmt(partsEnrolls)} enrolled</>}
+            , so they don&apos;t close exactly against it.
+          </Fine>
+        )}
+        {children}
+      </Footnote>
     </>
   );
 }
@@ -295,13 +324,16 @@ function LeadRow({
 }
 
 function LeadsTable({
-  rows, wharton, columbia,
+  rows, wharton, columbia, children,
 }: {
   rows: WeeklyProgramRow[];
   wharton: WeeklyFamily;
   columbia: WeeklyFamily | null;
+  children?: React.ReactNode;
 }) {
-  if (!rows.length) return null;
+  // No per-program rows still gets the footnote — the completed-weeks caveat it
+  // carries is about the cards above, not just this table.
+  if (!rows.length) return children ? <Footnote>{children}</Footnote> : null;
   const sorted = [...rows].sort((a, b) => (b.leads ?? 0) - (a.leads ?? 0));
 
   // Same rule as the enrollments table: the subtotal is the WoW Total ROW, not
@@ -378,14 +410,17 @@ function LeadsTable({
         )}
       </tbody>
     </table>
-    {(leadsGap !== 0 || forecastGap !== 0) && (
-      <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-        Wharton total is the WoW block&apos;s own Total row; its per-program rows carry rounding and sum
-        to {fmt(partsLeads)} leads against a forecast of {fmt(partsForecast)}, so they don&apos;t close
-        exactly against it. CPL and CVR are cohort-level and don&apos;t combine across the two, so the
-        All-programs row leaves them blank rather than printing a blended figure nobody planned to.
-      </p>
-    )}
+    <Footnote>
+      {(leadsGap !== 0 || forecastGap !== 0) && (
+        <Fine>
+          Wharton total is the WoW block&apos;s own Total row; its per-program rows carry rounding and sum
+          to {fmt(partsLeads)} leads against a forecast of {fmt(partsForecast)}, so they don&apos;t close
+          exactly against it. CPL and CVR are cohort-level and don&apos;t combine across the two, so the
+          All-programs row leaves them blank rather than printing a blended figure nobody planned to.
+        </Fine>
+      )}
+      {children}
+    </Footnote>
     </>
   );
 }
@@ -515,25 +550,26 @@ export default function WeeklyReportPage() {
               cohortPace={wharton.pace}
               cohortGoal={wharton.goal}
               columbia={columbia}
-            />
-            <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-              Pace is each program&apos;s own forecast-to-date from the cohort doc, read at the PRIOR day
-              because enrollment counts land a day late — so the Δ is &ldquo;as of yesterday&rdquo; even
-              where a figure is keyed through today. &ldquo;% of pace&rdquo; is how much of its OWN plan
-              a program has enrolled — 100% is exactly on plan, 65% is a third short of it, 150% is half
-              again ahead — and the bar is that same figure drawn from the centre line, so rows are
-              ranked by how far off plan they are rather than by size. The Δ column carries the absolute
-              impact: a small program can be far off plan while costing few enrollments. Neither is a
-              share of the full-cohort goal, which the plan never expects every program to reach at the
-              same time.
-              {columbia && (
-                <> AI is {columbia.label}, a single-program cohort, so it has no per-program breakdown of
-                its own. It sits {columbia.daysRemaining - (wharton?.daysRemaining ?? 0)}{' '}
-                days further from its deadline than Wharton, so All programs adds two cohorts at points in
-                their cycles — each row&apos;s pace is already its own cohort&apos;s plan for today, which
-                is what makes the sum meaningful.</>
-              )}
-            </p>
+            >
+              <Fine>
+                Pace is each program&apos;s own forecast-to-date from the cohort doc, read at the PRIOR day
+                because enrollment counts land a day late — so the Δ is &ldquo;as of yesterday&rdquo; even
+                where a figure is keyed through today. &ldquo;% of pace&rdquo; is how much of its OWN plan
+                a program has enrolled — 100% is exactly on plan, 65% is a third short of it, 150% is half
+                again ahead — and the bar is that same figure drawn from the centre line, so rows are
+                ranked by how far off plan they are rather than by size. The Δ column carries the absolute
+                impact: a small program can be far off plan while costing few enrollments. Neither is a
+                share of the full-cohort goal, which the plan never expects every program to reach at the
+                same time.
+                {columbia && (
+                  <> AI is {columbia.label}, a single-program cohort, so it has no per-program breakdown of
+                  its own. It sits {columbia.daysRemaining - (wharton?.daysRemaining ?? 0)}{' '}
+                  days further from its deadline than Wharton, so All programs adds two cohorts at points in
+                  their cycles — each row&apos;s pace is already its own cohort&apos;s plan for today, which
+                  is what makes the sum meaningful.</>
+                )}
+              </Fine>
+            </ProgramTable>
           </Section>
         )}
 
@@ -564,13 +600,16 @@ export default function WeeklyReportPage() {
               />
             )}
           </div>
-          {wharton && <LeadsTable rows={wharton.programs} wharton={wharton} columbia={columbia} />}
-          <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-            Cards use COMPLETED weeks only — a part-week actual against a whole-week forecast always
-            reads behind. The per-program table is the cohort-to-date block, which carries the current
-            partial week. Cohort CVR {pct(wharton?.cvr, 2)} vs {pct(wharton?.cvrForecast, 2)} forecast;
-            spend {money(wharton?.spend)} vs {money(wharton?.spendForecast)}.
-          </p>
+          {wharton && (
+            <LeadsTable rows={wharton.programs} wharton={wharton} columbia={columbia}>
+              <Fine>
+                Cards use COMPLETED weeks only — a part-week actual against a whole-week forecast always
+                reads behind. The per-program table is the cohort-to-date block, which carries the current
+                partial week. Cohort CVR {pct(wharton.cvr, 2)} vs {pct(wharton.cvrForecast, 2)} forecast;
+                spend {money(wharton.spend)} vs {money(wharton.spendForecast)}.
+              </Fine>
+            </LeadsTable>
+          )}
         </Section>
 
         <Section title="Enrollment team — aggregate">
@@ -640,13 +679,15 @@ export default function WeeklyReportPage() {
             </p>
           )}
           {team?.ta?.dataPulled && (
-            <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-              Consults and TA show actual vs the team&apos;s own baseline window. Consults use the
-              sheet&apos;s de-duplicated Wharton + Columbia column, so it will not equal the two added
-              together; TA is summed across both. Pipeline is deliberately absent until Aubrey&apos;s
-              HubSpot report exists. TA tab stamped &ldquo;{team.ta.dataPulled}&rdquo;
-              {team.dataPulled && ` while the consult tab is stamped “${team.dataPulled}” — confirm the TA figures are current.`}
-            </p>
+            <Footnote>
+              <Fine>
+                Consults and TA show actual vs the team&apos;s own baseline window. Consults use the
+                sheet&apos;s de-duplicated Wharton + Columbia column, so it will not equal the two added
+                together; TA is summed across both. Pipeline is deliberately absent until Aubrey&apos;s
+                HubSpot report exists. TA tab stamped &ldquo;{team.ta.dataPulled}&rdquo;
+                {team.dataPulled && ` while the consult tab is stamped “${team.dataPulled}” — confirm the TA figures are current.`}
+              </Fine>
+            </Footnote>
           )}
         </Section>
 
@@ -682,11 +723,13 @@ export default function WeeklyReportPage() {
                 ))}
               </tbody>
             </table>
-            <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-              Enrolled is each cohort at the SAME days-remaining Fall &apos;26 is at now; cohort total is
-              what it finished with, green where that beat its goal. Matching a cohort that missed is not
-              the same as being on track.
-            </p>
+            <Footnote>
+              <Fine>
+                Enrolled is each cohort at the SAME days-remaining Fall &apos;26 is at now; cohort total is
+                what it finished with, green where that beat its goal. Matching a cohort that missed is not
+                the same as being on track.
+              </Fine>
+            </Footnote>
           </Section>
         )}
 
