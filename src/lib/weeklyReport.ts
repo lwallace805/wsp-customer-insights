@@ -166,10 +166,6 @@ function buildFamily(
   const prefix = family === 'wharton' ? 'Wharton' : 'CBS';
   const t = live.totals;
 
-  // Closed rows carry same-day-out pace; finals carry how the cohort ended.
-  // Joined here so the email can say "matched the cohort that missed".
-  const finalsByLabel = new Map(live.finals.map(f => [f.label, f]));
-
   return {
     family,
     label: `${prefix} ${live.label}`,
@@ -193,17 +189,20 @@ function buildFamily(
     history: live.history
       .filter(h => !h.isActive)
       .map(h => {
-        const f = finalsByLabel.get(h.label) ?? null;
-        // Closed-cohort goals aren't on the finals row, so the history row's own
-        // goal is the denominator for "did it hit".
-        const hitGoal = f?.enrolls != null && h.goal > 0 ? f.enrolls >= h.goal : null;
+        // Finals are the pacing sheet's own day-0 values — the SAME sheet the
+        // same-day-out "Enrolled" column reads, so both columns sit on one
+        // basis (which excludes B2B enrollments). The tracker doc's Grand
+        // Total was used here before and ran higher by exactly its B2B rows
+        // (Fall '25: 924 vs 897), which read as a discrepancy to anyone
+        // reconciling against the pacing sheet.
+        const hitGoal = h.finalTotal != null && h.goal > 0 ? h.finalTotal >= h.goal : null;
         return {
           label: h.label,
           enrolled: h.enrolled,
           goal: h.goal,
           pctOfGoal: h.pctDone,
-          finalEnrolls: f?.enrolls ?? null,
-          finalGoal: f ? h.goal : null,
+          finalEnrolls: h.finalTotal,
+          finalGoal: h.finalTotal != null ? h.goal : null,
           hitGoal,
         };
       }),

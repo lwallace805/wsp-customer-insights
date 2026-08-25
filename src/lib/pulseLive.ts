@@ -466,13 +466,18 @@ export interface CommandHistoryRow {
   enrolled: number;
   goal: number;
   pctDone: number;
+  /** The cohort's finishing total from the AN-summary distribution (day 0 of
+   *  its own curve) — the pacing sheet's basis, which excludes the B2B
+   *  enrollments the tracker doc's Grand Total folds in. Null for the active
+   *  cohort and for CBSEE closed rows, whose sheet backfills goals as finals. */
+  finalTotal: number | null;
   isActive: boolean;
 }
 
 // Adapt sheets.ts ComparisonRow (pctOfGoal / pctComplete, post-split) to the
 // history-row shape: % of the true goal is the figure the history table shows.
-function toHistoryRow(r: { label: string; enrolled: number; goal: number; pctOfGoal: number }, isActive = false): CommandHistoryRow {
-  return { label: r.label, enrolled: r.enrolled, goal: r.goal, pctDone: r.pctOfGoal, isActive };
+function toHistoryRow(r: { label: string; enrolled: number; goal: number; pctOfGoal: number; finalTotal?: number | null }, isActive = false): CommandHistoryRow {
+  return { label: r.label, enrolled: r.enrolled, goal: r.goal, pctDone: r.pctOfGoal, finalTotal: r.finalTotal ?? null, isActive };
 }
 
 export interface CommandLive {
@@ -554,7 +559,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
       // mislabeling them makes "Spring '26: 91" read as a finished total of 91.
       historyBasis: cmp.basis,
       history: [
-        { label: win!.label, enrolled: today?.cohortToDate ?? s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +((today?.cohortToDate ?? s.enrolled) / s.goal * 100).toFixed(1) : 0, isActive: true },
+        { label: win!.label, enrolled: today?.cohortToDate ?? s.enrolled, goal: s.goal, pctDone: s.goal > 0 ? +((today?.cohortToDate ?? s.enrolled) / s.goal * 100).toFixed(1) : 0, finalTotal: null, isActive: true },
         ...cmp.closedRows.map(r => toHistoryRow(r)),
       ],
     };
@@ -586,7 +591,10 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
   // We pass the pace values through and label the basis honestly in the UI
   // via historyBasis.
   const cmp = pacing?.comparison.cbsee;
-  const closedRows = (cmp?.closedRows ?? []).map(r => toHistoryRow(r));
+  // finalTotal is stripped here, not passed through: C_GOALS backfills finals
+  // as goals for closed CBSEE cohorts, so the sheet's "final" is the goal
+  // echoed back, not what the cohort actually finished with.
+  const closedRows = (cmp?.closedRows ?? []).map(r => toHistoryRow({ ...r, finalTotal: null }));
   const finals = await readCohortFinals(closedRows.map(r => r.label), 'columbia');
 
   return {
@@ -606,7 +614,7 @@ export async function getCohortCommandLive(family: 'wharton' | 'columbia', asOfI
     keyedThroughYmd: today?.updatedThroughYmd ?? null,
     historyBasis: cmp?.basis ?? 'same-day-out',
     history: [
-      { label: win.label, enrolled: enrolls, goal, pctDone: goal > 0 ? +(enrolls / goal * 100).toFixed(1) : 0, isActive: true },
+      { label: win.label, enrolled: enrolls, goal, pctDone: goal > 0 ? +(enrolls / goal * 100).toFixed(1) : 0, finalTotal: null, isActive: true },
       ...closedRows,
     ],
   };
