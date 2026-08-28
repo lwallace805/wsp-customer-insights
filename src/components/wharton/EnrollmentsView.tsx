@@ -1,5 +1,5 @@
 import type { WhartonPartnerResult } from '@/lib/whartonPartner';
-import { ProgramLinesChart, RunningTotalChart } from './Charts';
+import { RunningTotalChart } from './Charts';
 import { SERIES_COLORS, longDate, shortDate } from './shared';
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -14,7 +14,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       {children}
       <footer className="mt-12 pt-6 border-t border-white/10 text-xs text-gray-500">
         Prepared by Wall Street Prep. Figures are enrollments recorded in the cohort tracker and are
-        updated each business day. The cohort goal is held flat to the prior cohort&apos;s final
+        updated each business day. The cohort goal is set in line with the prior cohort&apos;s final
         enrollment.
       </footer>
     </div>
@@ -79,7 +79,9 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
                 <dt className="text-gray-500 text-xs uppercase tracking-wider">Cohort goal</dt>
                 <dd className="text-gray-200 tabular-nums">
                   {data.goal.toLocaleString()}
-                  <span className="text-gray-500"> · flat to {data.prior.cohort}</span>
+                  <span className="text-gray-500">
+                    {` · ${data.goal === data.prior.final ? 'flat to' : 'in line with'} ${data.prior.cohort}`}
+                  </span>
                 </dd>
               </div>
             )}
@@ -117,7 +119,7 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
           {/* One template literal, not JSX text: the compiler drops the space
               between an expression and a following HTML entity (&apos;). */}
           <p className="text-xs text-gray-500 mb-5">
-            {`The ${data.cohort} goal is held flat to the ${data.prior.cohort} cohort's final enrollment. Pacing compares each cohort at the same number of days before close — enrollment is heavily deadline-weighted, so the like-for-like point matters more than percent of goal.`}
+            {`The ${data.cohort} goal is set ${data.goal === data.prior.final ? 'flat to' : 'in line with'} the ${data.prior.cohort} cohort's final enrollment (${data.prior.final.toLocaleString()}). Pacing compares each cohort at the same number of days before close — enrollment is heavily deadline-weighted, so the like-for-like point matters more than percent of goal.`}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -321,26 +323,6 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
         />
       </section>
 
-      {data.programs.length > 0 && (
-        <section className="bg-[#161b22] border border-white/10 rounded-xl p-6 sm:p-7 mt-5">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
-            Running total by program
-          </h2>
-          <p className="text-xs text-gray-500 mb-4">Cumulative enrollments, each program separately.</p>
-          <div className="flex flex-wrap gap-x-5 gap-y-2 mb-3">
-            {data.programs.map(p => (
-              <span key={p.program} className="flex items-center gap-1.5 text-xs text-gray-400">
-                <span
-                  className="inline-block w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: colorOf(p.program) }}
-                />
-                {p.program}
-              </span>
-            ))}
-          </div>
-          <ProgramLinesChart programs={data.programs} />
-        </section>
-      )}
     </Shell>
   );
 }

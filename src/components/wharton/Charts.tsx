@@ -2,10 +2,9 @@
 
 import { useMemo } from 'react';
 import {
-  Area, CartesianGrid, ComposedChart, Line, LineChart, ReferenceLine,
-  ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList,
+  Area, CartesianGrid, ComposedChart, Line, ReferenceLine,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import type { WhartonProgramRow } from '@/lib/whartonPartner';
 import { SERIES_COLORS, shortDate } from './shared';
 
 const TOTAL_COLOR = SERIES_COLORS[0];
@@ -134,84 +133,6 @@ export function RunningTotalChart({ series, currentLabel, prior, goal }: {
             isAnimationActive={false}
           />
         </ComposedChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// ─── Running total by program ─────────────────────────────────────────────────
-
-export function ProgramLinesChart({ programs }: { programs: WhartonProgramRow[] }) {
-  // Colour is bound to the program's position in the ORIGINAL order, so the
-  // legend, the table and this chart agree even though the table is sorted by
-  // size. Rows are joined on date because a program that launched late has a
-  // shorter series than the cohort.
-  const { data, keys } = useMemo(() => {
-    const byDate = new Map<string, Record<string, string | number>>();
-    for (const p of programs) {
-      for (const pt of p.series) {
-        const row = byDate.get(pt.date) ?? { date: pt.date };
-        row[p.program] = pt.total;
-        byDate.set(pt.date, row);
-      }
-    }
-    return {
-      data: [...byDate.values()].sort((a, b) => String(a.date).localeCompare(String(b.date))),
-      keys: programs.map(p => p.program),
-    };
-  }, [programs]);
-
-  if (data.length < 2) {
-    return <p className="text-sm text-gray-500 py-8">Not enough days keyed yet to draw the trend.</p>;
-  }
-
-  return (
-    <div className="h-72 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 44, bottom: 0, left: -8 }}>
-          <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis
-            dataKey="date"
-            tickFormatter={shortDate}
-            interval="preserveStartEnd"
-            minTickGap={44}
-            tick={{ fill: AXIS, fontSize: 11 }}
-            tickLine={false}
-            axisLine={{ stroke: GRID }}
-          />
-          <YAxis
-            tick={{ fill: AXIS, fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            width={44}
-            allowDecimals={false}
-          />
-          <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.25)', strokeWidth: 1 }} />
-          {keys.map((k, i) => (
-            <Line
-              key={k}
-              type="monotone"
-              dataKey={k}
-              name={k}
-              stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 2, stroke: '#0d1117' }}
-              isAnimationActive={false}
-            >
-              {/* Direct label on the last point, so a line's identity doesn't
-                  depend on matching its colour to a legend swatch. */}
-              <LabelList
-                dataKey={k}
-                content={({ x, y, index }) =>
-                  index === data.length - 1 ? (
-                    <text x={Number(x) + 6} y={Number(y) + 4} fill="#9aa4b2" fontSize={11}>{k}</text>
-                  ) : null
-                }
-              />
-            </Line>
-          ))}
-        </LineChart>
       </ResponsiveContainer>
     </div>
   );

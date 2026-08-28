@@ -5,11 +5,11 @@
 // comparisons — and is still deliberately narrow:
 //   • enrollments ONLY — no leads, spend, CVR, consults or pipeline
 //   • Wharton ONLY — no Columbia/CBS figures anywhere in the payload
-//   • the goal shown is FLAT to the prior cohort's own final, read live from
-//     the pacing sheet — NEVER the internal budget / plan trajectory (the
+//   • the goal shown defaults to FLAT to the prior cohort's own final, read
+//     live from the pacing sheet, with an optional per-cohort round-number
+//     override below — NEVER the internal budget / plan trajectory (the
 //     "Forecast Enrollments" column, whose endpoint is a bigger number).
-//     The only pace baseline is the prior cohort's own curve, which by
-//     definition ends at that flat goal.
+//     The only pace baseline is the prior cohort's own curve.
 //
 // Those exclusions are enforced HERE, in the shape of the payload, rather than
 // by a component choosing not to render a field. Anything absent from
@@ -38,8 +38,8 @@ export interface WhartonProgramRow {
 export interface WhartonPriorCohort {
   /** "Spring 2026" — the prior cohort's academic term name. */
   cohort: string;
-  /** The prior cohort's final enrollment — equals `goal`, since the goal is
-   *  set flat cohort-over-cohort. */
+  /** The prior cohort's final enrollment — the flat-goal baseline. Equals
+   *  `goal` unless a PARTNER_GOAL_OVERRIDES entry rounds the goal. */
   final: number;
   /** The days-to-close both cohorts are compared at: how many days the active
    *  cohort's last KEYED day (`dataThrough`) is before its extended close.
@@ -96,9 +96,10 @@ export interface WhartonPartnerData {
   /** False when the per-program columns don't reconcile to the cohort total; the
    *  page then shows the total alone rather than a split that doesn't add up. */
   breakdownReconciles: boolean;
-  /** The cohort's enrollment goal — the prior cohort's final total (the goal is
-   *  flat cohort-over-cohort, per the Aug 25 1-1), read live from the pacing
-   *  sheet. Null when the prior curve can't be read; the page then shows
+  /** The cohort's enrollment goal — a per-cohort override when one is set
+   *  (PARTNER_GOAL_OVERRIDES), otherwise the prior cohort's final total (the
+   *  goal is held flat cohort-over-cohort, per the Aug 25 1-1), read live from
+   *  the pacing sheet. Null when neither exists; the page then shows
    *  enrollments without a goal rather than substituting a number. */
   goal: number | null;
   prior: WhartonPriorCohort | null;
@@ -126,6 +127,14 @@ const ymdAt = (ms: number) => new Date(ms).toISOString().slice(0, 10);
  *  the page uses ("Spring 2026"). Cohorts older than the calendar's transcribed
  *  range still format correctly this way. */
 const termName = (label: string) => label.replace(/^(\w+)\s*'(\d{2})$/, '$1 20$2');
+
+/** Per-cohort goal overrides, keyed by the calendar's cohort key. The default
+ *  goal is the prior cohort's final held flat; an entry here replaces it with a
+ *  deliberately chosen round number — still never the internal plan. Fall '26
+ *  was set to 1,000 on Aug 28 2026, in line with Spring '26's 997 final. */
+const PARTNER_GOAL_OVERRIDES: Record<string, number> = {
+  'w-fall-26': 1000,
+};
 
 /** Cumulative value at `day`, accepting a row up to 2 days away (exact first).
  *  Beyond that the value belongs to a visibly different point in the countdown,
@@ -233,7 +242,7 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
     series: card.series,
     dataThrough: card.updatedThroughYmd,
     breakdownReconciles: reconciles,
-    goal: prior?.final ?? null,
+    goal: PARTNER_GOAL_OVERRIDES[win.key] ?? prior?.final ?? null,
     prior,
     comparisons,
     generatedAt: new Date().toISOString(),
