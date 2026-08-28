@@ -45,9 +45,16 @@ for the current Wharton cohort, total and by program. It is the **only** route
 outside the internal Google gate, and it is deliberately narrow:
 
 - **Scope is enforced in the payload**, not the UI. `src/lib/whartonPartner.ts`
-  returns enrollments only — no goal, pace, forecast, leads, spend, Columbia
-  data or cohort-over-cohort comparison. Anything absent there cannot leak onto
-  the page through a later UI edit. Keep it that way when adding to this surface.
+  returns enrollments plus (since the Aug 25 1-1) a goal held **flat to the
+  prior cohort's final** and cohort comparisons aligned by days-to-close (pace
+  vs. the prior cohort, plus a last-3-closed-cohorts table showing each
+  cohort's own final — never the internal per-cohort goals).
+  Still excluded: leads, spend, CVR, Columbia data, and — critically — the
+  **internal budget/plan trajectory** (the cohort doc's "Forecast Enrollments"
+  column and its endpoint). The only pace baseline shown externally is the prior
+  cohort's own curve, which ends at the flat goal by definition. Anything absent
+  from the payload cannot leak onto the page through a later UI edit. Keep it
+  that way when adding to this surface.
 - **Access** (`src/lib/partnerAccess.ts`): a shared password is exchanged at
   `POST /api/wharton/session` for an HMAC-signed, HttpOnly cookie
   (`wsp_partner_wharton`) valid 30 days. The token embeds a fingerprint of the
