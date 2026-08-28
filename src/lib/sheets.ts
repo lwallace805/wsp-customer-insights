@@ -1436,6 +1436,41 @@ async function fetchHistoricalWhartonMap(
 }
 
 // ---------------------------------------------------------------------------
+// Every CLOSED Wharton cohort's cumulative curve, keyed by days-to-close, plus
+// each cohort's own final total (the day-0 value, NOT the recorded goal — see
+// the backfill note in fetchHistoricalWhartonMap). Built for the partner
+// surface's flat-goal / cohort-comparison views (whartonPartner.ts). Labels
+// are normalized ("Spring '26" — the sheet's "Wharton " prefix stripped).
+// Ordered oldest → newest by sheet column position, recovered from the day-0
+// entries (every closed cohort has one; label parsing would be a second,
+// fragile ordering convention). A cohort missing its day-0 final is dropped —
+// callers must withhold a comparison rather than substitute a number.
+// ---------------------------------------------------------------------------
+export interface ClosedWhartonCohort {
+  label: string;
+  final: number;
+  /** Cumulative enrollments keyed by days-to-close. */
+  byDay: Map<number, number>;
+}
+
+export async function getClosedWhartonCohorts(sheetId: string): Promise<ClosedWhartonCohort[]> {
+  const map = await fetchHistoricalWhartonMap(sheetId);
+  const byLabel = new Map<string, ClosedWhartonCohort>();
+  for (const [day, entries] of map) {
+    for (const e of entries) {
+      const label = normLabel(e.label);
+      const c = byLabel.get(label) ?? { label, final: e.final, byDay: new Map<number, number>() };
+      c.byDay.set(day, e.raw);
+      byLabel.set(label, c);
+    }
+  }
+  const order = (map.get(0) ?? []).map(e => normLabel(e.label));
+  return [...byLabel.values()]
+    .filter(c => c.final > 0 && c.byDay.size > 0 && order.includes(c.label))
+    .sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
+}
+
+// ---------------------------------------------------------------------------
 // V2 reader — "Deadline Pacing Table V2" format
 // Rows count DOWN from the enrollment deadline (row = "Day before Deadline").
 // Compatible with the existing PacingChart because both use days-remaining as x.

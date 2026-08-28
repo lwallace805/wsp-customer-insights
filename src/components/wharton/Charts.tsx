@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react';
 import {
-  Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer,
-  Tooltip, XAxis, YAxis, LabelList,
+  Area, CartesianGrid, ComposedChart, Line, LineChart, ReferenceLine,
+  ResponsiveContainer, Tooltip, XAxis, YAxis, LabelList,
 } from 'recharts';
 import type { WhartonProgramRow } from '@/lib/whartonPartner';
 import { SERIES_COLORS, shortDate } from './shared';
@@ -38,7 +38,31 @@ function ChartTooltip({ active, payload, label }: TooltipPayload) {
 
 // ─── Cohort running total ─────────────────────────────────────────────────────
 
-export function RunningTotalChart({ series }: { series: Array<{ date: string; total: number }> }) {
+const PRIOR_COLOR = '#9aa4b2';
+
+export function RunningTotalChart({ series, currentLabel, prior, goal }: {
+  series: Array<{ date: string; total: number }>;
+  /** Name for the active cohort's line in the tooltip (defaults to "Enrollments"). */
+  currentLabel?: string;
+  /** The prior cohort's curve, already re-dated onto this cohort's calendar by
+   *  the payload (whartonPartner.ts) — this component never does day math. */
+  prior?: { label: string; series: Array<{ date: string; total: number }> };
+  goal?: number | null;
+}) {
+  // Joined on date because the prior curve runs all the way to the close while
+  // the active cohort's stops at the keyed day; rows past that day simply have
+  // no `total`, and the area ends there instead of dropping to zero.
+  const data = useMemo(() => {
+    const byDate = new Map<string, { date: string; total?: number; prior?: number }>();
+    for (const pt of series) {
+      byDate.set(pt.date, { ...(byDate.get(pt.date) ?? { date: pt.date }), total: pt.total });
+    }
+    for (const pt of prior?.series ?? []) {
+      byDate.set(pt.date, { ...(byDate.get(pt.date) ?? { date: pt.date }), prior: pt.total });
+    }
+    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  }, [series, prior]);
+
   if (series.length < 2) {
     return <p className="text-sm text-gray-500 py-8">Not enough days keyed yet to draw the trend.</p>;
   }
@@ -46,7 +70,7 @@ export function RunningTotalChart({ series }: { series: Array<{ date: string; to
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={series} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
+        <ComposedChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
           <defs>
             <linearGradient id="wh-total-fill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={TOTAL_COLOR} stopOpacity={0.35} />
@@ -74,10 +98,32 @@ export function RunningTotalChart({ series }: { series: Array<{ date: string; to
             allowDecimals={false}
           />
           <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.25)', strokeWidth: 1 }} />
+          {typeof goal === 'number' && goal > 0 && (
+            <ReferenceLine
+              y={goal}
+              stroke="rgba(255,255,255,0.35)"
+              strokeDasharray="2 5"
+              ifOverflow="extendDomain"
+              label={{ value: `Goal · ${goal.toLocaleString()}`, position: 'insideTopLeft', fill: '#9aa4b2', fontSize: 11 }}
+            />
+          )}
+          {prior && (
+            <Line
+              type="monotone"
+              dataKey="prior"
+              name={prior.label}
+              stroke={PRIOR_COLOR}
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              dot={false}
+              activeDot={{ r: 3, strokeWidth: 2, stroke: '#0d1117' }}
+              isAnimationActive={false}
+            />
+          )}
           <Area
             type="monotone"
             dataKey="total"
-            name="Enrollments"
+            name={currentLabel ?? 'Enrollments'}
             stroke={TOTAL_COLOR}
             strokeWidth={2}
             fill="url(#wh-total-fill)"
@@ -87,7 +133,7 @@ export function RunningTotalChart({ series }: { series: Array<{ date: string; to
             // its curve, an empty plot for the first second reads as "no data".
             isAnimationActive={false}
           />
-        </AreaChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
