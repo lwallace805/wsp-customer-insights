@@ -12,8 +12,9 @@ import { METRIC_KEYS } from '@/lib/performance/paidAggregateTypes';
 import type { ChannelScope, ProgramKey } from '@/lib/performance/channelTablesTypes';
 import { programKeyFor, PROGRAM_DISPLAY, PROGRAM_ORDER } from '@/lib/performance/channelTablesTypes';
 import {
-  ChannelMatrixSection, ScopePills, type ChannelsApiResponse,
+  ChannelMatrixSection, ScopePills, PartnerPills, type ChannelsApiResponse,
 } from './ChannelPerformanceDashboard';
+import type { PartnerKey } from '@/lib/performance/partners';
 
 interface ApiResponse {
   live: PaidAggregateData | null;
@@ -80,6 +81,7 @@ function deltaClass(n: number | null, higherIsBetter: boolean | null): string {
 
 const CHANNEL_COLORS: Record<string, string> = {
   Google: '#4285F4', Bing: '#00A4EF', Meta: '#0866FF', LinkedIn: '#0A66C2',
+  'Open AI': '#10a37f',
 };
 const SERIES_COLORS = ['#475569', '#64748b', '#10b981', '#f59e0b'];
 
@@ -106,7 +108,9 @@ function KpiTile({
   program: ProgramBlock;
   active: boolean;
   onClick: () => void;
-  priorBLabel: string;
+  /** Null on a partner with no prior-cohort columns — the tile then shows
+   *  attainment only rather than a permanent em-dash. */
+  priorBLabel: string | null;
 }) {
   const m = META[metricKey];
   const block = program.metrics[metricKey];
@@ -136,12 +140,14 @@ function KpiTile({
             {attainStr(att)}
           </span>
         </div>
-        <div className="flex justify-between gap-3">
-          <span className="text-gray-500">vs {priorBLabel}</span>
-          <span className={`tabular-nums font-medium ${deltaClass(vsPrior, m.higherIsBetter)}`}>
-            {pctStr(vsPrior)}
-          </span>
-        </div>
+        {priorBLabel !== null && (
+          <div className="flex justify-between gap-3">
+            <span className="text-gray-500">vs {priorBLabel}</span>
+            <span className={`tabular-nums font-medium ${deltaClass(vsPrior, m.higherIsBetter)}`}>
+              {pctStr(vsPrior)}
+            </span>
+          </div>
+        )}
       </div>
     </button>
   );
@@ -152,26 +158,43 @@ function KpiTile({
 const TH = 'text-right px-4 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider';
 const THL = 'text-left px-5 py-2.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wider';
 
+/** One prior-cohort column. Built from whatever the payload actually carries —
+ *  Wharton publishes two, CBS AI's daily tabs currently align two, and a doc
+ *  that aligns one or none renders that many columns rather than em-dashes.
+ *  The LAST entry is the immediately prior cohort, so it drives the CoC delta. */
+interface PriorCol {
+  label: string;
+  value: (r: MetricRow | undefined) => number | null;
+}
+
+function priorColsFor(data: PaidAggregateData): PriorCol[] {
+  if (!data.hasPriors) return [];
+  return [
+    { label: data.priorLabels[0], value: (r?: MetricRow) => r?.priorA ?? null },
+    { label: data.priorLabels[1], value: (r?: MetricRow) => r?.priorB ?? null },
+  ].filter(c => c.label !== '');
+}
+
 function ChannelTable({
-  rows, metricKey, priorLabels,
-}: { rows: MetricRow[]; metricKey: MetricKey; priorLabels: [string, string] }) {
+  rows, metricKey, priorCols,
+}: { rows: MetricRow[]; metricKey: MetricKey; priorCols: PriorCol[] }) {
   const m = META[metricKey];
   const ordered = [
     ...rows.filter(r => r.channel !== 'Total'),
     ...rows.filter(r => r.channel === 'Total'),
   ];
+  const coCol = priorCols.length > 0 ? priorCols[priorCols.length - 1] : null;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/10">
             <th className={THL}>Channel</th>
-            <th className={TH}>{priorLabels[0]}</th>
-            <th className={TH}>{priorLabels[1]}</th>
+            {priorCols.map(c => <th key={c.label} className={TH}>{c.label}</th>)}
             <th className={TH}>Current — actual</th>
             <th className={TH}>Current — forecast</th>
             <th className={TH}>% of forecast</th>
-            <th className={TH}>vs {priorLabels[1]}</th>
+            {coCol && <th className={TH}>vs {coCol.label}</th>}
           </tr>
         </thead>
         <tbody>
@@ -180,7 +203,7 @@ function ChannelTable({
             // The sheet only publishes these for its Total row; derived per
             // channel here from the same actual/forecast/prior columns.
             const vsF = attainment(r.actual, r.forecast);
-            const vsP = coc(r.actual, r.priorB);
+            const vsP = coc(r.actual, coCol ? coCol.value(r) : null);
             return (
               <tr
                 key={r.channel}
@@ -199,12 +222,17 @@ function ChannelTable({
                     {r.channel}
                   </span>
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{m.fmt(r.priorA)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{m.fmt(r.priorB)}</td>
+                {priorCols.map(c => (
+                  <td key={c.label} className="px-4 py-2.5 text-right tabular-nums text-gray-400">
+                    {m.fmt(c.value(r))}
+                  </td>
+                ))}
                 <td className="px-4 py-2.5 text-right tabular-nums text-white">{m.fmt(r.actual)}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{m.fmt(r.forecast)}</td>
                 <td className={`px-4 py-2.5 text-right tabular-nums ${attainClass(vsF, m.higherIsBetter)}`}>{attainStr(vsF)}</td>
-                <td className={`px-4 py-2.5 text-right tabular-nums ${deltaClass(vsP, m.higherIsBetter)}`}>{pctStr(vsP)}</td>
+                {coCol && (
+                  <td className={`px-4 py-2.5 text-right tabular-nums ${deltaClass(vsP, m.higherIsBetter)}`}>{pctStr(vsP)}</td>
+                )}
               </tr>
             );
           })}
@@ -217,21 +245,21 @@ function ChannelTable({
 // ─── All-programs comparison ──────────────────────────────────────────────────
 
 function ProgramTable({
-  programs, metricKey, priorLabels,
-}: { programs: ProgramBlock[]; metricKey: MetricKey; priorLabels: [string, string] }) {
+  programs, metricKey, priorCols,
+}: { programs: ProgramBlock[]; metricKey: MetricKey; priorCols: PriorCol[] }) {
   const m = META[metricKey];
+  const coCol = priorCols.length > 0 ? priorCols[priorCols.length - 1] : null;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/10">
             <th className={THL}>Program</th>
-            <th className={TH}>{priorLabels[0]}</th>
-            <th className={TH}>{priorLabels[1]}</th>
+            {priorCols.map(c => <th key={c.label} className={TH}>{c.label}</th>)}
             <th className={TH}>Current — actual</th>
             <th className={TH}>Current — forecast</th>
             <th className={TH}>% of forecast</th>
-            <th className={TH}>vs {priorLabels[1]}</th>
+            {coCol && <th className={TH}>vs {coCol.label}</th>}
           </tr>
         </thead>
         <tbody>
@@ -239,7 +267,7 @@ function ProgramTable({
             const b = p.metrics[metricKey];
             const t = b?.rows.find(r => r.channel === 'Total');
             const att = attainment(t?.actual ?? null, t?.forecast ?? null);
-            const vsPrior = coc(t?.actual ?? null, t?.priorB ?? null);
+            const vsPrior = coc(t?.actual ?? null, coCol ? coCol.value(t) : null);
             const isRollup = p.name.toLowerCase().startsWith('overall');
             return (
               <tr
@@ -249,16 +277,21 @@ function ProgramTable({
                 }`}
               >
                 <td className="px-5 py-2.5 text-gray-200">{p.name}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{m.fmt(t?.priorA ?? null)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{m.fmt(t?.priorB ?? null)}</td>
+                {priorCols.map(c => (
+                  <td key={c.label} className="px-4 py-2.5 text-right tabular-nums text-gray-400">
+                    {m.fmt(c.value(t))}
+                  </td>
+                ))}
                 <td className="px-4 py-2.5 text-right tabular-nums text-white">{m.fmt(t?.actual ?? null)}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{m.fmt(t?.forecast ?? null)}</td>
                 <td className={`px-4 py-2.5 text-right tabular-nums ${attainClass(att, m.higherIsBetter)}`}>
                   {attainStr(att)}
                 </td>
-                <td className={`px-4 py-2.5 text-right tabular-nums ${deltaClass(vsPrior, m.higherIsBetter)}`}>
-                  {pctStr(vsPrior)}
-                </td>
+                {coCol && (
+                  <td className={`px-4 py-2.5 text-right tabular-nums ${deltaClass(vsPrior, m.higherIsBetter)}`}>
+                    {pctStr(vsPrior)}
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -271,34 +304,64 @@ function ProgramTable({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PaidAggregateDashboard() {
-  const [res, setRes] = useState<ApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Top-level filter: which partner's docs to read. Changing it re-fetches.
+  const [partner, setPartner] = useState<PartnerKey>('wharton');
+  // Each payload is stored WITH the partner it was fetched for, so "loading"
+  // and "stale after a partner switch" are derived rather than reset from
+  // inside an effect — one partner's numbers can never render under the
+  // other's pills, not even for a frame.
+  const [fetched, setFetched] = useState<{ partner: PartnerKey; res: ApiResponse } | null>(null);
   const [programKey, setProgramKey] = useState<ProgramKey | null>(null);
   const [metric, setMetric] = useState<MetricKey>('leads');
   // Paid vs Non-paid scope. "paid" is this page's original funnel-doc view;
   // the other scopes render the Channel Tables view (same data as /channels)
   // so the program filter can be sliced by paid / non-paid / all channels.
   const [scope, setScope] = useState<ChannelScope>('paid');
-  const [chRes, setChRes] = useState<ChannelsApiResponse | null>(null);
-  const chFetchStarted = useRef(false);
+  const [chFetched, setChFetched] =
+    useState<{ partner: PartnerKey; res: ChannelsApiResponse } | null>(null);
+  // Which partner's channel-tables read has already been started.
+  const chFetchedFor = useRef<PartnerKey | null>(null);
 
   useEffect(() => {
-    fetch('/api/performance/paid-aggregate')
+    let cancelled = false;
+    fetch(`/api/performance/paid-aggregate?partner=${partner}`)
       .then(r => r.json())
-      .then((j: ApiResponse) => setRes(j))
-      .catch((e: unknown) => setRes({ live: null, needsAccess: false, error: String(e) }))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((j: ApiResponse) => { if (!cancelled) setFetched({ partner, res: j }); })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setFetched({ partner, res: { live: null, needsAccess: false, error: String(e) } });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [partner]);
 
-  // Channel-tables data is only needed once the user leaves the paid scope.
+  // Channel-tables data is only needed once the user leaves the paid scope —
+  // and again whenever the partner changes under a non-paid scope.
   useEffect(() => {
-    if (scope === 'paid' || chFetchStarted.current) return;
-    chFetchStarted.current = true;
-    fetch('/api/performance/channels')
+    if (scope === 'paid' || chFetchedFor.current === partner) return;
+    chFetchedFor.current = partner;
+    let cancelled = false;
+    fetch(`/api/performance/channels?partner=${partner}`)
       .then(r => r.json())
-      .then((j: ChannelsApiResponse) => setChRes(j))
-      .catch((e: unknown) => setChRes({ live: null, needsAccess: false, error: String(e) }));
-  }, [scope]);
+      .then((j: ChannelsApiResponse) => { if (!cancelled) setChFetched({ partner, res: j }); })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setChFetched({ partner, res: { live: null, needsAccess: false, error: String(e) } });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [scope, partner]);
+
+  // Null until this partner's own payload lands — which is exactly "loading".
+  const res = fetched?.partner === partner ? fetched.res : null;
+  const chRes = chFetched?.partner === partner ? chFetched.res : null;
+  const loading = res === null;
+
+  const onPartnerChange = (p: PartnerKey) => {
+    setPartner(p);
+    // Program keys don't overlap between partners; let the new payload pick.
+    setProgramKey(null);
+  };
 
   const data = res?.live ?? null;
   const chData = chRes?.live ?? null;
@@ -310,6 +373,13 @@ export default function PaidAggregateDashboard() {
     return PROGRAM_ORDER.filter(k => have.has(k));
   }, [chData]);
 
+  const priorCols = useMemo<PriorCol[]>(() => (data ? priorColsFor(data) : []), [data]);
+
+  const chartSeries = useMemo<string[]>(
+    () => [...priorCols.map(c => c.label), 'Current actual', 'Current forecast'],
+    [priorCols],
+  );
+
   const chartData = useMemo(() => {
     if (!program) return [];
     const block = program.metrics[metric];
@@ -318,12 +388,11 @@ export default function PaidAggregateDashboard() {
       .filter(r => r.channel !== 'Total')
       .map(r => ({
         channel: r.channel,
-        [data!.priorLabels[0]]: r.priorA ?? 0,
-        [data!.priorLabels[1]]: r.priorB ?? 0,
+        ...Object.fromEntries(priorCols.map(c => [c.label, c.value(r) ?? 0])),
         'Current actual': r.actual ?? 0,
         'Current forecast': r.forecast ?? 0,
       }));
-  }, [program, metric, data]);
+  }, [program, metric, priorCols]);
 
   if (loading) {
     return <div className="text-gray-500 text-sm py-20 text-center">Loading paid marketing aggregate…</div>;
@@ -331,26 +400,40 @@ export default function PaidAggregateDashboard() {
 
   if (!data) {
     return (
-      <Card className="p-6 max-w-2xl">
-        <div className="flex items-start gap-3">
-          <AlertTriangle size={18} className="text-amber-400 mt-0.5 shrink-0" />
-          <div className="text-sm text-gray-300 space-y-2">
-            <p className="font-semibold text-white">Paid Marketing Aggregate unavailable</p>
-            {res?.needsAccess ? (
-              <p>
-                The service account can&apos;t open the funnel-analysis doc. Share it (Viewer) with{' '}
-                <code className="text-emerald-400">{res.serviceAccount}</code>.
-              </p>
-            ) : (
-              <p className="text-gray-400">{res?.error ?? 'Unknown error.'}</p>
-            )}
+      <div className="space-y-4">
+        <PartnerPills partner={partner} onChange={onPartnerChange} />
+        <Card className="p-6 max-w-2xl">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={18} className="text-amber-400 mt-0.5 shrink-0" />
+            <div className="text-sm text-gray-300 space-y-2">
+              <p className="font-semibold text-white">Paid Marketing Aggregate unavailable</p>
+              {res?.needsAccess ? (
+                <p>
+                  The service account can&apos;t open the source doc. Share it (Viewer) with{' '}
+                  <code className="text-emerald-400">{res.serviceAccount}</code>.
+                </p>
+              ) : (
+                <p className="text-gray-400">{res?.error ?? 'Unknown error.'}</p>
+              )}
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
     );
   }
 
-  const priorLabels = data.priorLabels;
+  // The immediately prior cohort — the one the CoC deltas are measured against.
+  const cocLabel = priorCols.length > 0 ? priorCols[priorCols.length - 1].label : null;
+  // Several notes describe the Wharton funnel doc's own "Paid Marketing
+  // Aggregate" tab — its program columns and its "% Diff" rows. The CBS view is
+  // assembled from a different doc and states its own basis in `data.notes`,
+  // so these must key off the partner, never off whether priors exist.
+  const isFunnelDoc = data.partner === 'wharton';
+  // Platform names as the loaded partner actually reports them — CBS runs an
+  // Open AI line the Wharton doc has no column for.
+  const channelNames = (program?.metrics[metric]?.rows ?? [])
+    .filter(r => r.channel !== 'Total')
+    .map(r => r.channel);
   const metricLabel = program?.metrics[metric]?.label ?? META[metric].short;
   const paidView = scope === 'paid';
   const sheetUrl = paidView || !chData
@@ -376,7 +459,12 @@ export default function PaidAggregateDashboard() {
             {paidView ? (
               <>
                 {data.docTitle} · {data.cohortLabel}
-                {data.week !== null && <> · through week {data.week}</>} · prior cohorts week-aligned to the same point
+                {data.week !== null && <> · through week {data.week}</>}
+                {data.hasPriors
+                  ? (data.partner === 'wharton'
+                      ? <> · prior cohorts week-aligned to the same point</>
+                      : <> · prior cohorts aligned to the same day of cohort</>)
+                  : <> · actual vs forecast to date (no prior-cohort columns in this doc)</>}
               </>
             ) : (
               <>
@@ -395,6 +483,9 @@ export default function PaidAggregateDashboard() {
           <ExternalLink size={13} /> Source sheet
         </a>
       </div>
+
+      {/* Partner (top-level) selector */}
+      <PartnerPills partner={partner} onChange={onPartnerChange} />
 
       {/* Program + scope selectors */}
       <div className="flex flex-wrap items-center gap-3 justify-between">
@@ -471,7 +562,7 @@ export default function PaidAggregateDashboard() {
               program={program}
               active={k === metric}
               onClick={() => setMetric(k)}
-              priorBLabel={priorLabels[1]}
+              priorBLabel={cocLabel}
             />
           ))}
         </div>
@@ -485,14 +576,16 @@ export default function PaidAggregateDashboard() {
               {metricLabel} by channel — {program.name}
             </h2>
             <p className="text-[11px] text-gray-500 mt-0.5">
-              Click a tile above to change the metric. Prior-cohort columns are cumulative through
-              the same cohort week, so the comparison is like-for-like.
+              Click a tile above to change the metric.{' '}
+              {priorCols.length > 0
+                ? 'Prior-cohort columns cover the same point in cohort, so the comparison is like-for-like.'
+                : 'Actual and forecast are both cumulative for the cohort to date, so “% of forecast” is like-for-like.'}
             </p>
           </div>
           <ChannelTable
             rows={program.metrics[metric]?.rows ?? []}
             metricKey={metric}
-            priorLabels={priorLabels}
+            priorCols={priorCols}
           />
         </Card>
       )}
@@ -521,8 +614,15 @@ export default function PaidAggregateDashboard() {
                   formatter={(v) => META[metric].fmt(typeof v === 'number' ? v : null)}
                 />
                 <Legend wrapperStyle={{ fontSize: 12, color: '#8b949e' }} />
-                {[priorLabels[0], priorLabels[1], 'Current actual', 'Current forecast'].map((k, i) => (
-                  <Bar key={k} dataKey={k} fill={SERIES_COLORS[i]} radius={[3, 3, 0, 0]} />
+                {chartSeries.map((k, i) => (
+                  <Bar
+                    key={k}
+                    dataKey={k}
+                    // Priors take the greys, current actual/forecast the
+                    // accent colours, however many priors there are.
+                    fill={SERIES_COLORS[i + (2 - priorCols.length)] ?? SERIES_COLORS[0]}
+                    radius={[3, 3, 0, 0]}
+                  />
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -537,10 +637,11 @@ export default function PaidAggregateDashboard() {
         <div className="px-5 py-4 border-b border-white/10">
           <h2 className="text-sm font-semibold text-white">{metricLabel} — all programs</h2>
           <p className="text-[11px] text-gray-500 mt-0.5">
-            Totals across Google, Bing, Meta and LinkedIn.
+            Totals across every paid platform this partner runs
+            {channelNames.length > 0 && <> — {channelNames.join(', ')}</>}.
           </p>
         </div>
-        <ProgramTable programs={programs} metricKey={metric} priorLabels={priorLabels} />
+        <ProgramTable programs={programs} metricKey={metric} priorCols={priorCols} />
       </Card>
 
       {/* Read-this-right footnotes */}
@@ -549,34 +650,56 @@ export default function PaidAggregateDashboard() {
           How to read this
         </h3>
         <ul className="text-[12px] text-gray-500 space-y-1.5 list-disc pl-4">
-          <li>
-            <span className="text-gray-400">Program-attributed spend only.</span> Every figure is the
-            sum of the five program columns, so paid activity not tagged to a program (brand and
-            generic campaigns) is excluded. Total paid spend in the source doc is higher.
-          </li>
-          <li>
-            <span className="text-gray-400">Week-aligned comparisons.</span> {priorLabels[0]} and{' '}
-            {priorLabels[1]} are cumulative through week {data.week ?? '—'} of those cohorts, not
-            full-cohort totals — the current cohort is still in flight.
-          </li>
+          {/* Reader notes the API attaches for this partner's basis. */}
+          {data.notes.map(n => (
+            <li key={n}>{n}</li>
+          ))}
+          {isFunnelDoc && (
+            <li>
+              <span className="text-gray-400">Program-attributed spend only.</span> Every figure is
+              the sum of the five program columns, so paid activity not tagged to a program (brand
+              and generic campaigns) is excluded. Total paid spend in the source doc is higher.
+            </li>
+          )}
+          {/* The CBS view states its own, more precise alignment in `notes`. */}
+          {isFunnelDoc && priorCols.length > 0 && (
+            <li>
+              <span className="text-gray-400">Week-aligned comparisons.</span>{' '}
+              {priorCols.map(c => c.label).join(' and ')}{' '}
+              {priorCols.length > 1 ? 'are' : 'is'} cumulative through week{' '}
+              {data.week ?? '—'} of{' '}
+              {priorCols.length > 1 ? 'those cohorts' : 'that cohort'}, not full-cohort totals —
+              the current cohort is still in flight.
+            </li>
+          )}
           <li>
             <span className="text-gray-400">&ldquo;% of forecast&rdquo; is actual ÷ forecast</span>{' '}
-            — 100% is on plan. This will <em>not</em>{' '}match the doc&apos;s &ldquo;% Diff vs.
-            Forecast&rdquo; row, which divides the gap by <em>actual</em>{' '}rather than by forecast and
-            so can exceed 100% (LinkedIn leads read −107% there). The actual and forecast columns
-            are straight from the sheet, so either version is derivable from what&apos;s shown.
+            — 100% is on plan.
+            {isFunnelDoc && (
+              <>
+                {' '}This will <em>not</em>{' '}match the doc&apos;s &ldquo;% Diff vs.
+                Forecast&rdquo; row, which divides the gap by <em>actual</em>{' '}rather than by
+                forecast and so can exceed 100% (LinkedIn leads read −107% there).
+              </>
+            )}{' '}
+            The actual and forecast columns are straight from the sheet, so either version is
+            derivable from what&apos;s shown.
           </li>
-          <li>
-            <span className="text-gray-400">&ldquo;vs {priorLabels[1]}&rdquo;</span>{' '}uses the doc&apos;s
-            own cohort-over-cohort formula, (actual − prior) ÷ prior, and ties out to it exactly.
-          </li>
+          {cocLabel && (
+            <li>
+              <span className="text-gray-400">&ldquo;vs {cocLabel}&rdquo;</span>{' '}is the same
+              cohort-over-cohort formula the docs use, (actual − prior) ÷ prior, measured against
+              the immediately prior cohort.
+            </li>
+          )}
           <li>
             <span className="text-gray-400">Colour follows the metric.</span> Green is good — for CPL
             and CPE that means going down. Spend is shown neutral.
           </li>
           <li>
-            Blank cells are <code>#DIV/0!</code>{' '}or empty in the source (typically a channel with no
-            spend in that cohort), shown as &ldquo;—&rdquo; rather than zero.
+            Blank cells are <code>#DIV/0!</code>{' '}or empty in the source — typically a channel with
+            no spend in that cohort, or a ratio with nothing in its denominator. Shown as
+            &ldquo;—&rdquo; rather than zero.
           </li>
         </ul>
       </Card>

@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import {
   getChannelTables,
   getServiceAccountEmail,
-  CHANNEL_TABLES_DOC_ID,
+  channelTablesDocId,
 } from '@/lib/performance/channelTables';
+import { partnerKeyFor } from '@/lib/performance/partners';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const result = await getChannelTables();
+export async function GET(req: NextRequest) {
+  // ?partner=wharton (default) | cbs — the top-level filter on /channels and
+  // /paid-aggregate. Each partner is a different source doc.
+  const partner = partnerKeyFor(req.nextUrl.searchParams.get('partner'));
+  const result = await getChannelTables(partner);
 
   if (!result.ok) {
     return NextResponse.json(
@@ -16,7 +21,7 @@ export async function GET() {
         live: null,
         needsAccess: result.needsAccess,
         serviceAccount: result.needsAccess ? getServiceAccountEmail() : null,
-        sheetId: CHANNEL_TABLES_DOC_ID,
+        sheetId: channelTablesDocId(partner),
         error: result.needsAccess ? null : result.error,
       },
       { status: 200, headers: { 'Cache-Control': 'no-store' } },

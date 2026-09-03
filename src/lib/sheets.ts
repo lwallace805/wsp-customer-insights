@@ -334,6 +334,10 @@ export interface PaidRow {
   cpl: number | null; cpe: number | null;
   cplGoal: number | null; cpeGoal: number | null;
   cvr: number | null; roas: number | null;
+  /** Forecast side of the three ratio metrics, as the tab states them. They
+   *  reconcile exactly with spendF/leadsF/enrollsF, so a null here can be
+   *  derived rather than shown as missing. */
+  cplF: number | null; cpeF: number | null; cvrF: number | null;
 }
 
 export interface PaidWoW {
@@ -419,17 +423,34 @@ export async function resolveVersionedTab(sheetId: string, base: string): Promis
 
 export const PAID_WOW_BASE_TAB = 'Paid WoW Performance & Goals';
 
-export async function readPaidWoW(sheetId: string, tab?: string): Promise<PaidWoW | null> {
-  const resolved = tab ?? await resolveVersionedTab(sheetId, PAID_WOW_BASE_TAB);
-  return readPaidWoWFrom(sheetId, resolved);
+export interface PaidWoWOptions {
+  /** Read raw cell values instead of their displayed strings.
+   *
+   *  The default (formatted) read is what Pulse has always used: money arrives
+   *  pre-rounded and percent cells arrive in PERCENT units ("1.63%" → 1.63).
+   *  Anything that puts these figures beside another tab's — the paid-aggregate
+   *  page beside the Wharton funnel doc, which is read unformatted — needs
+   *  `unformatted: true`, or CVR comes out 100× and cent-level spend disagrees.
+   *  Ratios then arrive as fractions, matching every other reader here. */
+  unformatted?: boolean;
 }
 
-async function readPaidWoWFrom(sheetId: string, tab: string): Promise<PaidWoW | null> {
+export async function readPaidWoW(
+  sheetId: string, tab?: string, opts: PaidWoWOptions = {},
+): Promise<PaidWoW | null> {
+  const resolved = tab ?? await resolveVersionedTab(sheetId, PAID_WOW_BASE_TAB);
+  return readPaidWoWFrom(sheetId, resolved, opts);
+}
+
+async function readPaidWoWFrom(
+  sheetId: string, tab: string, opts: PaidWoWOptions = {},
+): Promise<PaidWoW | null> {
   try {
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
       range: `'${tab}'!A1:CZ220`,
+      ...(opts.unformatted ? { valueRenderOption: 'UNFORMATTED_VALUE' as const } : {}),
     });
     const rows = (res.data.values ?? []) as string[][];
     const cell = (r: number, c: number) => String(rows[r]?.[c] ?? '').trim();
@@ -449,6 +470,9 @@ async function readPaidWoWFrom(sheetId: string, tab: string): Promise<PaidWoW | 
       cpeGoal: at(r, find('cpe', 'goal')),
       cvr: at(r, find('cvr', 'actual')),
       roas: at(r, find('roas', 'actual')),
+      cplF: at(r, find('cpl', 'forecast')),
+      cpeF: at(r, find('cpe', 'forecast')),
+      cvrF: at(r, find('cvr', 'forecast')),
     });
 
     // ── Per-channel blocks: banner row carrying the channel names ──
