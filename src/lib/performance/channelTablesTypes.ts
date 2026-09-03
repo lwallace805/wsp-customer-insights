@@ -2,6 +2,8 @@
 // Kept separate from channelTables.ts so the client bundle never pulls in
 // `googleapis` (same split as paidAggregateTypes.ts).
 
+import type { PartnerKey } from './partners';
+
 export type ChannelScope = 'all' | 'paid' | 'nonpaid';
 
 export const CHANNEL_METRIC_KEYS = ['leads', 'enrollments', 'cvr'] as const;
@@ -11,7 +13,9 @@ export type ChannelMetricKey = (typeof CHANNEL_METRIC_KEYS)[number];
  *  selector can drive both the paid (funnel doc) and channel (cohort doc)
  *  views. Display names differ per surface; the key is the join. */
 export type ProgramKey =
-  | 'overall' | 'overall-no-rdi' | 'pe' | 're' | 'fpa' | 'avi' | 'rdi';
+  | 'overall' | 'overall-no-rdi' | 'pe' | 're' | 'fpa' | 'avi' | 'rdi'
+  /** The CBS AI certificate — the only program in the CBS cohort doc. */
+  | 'ai';
 
 export interface ChannelSeriesRow {
   /** Channel label as written in the sheet's Leads block, e.g. "PPC". */
@@ -83,6 +87,9 @@ export interface ProgramForecast {
 }
 
 export interface ChannelTablesData {
+  /** Which partner's docs this payload was read from. Echoed back so the page
+   *  can't render one partner's numbers under another's pill. */
+  partner: PartnerKey;
   programs: ProgramChannelBlock[];
   econ: ProgramEconBlock[];
   /** Empty when either WoW tab couldn't be read — the UI omits forecast rows
@@ -107,10 +114,11 @@ export const PROGRAM_DISPLAY: Record<ProgramKey, string> = {
   fpa: 'FP&A',
   avi: 'AVI',
   rdi: 'RDI',
+  ai: 'AI',
 };
 
 export const PROGRAM_ORDER: ProgramKey[] =
-  ['overall', 'overall-no-rdi', 'pe', 're', 'fpa', 'avi', 'rdi'];
+  ['overall', 'overall-no-rdi', 'pe', 're', 'fpa', 'avi', 'rdi', 'ai'];
 
 /** Map a sheet banner / paid-aggregate program name to its canonical key. */
 export function programKeyFor(name: string): ProgramKey | null {
@@ -122,5 +130,29 @@ export function programKeyFor(name: string): ProgramKey | null {
   if (/^fp\s*&?\s*a/.test(t)) return 'fpa';
   if (t === 'avi' || t.startsWith('avi')) return 'avi';
   if (t === 'rdi' || t === 'rd' || t.startsWith('rdi') || /^rd\b/.test(t)) return 'rdi';
+  // After AVI, so "AVI" can't be swallowed by the AI test.
+  if (/^ai\b/.test(t)) return 'ai';
   return null;
+}
+
+/** Program keys with per-partner banner aliases applied first.
+ *
+ *  A single-program doc names its rollup table "Overall" even though the only
+ *  thing in it is that one program — the CBS doc's channel matrix is bannered
+ *  "AI" while its economics table is bannered "Overall Performance". Left to
+ *  `programKeyFor` those two land on different keys and the page shows a
+ *  matrix with no economics under it. The alias map is what ties them
+ *  together, and it is per-partner so a second CBS program later comes through
+ *  as its own key rather than being folded into AI. */
+export function resolveProgramKey(
+  name: string,
+  aliases?: Record<string, ProgramKey>,
+): ProgramKey | null {
+  const t = name.trim().toLowerCase();
+  if (aliases) {
+    for (const [alias, key] of Object.entries(aliases)) {
+      if (t === alias || t.startsWith(`${alias} `)) return key;
+    }
+  }
+  return programKeyFor(name);
 }

@@ -1,7 +1,10 @@
 // ─── Channel Performance — live reader ────────────────────────────────────────
 //
-// Reads two tabs of the Wharton cohort performance doc (the doc Pulse and
-// Cohort Command already read):
+// Reads two tabs of a cohort performance doc — Wharton's (the doc Pulse and
+// Cohort Command already read) or the CBS AI certificate's, selected by the
+// `partner` argument. Both docs use the same tab names and block shapes; CBS
+// carries a single program block instead of seven, so nothing here may assume
+// more than one:
 //
 //   "Channel Tables" — channel × cohort matrices, one block per program on a
 //   6-column stride (Overall | Overall (No RDI) | Private Equity | Real Estate
@@ -37,7 +40,8 @@ import type {
   ChannelTablesData, ProgramChannelBlock, ChannelSeriesRow,
   ProgramEconBlock, ChannelEconRow, ProgramForecast, ForecastSide, ProgramKey,
 } from './channelTablesTypes';
-import { programKeyFor } from './channelTablesTypes';
+import { resolveProgramKey } from './channelTablesTypes';
+import type { PartnerKey } from './partners';
 export type {
   ChannelTablesData, ProgramChannelBlock, ChannelSeriesRow,
   ProgramEconBlock, ChannelEconRow,
@@ -47,6 +51,50 @@ export const CHANNEL_TABLES_DOC_ID =
   process.env.FALL26_PACING_SHEET_ID ??
   process.env.WHARTON_COHORT_DOC_ID ??
   '1pUVvHARYuZaOLwUqkAtRbOdTkDvt4WRinWX2cd--5Kw';
+
+/** The CBS AI certificate's own cohort performance doc — same tab names and
+ *  same block shapes as Wharton's, one program instead of seven. Kept in sync
+ *  with the 'c-fall-26' entry in src/lib/cohortSheets.ts. */
+export const CBS_CHANNEL_TABLES_DOC_ID =
+  process.env.CBS_FALL26_COHORT_DOC_ID ??
+  '1qHj4jZauhseusZIYrzVa_byhtkqR7GnZgUZetyo32cE';
+
+interface PartnerSource {
+  docId: () => string;
+  /** Banner aliases for this doc — see resolveProgramKey. */
+  programAliases?: Record<string, ProgramKey>;
+  /** Keys to publish forecasts for, in order. */
+  forecastKeys: ProgramKey[];
+  /** Key that carries the doc's own cohort-wide WoW totals. Wharton splits
+   *  those into Overall and Overall (No RDI); CBS has a single program, so its
+   *  totals ARE that program's. */
+  totalsKey: ProgramKey;
+  /** Wharton's WoW tabs carry a No-RDI restatement; CBS has no RDI. */
+  hasNoRdiRollup: boolean;
+}
+
+const PARTNER_SOURCES: Record<PartnerKey, PartnerSource> = {
+  wharton: {
+    docId: () => CHANNEL_TABLES_DOC_ID,
+    forecastKeys: ['overall', 'overall-no-rdi', 'pe', 're', 'fpa', 'avi', 'rdi'],
+    totalsKey: 'overall',
+    hasNoRdiRollup: true,
+  },
+  cbs: {
+    docId: () => CBS_CHANNEL_TABLES_DOC_ID,
+    // The matrix is bannered "AI", the economics table "Overall Performance";
+    // both describe the same single program.
+    programAliases: { ai: 'ai', overall: 'ai' },
+    forecastKeys: ['ai'],
+    totalsKey: 'ai',
+    hasNoRdiRollup: false,
+  },
+};
+
+export function channelTablesDocId(partner: PartnerKey): string {
+  return PARTNER_SOURCES[partner].docId();
+}
+
 const MATRIX_TAB = 'Channel Tables';
 const ECON_TAB = 'Overall Performance Tables';
 
@@ -112,6 +160,7 @@ function channelKey(label: string): string {
 /** Program banners: cells in the top rows that have a "Channel" header below
  *  them in the same column within the next 6 rows. */
 function findMatrixPrograms(grid: Grid): { name: string; col: number }[] {
+  const candidates: { name: string; col: number }[][] = [];
   for (let r = 0; r < Math.min(grid.length, 4); r++) {
     const row = grid[r] ?? [];
     const found: { name: string; col: number }[] = [];
@@ -125,9 +174,13 @@ function findMatrixPrograms(grid: Grid): { name: string; col: number }[] {
         }
       }
     }
+    // Two or more blocks on one row is unambiguously the banner row.
     if (found.length >= 2) return found;
+    if (found.length === 1) candidates.push(found);
   }
-  return [];
+  // A single-program doc (CBS) has exactly one banner; take the topmost row
+  // that has one rather than reporting the tab as unrecognised.
+  return candidates[0] ?? [];
 }
 
 interface Section {
@@ -196,8 +249,10 @@ function readSection(grid: Grid, col: number, hdr: number): Section | null {
   return { cohorts, rows, totals };
 }
 
-function parseMatrixBlock(grid: Grid, name: string, col: number): ProgramChannelBlock | null {
-  const program = programKeyFor(name);
+function parseMatrixBlock(
+  grid: Grid, name: string, col: number, aliases?: Record<string, ProgramKey>,
+): ProgramChannelBlock | null {
+  const program = resolveProgramKey(name, aliases);
   if (!program) return null;
   const headers = findSectionHeaders(grid, col);
   if (!headers) return null;
@@ -244,7 +299,7 @@ function parseMatrixBlock(grid: Grid, name: string, col: number): ProgramChannel
 
 // ─── "Overall Performance Tables" economics parsing ───────────────────────────
 
-function parseEcon(grid: Grid): ProgramEconBlock[] {
+function parseEcon(grid: Grid, aliases?: Record<string, ProgramKey>): ProgramEconBlock[] {
   const out: ProgramEconBlock[] = [];
   for (let r = 0; r < grid.length; r++) {
     const banner = S(cell(grid, r, 0));
@@ -257,7 +312,7 @@ function parseEcon(grid: Grid): ProgramEconBlock[] {
       .replace(/(fall|spring|winter|summer)\s*20\d\d/i, '')
       .replace(/marketing performance|performance/i, '')
       .trim() || 'Overall';
-    const program = programKeyFor(name);
+    const program = resolveProgramKey(name, aliases);
     if (!program) continue;
 
     const header = (grid[r + 1] ?? []).map(c => S(c).toLowerCase());
@@ -335,7 +390,7 @@ function subSides(a: ForecastSide | null, b: ForecastSide | null): ForecastSide 
   };
 }
 
-async function readForecasts(sheetId: string): Promise<{
+async function readForecasts(sheetId: string, src: PartnerSource): Promise<{
   forecasts: ProgramForecast[];
   source: string | null;
 }> {
@@ -354,22 +409,26 @@ async function readForecasts(sheetId: string): Promise<{
     const overallByKey = new Map<ProgramKey, ForecastSide | null>();
     const paidByKey = new Map<ProgramKey, ForecastSide | null>();
     for (const p of overall?.programs ?? []) {
-      const k = programKeyFor(p.program);
+      const k = resolveProgramKey(p.program, src.programAliases);
       if (k) overallByKey.set(k, side(p));
     }
     for (const p of paid?.programs ?? []) {
-      const k = programKeyFor(p.label);
+      const k = resolveProgramKey(p.label, src.programAliases);
       if (k) paidByKey.set(k, side(p));
     }
-    overallByKey.set('overall', side(overall?.totals));
-    paidByKey.set('overall', side(paid?.totals));
-    overallByKey.set('overall-no-rdi',
-      subSides(side(overall?.totals), overallByKey.get('rdi') ?? null));
-    paidByKey.set('overall-no-rdi',
-      subSides(side(paid?.totals), paidByKey.get('rdi') ?? null));
+    // The doc's cohort-wide WoW totals. For a single-program doc those ARE the
+    // program's, and they overwrite any same-key row read above — the Total row
+    // is the one the doc itself headlines.
+    overallByKey.set(src.totalsKey, side(overall?.totals));
+    paidByKey.set(src.totalsKey, side(paid?.totals));
+    if (src.hasNoRdiRollup) {
+      overallByKey.set('overall-no-rdi',
+        subSides(side(overall?.totals), overallByKey.get('rdi') ?? null));
+      paidByKey.set('overall-no-rdi',
+        subSides(side(paid?.totals), paidByKey.get('rdi') ?? null));
+    }
 
-    const keys: ProgramKey[] = ['overall', 'overall-no-rdi', 'pe', 're', 'fpa', 'avi', 'rdi'];
-    const forecasts: ProgramForecast[] = keys
+    const forecasts: ProgramForecast[] = src.forecastKeys
       .map(program => {
         const o = overallByKey.get(program) ?? null;
         const p = paidByKey.get(program) ?? null;
@@ -389,20 +448,24 @@ async function readForecasts(sheetId: string): Promise<{
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
-export async function getChannelTables(): Promise<ChannelsResult> {
+export async function getChannelTables(
+  partner: PartnerKey = 'wharton',
+): Promise<ChannelsResult> {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
     return { ok: false, needsAccess: false, error: 'GOOGLE_SERVICE_ACCOUNT_KEY is not set' };
   }
+  const src = PARTNER_SOURCES[partner];
+  const docId = src.docId();
   try {
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
     const [meta, values, wow] = await Promise.all([
-      sheets.spreadsheets.get({ spreadsheetId: CHANNEL_TABLES_DOC_ID, fields: 'properties.title' }),
+      sheets.spreadsheets.get({ spreadsheetId: docId, fields: 'properties.title' }),
       sheets.spreadsheets.values.batchGet({
-        spreadsheetId: CHANNEL_TABLES_DOC_ID,
+        spreadsheetId: docId,
         ranges: [`'${MATRIX_TAB}'!A1:BZ70`, `'${ECON_TAB}'!A1:J120`],
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
-      readForecasts(CHANNEL_TABLES_DOC_ID),
+      readForecasts(docId, src),
     ]);
 
     const matrixGrid = (values.data.valueRanges?.[0]?.values ?? []) as Grid;
@@ -413,7 +476,7 @@ export async function getChannelTables(): Promise<ChannelsResult> {
 
     const banners = findMatrixPrograms(matrixGrid);
     const programs = banners
-      .map(b => parseMatrixBlock(matrixGrid, b.name, b.col))
+      .map(b => parseMatrixBlock(matrixGrid, b.name, b.col, src.programAliases))
       .filter((p): p is ProgramChannelBlock => p !== null);
     if (programs.length === 0) {
       return { ok: false, needsAccess: false, error: `"${MATRIX_TAB}" tab layout not recognised` };
@@ -425,13 +488,14 @@ export async function getChannelTables(): Promise<ChannelsResult> {
     return {
       ok: true,
       data: {
+        partner,
         programs,
-        econ: parseEcon(econGrid),
+        econ: parseEcon(econGrid, src.programAliases),
         forecasts: wow.forecasts,
         forecastSource: wow.source,
         currentLabel,
         docTitle: meta.data.properties?.title ?? 'Cohort Performance Doc',
-        sheetId: CHANNEL_TABLES_DOC_ID,
+        sheetId: docId,
         tab: MATRIX_TAB,
         fetchedAt: new Date().toISOString(),
       },

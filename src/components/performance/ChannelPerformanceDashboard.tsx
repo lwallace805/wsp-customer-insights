@@ -20,6 +20,8 @@ import type {
 import {
   CHANNEL_METRIC_KEYS, PROGRAM_DISPLAY, PROGRAM_ORDER,
 } from '@/lib/performance/channelTablesTypes';
+import type { PartnerKey } from '@/lib/performance/partners';
+import { PARTNER_DISPLAY, PARTNER_ORDER } from '@/lib/performance/partners';
 
 export interface ChannelsApiResponse {
   live: ChannelTablesData | null;
@@ -529,6 +531,12 @@ export function ChannelMatrixSection({
   if (!block) return null;
   const forecast = data.forecasts.find(f => f.program === block.program);
   const forecastSide = sideForScope(forecast, scope);
+  // Several of the read-this-right notes describe quirks of one partner's doc.
+  const isCbs = data.partner === 'cbs';
+  // The WoW tabs and the channel matrix don't cover the same channel set; the
+  // note below names the current gap rather than a figure that will drift.
+  const wowLeads = forecast?.overall?.leads ?? null;
+  const matrixLeads = block.totals.leads[block.cohorts.length - 1] ?? null;
 
   return (
     <div className="space-y-5">
@@ -571,8 +579,11 @@ export function ChannelMatrixSection({
         </h3>
         <ul className="text-[12px] text-gray-500 space-y-1.5 list-disc pl-4">
           <li>
-            <span className="text-gray-400">&ldquo;Paid&rdquo; = PPC</span> (Google, Bing, Meta,
-            LinkedIn) — the same definition behind every paid figure on the Paid Marketing
+            <span className="text-gray-400">&ldquo;Paid&rdquo; = PPC</span>{' '}
+            {isCbs
+              ? '(Google, Bing, Meta, LinkedIn and Open AI — the platforms inside this doc’s "Ads" line)'
+              : '(Google, Bing, Meta, LinkedIn)'}{' '}
+            — the same definition behind every paid figure on the Paid Marketing
             Aggregate page. Channels marked{' '}
             <span className="text-amber-400/80">$</span>{' '}(Sponsored Content, Paid Affiliates)
             carry direct spend but sit outside the paid rollup, matching how the source doc
@@ -580,16 +591,44 @@ export function ChannelMatrixSection({
           </li>
           <li>
             <span className="text-gray-400">Paid + Non-paid always equals Total here.</span>{' '}
-            The source tab&apos;s own PPC/Non-PPC summary block excludes AI Referral (and, for
-            Spring enrollments, Offline/Direct) from its ranges, so it reads slightly lower than
-            these rollups.
+            {!isCbs && (
+              <>
+                The source tab&apos;s own PPC/Non-PPC summary block excludes AI Referral (and, for
+                Spring enrollments, Offline/Direct) from its ranges, so it reads slightly lower
+                than these rollups.
+              </>
+            )}
+            {isCbs && (
+              <>
+                Both rollups are computed here from the channel rows, so they always tie to the
+                column total.
+              </>
+            )}
           </li>
           <li>
             <span className="text-gray-400">Prior-cohort columns are week-aligned snapshots</span>{' '}
             maintained by hand in the source tab; only the current-cohort column is
-            formula-driven. Blank cells mean the channel predates the data (e.g. RDI before
-            Spring 2026), not zero.
+            formula-driven. Blank cells mean the program or channel predates that cohort
+            {!isCbs && <> (e.g. RDI before Spring 2026)</>}, not zero.
           </li>
+          {isCbs && (
+            <li>
+              <span className="text-gray-400">
+                Two known gaps between this doc&apos;s own tabs.
+              </span>{' '}
+              The economics table&apos;s &ldquo;Ads&rdquo; spend leaves out the Open AI line&apos;s
+              spend that the paid WoW total includes, even though both count its leads. And the
+              all-channel WoW total
+              {wowLeads !== null && matrixLeads !== null && (
+                <> ({Math.round(wowLeads).toLocaleString()} leads)</>
+              )}{' '}
+              includes the doc&apos;s separate &ldquo;Employer Test&rdquo; line, which is not a row
+              in the channel matrix
+              {matrixLeads !== null && <> ({Math.round(matrixLeads).toLocaleString()})</>}.
+              Neither is corrected here — figures are shown as each tab states them, which is why
+              &ldquo;% of forecast&rdquo; is always computed WoW-against-WoW.
+            </li>
+          )}
           <li>
             <span className="text-gray-400">CVR = enrollments ÷ leads</span>{' '}for the same
             cohort-to-date window — identical to the source tab&apos;s Conversions block.
@@ -604,13 +643,48 @@ export function ChannelMatrixSection({
             a mix. Per-channel forecasts exist only for paid platforms, on the Paid Marketing
             Aggregate page.
           </li>
-          <li>
-            <span className="text-gray-400">Overall spend includes brand/generic spend</span>{' '}
-            not attributed to any program, so the program tables&apos; spends do not sum to the
-            Overall table&apos;s.
-          </li>
+          {!isCbs && (
+            <li>
+              <span className="text-gray-400">Overall spend includes brand/generic spend</span>{' '}
+              not attributed to any program, so the program tables&apos; spends do not sum to the
+              Overall table&apos;s.
+            </li>
+          )}
         </ul>
       </Card>
+    </div>
+  );
+}
+
+// ─── Partner pills (shared with the paid-aggregate page) ──────────────────────
+//
+// The top-level filter: each partner is a different source doc, so changing it
+// re-fetches rather than re-slicing. Styled apart from the program pills
+// (emerald, not white) so it reads as the outer scope it is.
+
+export function PartnerPills({
+  partner, onChange,
+}: { partner: PartnerKey; onChange: (p: PartnerKey) => void }) {
+  return (
+    <div className="inline-flex items-center gap-2">
+      <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+        Partner
+      </span>
+      <div className="inline-flex rounded-lg border border-white/10 overflow-hidden">
+        {PARTNER_ORDER.map(p => (
+          <button
+            key={p}
+            onClick={() => onChange(p)}
+            className={`px-3.5 py-1.5 text-[13px] transition-colors ${
+              p === partner
+                ? 'bg-emerald-500/20 text-emerald-300 font-medium'
+                : 'bg-[#161b22] text-gray-400 hover:text-white'
+            }`}
+          >
+            {PARTNER_DISPLAY[p]}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -642,24 +716,44 @@ export function ScopePills({
 // ─── Standalone page ──────────────────────────────────────────────────────────
 
 export default function ChannelPerformanceDashboard() {
-  const [res, setRes] = useState<ChannelsApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [partner, setPartner] = useState<PartnerKey>('wharton');
+  // Payload stored with the partner it was fetched for; "loading" and "stale
+  // after a partner switch" are then derived, so one partner's numbers can
+  // never render under the other's pills.
+  const [fetched, setFetched] =
+    useState<{ partner: PartnerKey; res: ChannelsApiResponse } | null>(null);
   const [programKey, setProgramKey] = useState<ProgramKey>('overall');
   const [scope, setScope] = useState<ChannelScope>('all');
 
   useEffect(() => {
-    fetch('/api/performance/channels')
+    let cancelled = false;
+    fetch(`/api/performance/channels?partner=${partner}`)
       .then(r => r.json())
-      .then((j: ChannelsApiResponse) => setRes(j))
-      .catch((e: unknown) => setRes({ live: null, needsAccess: false, error: String(e) }))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((j: ChannelsApiResponse) => { if (!cancelled) setFetched({ partner, res: j }); })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setFetched({ partner, res: { live: null, needsAccess: false, error: String(e) } });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [partner]);
 
+  const res = fetched?.partner === partner ? fetched.res : null;
+  const loading = res === null;
   const data = res?.live ?? null;
   const availablePrograms = useMemo(() => {
     const have = new Set((data?.programs ?? []).map(p => p.program));
     return PROGRAM_ORDER.filter(k => have.has(k));
   }, [data]);
+
+  // Programs don't overlap between partners, so a selection made under one
+  // never survives the switch — fall back to that partner's first block.
+  // Derived, not reset in an effect, so there's no frame where the pills and
+  // the tables disagree about which program is showing.
+  const activeProgram: ProgramKey =
+    availablePrograms.length && !availablePrograms.includes(programKey)
+      ? availablePrograms[0]
+      : programKey;
 
   if (loading) {
     return <div className="text-gray-500 text-sm py-20 text-center">Loading channel performance…</div>;
@@ -667,6 +761,8 @@ export default function ChannelPerformanceDashboard() {
 
   if (!data) {
     return (
+      <div className="space-y-4">
+        <PartnerPills partner={partner} onChange={setPartner} />
       <Card className="p-6 max-w-2xl">
         <div className="flex items-start gap-3">
           <AlertTriangle size={18} className="text-amber-400 mt-0.5 shrink-0" />
@@ -683,6 +779,7 @@ export default function ChannelPerformanceDashboard() {
           </div>
         </div>
       </Card>
+      </div>
     );
   }
 
@@ -712,6 +809,9 @@ export default function ChannelPerformanceDashboard() {
         </a>
       </div>
 
+      {/* Partner (top-level) selector */}
+      <PartnerPills partner={partner} onChange={setPartner} />
+
       {/* Program + scope selectors */}
       <div className="flex flex-wrap items-center gap-3 justify-between">
         <div className="flex flex-wrap gap-1.5">
@@ -720,7 +820,7 @@ export default function ChannelPerformanceDashboard() {
               key={k}
               onClick={() => setProgramKey(k)}
               className={`px-3.5 py-1.5 rounded-lg text-[13px] border transition-colors ${
-                k === programKey
+                k === activeProgram
                   ? 'bg-white text-gray-900 border-white font-medium'
                   : 'bg-[#161b22] text-gray-400 border-white/10 hover:text-white hover:border-white/25'
               }`}
@@ -732,7 +832,7 @@ export default function ChannelPerformanceDashboard() {
         <ScopePills scope={scope} onChange={setScope} />
       </div>
 
-      <ChannelMatrixSection data={data} programKey={programKey} scope={scope} />
+      <ChannelMatrixSection data={data} programKey={activeProgram} scope={scope} />
     </div>
   );
 }
