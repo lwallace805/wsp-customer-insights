@@ -1,6 +1,7 @@
 import type { WhartonPartnerResult } from '@/lib/whartonPartner';
-import { RunningTotalChart } from './Charts';
-import { SERIES_COLORS, longDate, shortDate } from './shared';
+import { ProgramMixChart } from './Charts';
+import RunningTotalSection from './RunningTotalSection';
+import { SERIES_COLORS, longDate, programColors, shortDate } from './shared';
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -33,15 +34,23 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
   }
 
   const closed = data.daysRemaining === 0;
+  // Compared against the day the data runs through, not `new Date()`: the page
+  // is rendered on the server, and a UTC "today" would flip this a few hours
+  // early for a reader in the US.
+  const earlyPassed = data.dataThrough !== null && data.earlyDeadline <= data.dataThrough;
   // Share of enrollments to date — a mix figure, not progress against a target.
   const share = (n: number) => (data.total > 0 ? (n / data.total) * 100 : 0);
   const maxEnrolls = data.programs.reduce((m, p) => Math.max(m, p.enrolls), 0);
   // Colour follows the program, not its rank: the index is taken from the
   // payload's (source) order, while the table below is sorted largest-first.
-  const colorOf = (program: string) => {
-    const i = data.programs.findIndex(p => p.program === program);
-    return SERIES_COLORS[i % SERIES_COLORS.length];
-  };
+  // One colour map for the whole page: seeded by the payload's program order and
+  // extended with any program that only appears in the cohort history, so the
+  // table, the running-total overlay and the cohort stack cannot disagree.
+  const colors = programColors(
+    data.programs.map(p => p.program),
+    data.programMix?.programs ?? [],
+  );
+  const colorOf = (program: string) => colors[program] ?? SERIES_COLORS[0];
   const ranked = [...data.programs].sort((a, b) => b.enrolls - a.enrolls);
 
   // Cohort-comparison table derivations. The average is taken only over rows
@@ -88,6 +97,13 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
             <div>
               <dt className="text-gray-500 text-xs uppercase tracking-wider">Enrollment opened</dt>
               <dd className="text-gray-200 tabular-nums">{shortDate(data.opened)}</dd>
+            </div>
+            <div>
+              <dt className="text-gray-500 text-xs uppercase tracking-wider">Early enrollment deadline</dt>
+              <dd className="text-gray-200 tabular-nums">
+                {shortDate(data.earlyDeadline)}
+                {earlyPassed && <span className="text-gray-500"> · passed</span>}
+              </dd>
             </div>
             <div>
               <dt className="text-gray-500 text-xs uppercase tracking-wider">Enrollment deadline</dt>
@@ -295,33 +311,61 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
 
       {/* ── Running totals ───────────────────────────────────────────────── */}
       <section className="bg-[#161b22] border border-white/10 rounded-xl p-6 sm:p-7 mt-5">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
-          Running total
-        </h2>
-        <p className="text-xs text-gray-500 mb-4">
-          Cumulative enrollments since the cohort opened on {shortDate(data.opened)}.
-          {data.prior &&
-            ` The ${data.prior.cohort} curve is aligned by days before close and runs to its final of ${data.prior.final.toLocaleString()} — the pace that matches the goal.`}
-        </p>
-        {data.prior && (
-          <div className="flex flex-wrap gap-x-5 gap-y-2 mb-3">
-            <span className="flex items-center gap-1.5 text-xs text-gray-400">
-              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: SERIES_COLORS[0] }} />
-              {data.cohort}
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-gray-400">
-              <span className="inline-block w-4 border-t border-dashed" style={{ borderColor: '#9aa4b2' }} />
-              {data.prior.cohort} (prior cohort)
-            </span>
-          </div>
-        )}
-        <RunningTotalChart
+        <RunningTotalSection
           series={data.series}
-          currentLabel={data.cohort}
-          prior={data.prior ? { label: `${data.prior.cohort} (prior)`, series: data.prior.series } : undefined}
+          cohort={data.cohort}
+          description={`Cumulative enrollments since the cohort opened on ${shortDate(data.opened)}.${
+            data.prior
+              ? ` The ${data.prior.cohort} curve is aligned by days before close and runs to its final of ${data.prior.final.toLocaleString()} — the pace that matches the goal.`
+              : ''
+          }`}
+          prior={data.prior ? {
+            cohort: data.prior.cohort,
+            label: `${data.prior.cohort} (prior)`,
+            series: data.prior.series,
+            final: data.prior.final,
+          } : undefined}
           goal={data.goal}
+          programs={data.programs.map(p => ({
+            program: p.program,
+            series: p.series,
+            priorSeries: p.priorSeries,
+          }))}
+          colors={colors}
+          totalColor={SERIES_COLORS[0]}
         />
       </section>
+
+      {/* ── Programs' performance across cohorts ─────────────────────────── */}
+      {data.programMix && (
+        <section className="bg-[#161b22] border border-white/10 rounded-xl p-6 sm:p-7 mt-5">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+            Programs&apos; performance
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Enrollments by program across cohorts. Closed cohorts show their final enrollment;{' '}
+            {data.cohort} is still enrolling, so its column is a running total and will keep rising.
+          </p>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 mb-3">
+            {data.programMix.programs.map(p => (
+              <span key={p} className="flex items-center gap-1.5 text-xs text-gray-400">
+                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colorOf(p) }} />
+                {p}
+              </span>
+            ))}
+          </div>
+          <ProgramMixChart
+            cohorts={data.programMix.cohorts}
+            programs={[...data.programMix.programs].reverse()}
+            colors={colors}
+          />
+          <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
+            Program-level figures come from the cohort tracker and count individual (B2C) enrollments,
+            so a cohort&apos;s total here can sit a few enrollments below the cohort final shown above,
+            which also includes corporate enrollments.
+          </p>
+        </section>
+      )}
 
     </Shell>
   );

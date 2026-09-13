@@ -1945,3 +1945,204 @@ export async function getPacingDataCurrent(
     programs: ['wharton', 'cbsee'],
   };
 }
+
+// ─── Per-program enrollments by cohort ───────────────────────────────────────
+//
+// The tracker's "Program ROAS Analysis" tab is the only source that splits
+// enrollments by program ACROSS cohorts. It opens with a "Total B2C
+// Enrollments" block — one row per program, one column per cohort, closed by a
+// "Cohort Total" row. Everything below that block is ROAS and spend, and is
+// deliberately NOT read: this reader feeds an external partner page, and
+// spend-derived figures must not be reachable from it.
+//
+// Two properties of the block that callers must handle rather than assume away:
+//   1. It is B2C ONLY. The tracker's per-cohort tabs carry a "Grand Total" that
+//      includes B2B (Spring 2026: 1,002 with B2B, 993 without), so a column here
+//      can sit a few enrollments under the final the AN Summary reports for the
+//      same cohort. Label the basis; don't present the two as one number.
+//   2. It mixes schools — the "AI" row is the Columbia/CBS certificate, and the
+//      "Cohort Total" row includes it. A Wharton-only caller filters AI out, at
+//      which point its total legitimately no longer matches `sheetTotal`.
+//
+// Columns are coded "C1 '25" — cohort 1 of 2025. C1/C2/C3 are Winter/Spring/Fall,
+// matching the season ordering in cohortCalendar.ts.
+
+export interface CohortProgramMix {
+  /** "Fall 2025" — the academic term name used everywhere else in the app. */
+  cohort: string;
+  /** Chronological sort key: year * 10 + cohort number. */
+  order: number;
+  /** Enrollments per program label, as the sheet states them (AI included). */
+  byProgram: Record<string, number>;
+  /** The sheet's own "Cohort Total" for this column — ALL schools, B2C only.
+   *  Carried so a caller can assert it still equals the sum of the rows it
+   *  read, which is what catches a column or row shifting underneath us. */
+  sheetTotal: number | null;
+}
+
+/** The tab abbreviates FP&A without the ampersand; every other surface (the
+ *  cohort doc's deadline table, the goals tab, the WoW block) writes "FP&A".
+ *  Normalised so one program can't appear under two names across the app. */
+const MIX_PROGRAM_ALIASES: Record<string, string> = { FPA: 'FP&A', RD: 'RDI' };
+
+const MIX_SEASONS: Record<string, string> = { '1': 'Winter', '2': 'Spring', '3': 'Fall' };
+
+export async function readProgramMixByCohort(
+  sheetId: string = COHORT_TRACKER_DOC_ID,
+  tab = 'Program ROAS Analysis',
+): Promise<CohortProgramMix[] | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:P14`,
+    });
+    const rows = (res.data.values ?? []) as string[][];
+
+    // Anchor on the block's own header text, never a row index — the ROAS
+    // blocks below repeat the same cohort columns, so landing on the wrong one
+    // would return ratios typed as enrollments.
+    const hIdx = rows.findIndex(r =>
+      (r ?? []).some(c => /^total b2c enrollments/i.test(String(c ?? '').trim())));
+    if (hIdx < 0) return null;
+
+    const header = rows[hIdx];
+    const labelCol = header.findIndex(c => /^total b2c enrollments/i.test(String(c ?? '').trim()));
+
+    // Cohort columns resolved by their coded label, so a spacer column between
+    // academic years (there is one today) shifts nothing.
+    const cohortCols: Array<{ col: number; cohort: string; order: number }> = [];
+    header.forEach((cell, col) => {
+      const m = String(cell ?? '').trim().match(/^C(\d)\s*'(\d{2})$/i);
+      if (!m) return;
+      const season = MIX_SEASONS[m[1]];
+      if (!season) return;
+      cohortCols.push({ col, cohort: `${season} 20${m[2]}`, order: Number(`20${m[2]}`) * 10 + Number(m[1]) });
+    });
+    if (cohortCols.length === 0) return null;
+
+    const out: CohortProgramMix[] = cohortCols.map(c => ({
+      cohort: c.cohort, order: c.order, byProgram: {}, sheetTotal: null,
+    }));
+
+    for (const r of rows.slice(hIdx + 1, hIdx + 12)) {
+      const rawLabel = String(r?.[labelCol] ?? '').trim();
+      if (!rawLabel) break;
+      // The block closes on its own total row; capture it as the cross-check.
+      const isTotal = /^cohort total$/i.test(rawLabel);
+      // "AI*" carries a footnote marker on the label.
+      const label = rawLabel.replace(/\*+$/, '').trim().toUpperCase();
+      const program = MIX_PROGRAM_ALIASES[label] ?? label;
+      cohortCols.forEach((c, i) => {
+        const v = N(r?.[c.col]);
+        if (v === null) return;
+        if (isTotal) out[i].sheetTotal = v;
+        else out[i].byProgram[program] = v;
+      });
+      if (isTotal) break;
+    }
+
+    const populated = out.filter(c => Object.keys(c.byProgram).length > 0);
+    return populated.length > 0 ? populated.sort((a, b) => a.order - b.order) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── A closed cohort's per-program curves ────────────────────────────────────
+//
+// Each Wharton cohort doc keeps a "<Term> Data" tab for the cohorts before it —
+// "Spring 2026 Data" inside the Fall 2026 doc — carrying a day-by-day grid with
+// per-program cumulative enrollments. It is the only per-program daily history
+// there is: the AN Summary has cohort totals only, and the tracker's program
+// split is one number per cohort.
+//
+// Three traps, all handled below:
+//   1. This tab calls AVI "Buy" (as its spend columns do), so a name-only lookup
+//      silently drops that program.
+//   2. "RDI Enrollments" appears as a header THREE times — once in the daily
+//      block, once in the cumulative block, once earlier in the sheet. Columns
+//      are therefore resolved inside a window anchored on "PE Overall Enroll",
+//      never by name alone.
+//   3. Its totals are the cohort's Grand Total basis (Spring 2026 ends at 1,002),
+//      which is neither the AN Summary's 997 nor the tracker's B2C 993. Callers
+//      must keep it to per-program comparisons and not mix it with either.
+
+export interface PriorProgramCurves {
+  /** program → (days-to-close → cumulative enrollments). */
+  byProgram: Map<string, Map<number, number>>;
+  /** Each program's final (its day-0 value). */
+  finals: Map<string, number>;
+}
+
+/** Which program a column in the cumulative block belongs to. Returns null for
+ *  anything that isn't one — including the daily columns sitting beside it. */
+function priorProgramOf(header: string): string | null {
+  const h = header.replace(/\s+/g, ' ').trim();
+  if (!h || /daily/i.test(h) || /^total/i.test(h)) return null;
+  const token = h.split(' ')[0].toUpperCase();
+  const map: Record<string, string> = {
+    PE: 'PE', RE: 'RE', 'FP&A': 'FP&A', FPA: 'FP&A', BUY: 'AVI', AVI: 'AVI', RD: 'RDI', RDI: 'RDI',
+  };
+  return map[token] ?? null;
+}
+
+export async function readPriorCohortProgramCurves(
+  sheetId: string,
+  /** "Spring 2026" — the tab is named "<term> Data". */
+  termLabel: string,
+): Promise<PriorProgramCurves | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${termLabel} Data'!A1:BZ250`,
+    });
+    const rows = (res.data.values ?? []) as string[][];
+    if (rows.length < 2) return null;
+
+    const header = rows[0].map(c => String(c ?? ''));
+    const cDays = header.findIndex(h => /^days\s*out$/i.test(h.trim()));
+    // The cumulative block is anchored on PE's column; everything belonging to
+    // the block sits within a few columns of it.
+    const anchor = header.findIndex(h => /^pe\b/i.test(h.trim()) && /overall\s*enroll/i.test(h) && !/daily/i.test(h));
+    const cTotal = header.findIndex(h => /^total overall enrollments$/i.test(h.trim()));
+    if (cDays < 0 || anchor < 0) return null;
+
+    const cols: Array<{ program: string; col: number }> = [];
+    for (let i = anchor; i < Math.min(anchor + 8, header.length); i++) {
+      const program = priorProgramOf(header[i]);
+      if (program && !cols.some(c => c.program === program)) cols.push({ program, col: i });
+    }
+    if (cols.length === 0) return null;
+
+    const byProgram = new Map<string, Map<number, number>>();
+    const finals = new Map<string, number>();
+    for (const r of rows.slice(1)) {
+      const day = N(r?.[cDays]);
+      if (day === null || day < 0) continue;
+
+      // Structural check per row: the programs we read must still account for
+      // the sheet's own total. A shifted column shows up here as a mismatch
+      // instead of as a plausible-looking curve.
+      if (cTotal >= 0) {
+        const stated = N(r[cTotal]);
+        const summed = cols.reduce((s, c) => s + (N(r[c.col]) ?? 0), 0);
+        if (stated !== null && stated !== summed) return null;
+      }
+
+      for (const { program, col } of cols) {
+        const v = N(r[col]);
+        if (v === null) continue;
+        const curve = byProgram.get(program) ?? new Map<number, number>();
+        curve.set(day, v);
+        byProgram.set(program, curve);
+        if (day === 0) finals.set(program, v);
+      }
+    }
+
+    return byProgram.size > 0 ? { byProgram, finals } : null;
+  } catch {
+    return null;
+  }
+}
