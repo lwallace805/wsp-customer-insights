@@ -73,6 +73,15 @@ outside the internal Google gate, and it is deliberately narrow:
   surface. Per-program figures are the table's own `<PROGRAM> Total Enrollment`
   columns; the reader asserts they sum to the cohort total and the page withholds
   the breakdown rather than showing a split that doesn't reconcile.
+- **Per-program pace** (the running total's program selector) needs the PRIOR
+  cohort split day by day, which only exists on the active cohort doc's
+  "<Term> Data" tab — `readPriorCohortProgramCurves()`. That tab names AVI "Buy"
+  and repeats the header "RDI Enrollments" three times, so its columns are
+  resolved inside a window anchored on "PE Overall Enroll" and checked against
+  its own total row. Its basis is the cohort doc's Grand Total (Spring 2026 ends
+  at 1,002, vs 997 on the AN Summary and 993 on the tracker), so it is only ever
+  drawn program-against-same-program; the all-programs view keeps the AN Summary
+  curve, and the two are never summed or shown together.
 - **Cross-cohort program history** (the Programs' Performance stack) is the one
   figure NOT from the cohort doc: `readProgramMixByCohort()` reads the tracker's
   "Program ROAS Analysis" tab, enrollment block only. Two traps live there — it

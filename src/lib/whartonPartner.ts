@@ -26,6 +26,7 @@ import {
   readDeadlineTable,
   getClosedWhartonCohorts,
   readProgramMixByCohort,
+  readPriorCohortProgramCurves,
   type CohortProgramMix,
 } from '@/lib/sheets';
 import { COHORT_SHEETS } from '@/lib/cohortSheets';
@@ -38,6 +39,17 @@ export interface WhartonProgramRow {
   enrolls: number;
   /** Cumulative enrollments per day, through the last keyed day. */
   series: Array<{ date: string; total: number }>;
+  /** The SAME program in the prior cohort, re-dated onto this cohort's calendar
+   *  by days-to-close — so selecting a program compares like with like instead
+   *  of putting one program against the whole prior cohort. Null when the prior
+   *  cohort's data tab can't be read or doesn't carry this program.
+   *
+   *  Read from the prior cohort's own data tab, whose totals are on the cohort
+   *  doc's Grand Total basis. That is a different basis from the cohort-level
+   *  prior curve (AN Summary) and from the cross-cohort stack (tracker, B2C),
+   *  which is why it is only ever drawn against this same program — never
+   *  summed, and never shown as a cohort total. */
+  priorSeries: Array<{ date: string; total: number }> | null;
 }
 
 export interface WhartonPriorCohort {
@@ -263,10 +275,13 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
   // — so it must never take the enrollment figures down with it.
   const prevWin = getPreviousCohort('wharton', asOf);
   const historySheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const [card, closedCohorts, cohortMix] = await Promise.all([
+  const [card, closedCohorts, cohortMix, priorPrograms] = await Promise.all([
     readDeadlineTable(sheetId, wiring.deadlineTab, win.termLabel, asOf),
     historySheetId ? getClosedWhartonCohorts(historySheetId) : Promise.resolve([]),
     readProgramMixByCohort().catch(() => null),
+    prevWin
+      ? readPriorCohortProgramCurves(sheetId, prevWin.termLabel).catch(() => null)
+      : Promise.resolve(null),
   ]);
   if (!card || card.cohortToDate === null) {
     return { ok: false, reason: `${win.termLabel} enrollment data is temporarily unavailable. Please try again shortly.` };
@@ -305,6 +320,22 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
     };
   }
 
+  // Each program's prior-cohort curve, re-dated the same way the cohort-level
+  // one is: a point at N days-to-close is drawn on the date this cohort has N
+  // days left. Same helper shape, so the two curves can never drift onto
+  // different day math.
+  const priorProgramSeries = new Map<string, Array<{ date: string; total: number }>>();
+  if (priorPrograms) {
+    const spanDays = Math.round((closeMs - utcOf(win.opens)) / DAY_MS);
+    for (const [program, curve] of priorPrograms.byProgram) {
+      const points = [...curve.entries()]
+        .filter(([day]) => day >= 0 && day <= spanDays)
+        .sort(([a], [b]) => b - a)
+        .map(([day, total]) => ({ date: ymdAt(closeMs - day * DAY_MS), total }));
+      if (points.length > 1) priorProgramSeries.set(program, points);
+    }
+  }
+
   // The last three closed cohorts, newest first — the partner cut of the
   // internal cohort table, carrying each cohort's own final and same-day total
   // but no internal goals.
@@ -333,7 +364,12 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
     // colours each program by its position here, and a rank-ordered list would
     // repaint every program the day two of them swap places.
     programs: reconciles
-      ? card.programs.map(p => ({ program: p.program, enrolls: p.total ?? 0, series: p.series }))
+      ? card.programs.map(p => ({
+          program: p.program,
+          enrolls: p.total ?? 0,
+          series: p.series,
+          priorSeries: priorProgramSeries.get(p.program) ?? null,
+        }))
       : [],
     series: card.series,
     dataThrough: card.updatedThroughYmd,

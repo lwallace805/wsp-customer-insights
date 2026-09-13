@@ -2048,3 +2048,101 @@ export async function readProgramMixByCohort(
     return null;
   }
 }
+
+// ─── A closed cohort's per-program curves ────────────────────────────────────
+//
+// Each Wharton cohort doc keeps a "<Term> Data" tab for the cohorts before it —
+// "Spring 2026 Data" inside the Fall 2026 doc — carrying a day-by-day grid with
+// per-program cumulative enrollments. It is the only per-program daily history
+// there is: the AN Summary has cohort totals only, and the tracker's program
+// split is one number per cohort.
+//
+// Three traps, all handled below:
+//   1. This tab calls AVI "Buy" (as its spend columns do), so a name-only lookup
+//      silently drops that program.
+//   2. "RDI Enrollments" appears as a header THREE times — once in the daily
+//      block, once in the cumulative block, once earlier in the sheet. Columns
+//      are therefore resolved inside a window anchored on "PE Overall Enroll",
+//      never by name alone.
+//   3. Its totals are the cohort's Grand Total basis (Spring 2026 ends at 1,002),
+//      which is neither the AN Summary's 997 nor the tracker's B2C 993. Callers
+//      must keep it to per-program comparisons and not mix it with either.
+
+export interface PriorProgramCurves {
+  /** program → (days-to-close → cumulative enrollments). */
+  byProgram: Map<string, Map<number, number>>;
+  /** Each program's final (its day-0 value). */
+  finals: Map<string, number>;
+}
+
+/** Which program a column in the cumulative block belongs to. Returns null for
+ *  anything that isn't one — including the daily columns sitting beside it. */
+function priorProgramOf(header: string): string | null {
+  const h = header.replace(/\s+/g, ' ').trim();
+  if (!h || /daily/i.test(h) || /^total/i.test(h)) return null;
+  const token = h.split(' ')[0].toUpperCase();
+  const map: Record<string, string> = {
+    PE: 'PE', RE: 'RE', 'FP&A': 'FP&A', FPA: 'FP&A', BUY: 'AVI', AVI: 'AVI', RD: 'RDI', RDI: 'RDI',
+  };
+  return map[token] ?? null;
+}
+
+export async function readPriorCohortProgramCurves(
+  sheetId: string,
+  /** "Spring 2026" — the tab is named "<term> Data". */
+  termLabel: string,
+): Promise<PriorProgramCurves | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${termLabel} Data'!A1:BZ250`,
+    });
+    const rows = (res.data.values ?? []) as string[][];
+    if (rows.length < 2) return null;
+
+    const header = rows[0].map(c => String(c ?? ''));
+    const cDays = header.findIndex(h => /^days\s*out$/i.test(h.trim()));
+    // The cumulative block is anchored on PE's column; everything belonging to
+    // the block sits within a few columns of it.
+    const anchor = header.findIndex(h => /^pe\b/i.test(h.trim()) && /overall\s*enroll/i.test(h) && !/daily/i.test(h));
+    const cTotal = header.findIndex(h => /^total overall enrollments$/i.test(h.trim()));
+    if (cDays < 0 || anchor < 0) return null;
+
+    const cols: Array<{ program: string; col: number }> = [];
+    for (let i = anchor; i < Math.min(anchor + 8, header.length); i++) {
+      const program = priorProgramOf(header[i]);
+      if (program && !cols.some(c => c.program === program)) cols.push({ program, col: i });
+    }
+    if (cols.length === 0) return null;
+
+    const byProgram = new Map<string, Map<number, number>>();
+    const finals = new Map<string, number>();
+    for (const r of rows.slice(1)) {
+      const day = N(r?.[cDays]);
+      if (day === null || day < 0) continue;
+
+      // Structural check per row: the programs we read must still account for
+      // the sheet's own total. A shifted column shows up here as a mismatch
+      // instead of as a plausible-looking curve.
+      if (cTotal >= 0) {
+        const stated = N(r[cTotal]);
+        const summed = cols.reduce((s, c) => s + (N(r[c.col]) ?? 0), 0);
+        if (stated !== null && stated !== summed) return null;
+      }
+
+      for (const { program, col } of cols) {
+        const v = N(r[col]);
+        if (v === null) continue;
+        const curve = byProgram.get(program) ?? new Map<number, number>();
+        curve.set(day, v);
+        byProgram.set(program, curve);
+        if (day === 0) finals.set(program, v);
+      }
+    }
+
+    return byProgram.size > 0 ? { byProgram, finals } : null;
+  } catch {
+    return null;
+  }
+}

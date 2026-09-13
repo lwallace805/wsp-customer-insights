@@ -47,7 +47,7 @@ function ChartTooltip({ active, payload, label }: TooltipPayload) {
 
 const PRIOR_COLOR = '#9aa4b2';
 
-export function RunningTotalChart({ series, currentLabel, prior, goal }: {
+export function RunningTotalChart({ series, currentLabel, prior, goal, color = TOTAL_COLOR }: {
   series: Array<{ date: string; total: number }>;
   /** Name for the active cohort's line in the tooltip (defaults to "Enrollments"). */
   currentLabel?: string;
@@ -55,6 +55,10 @@ export function RunningTotalChart({ series, currentLabel, prior, goal }: {
    *  the payload (whartonPartner.ts) — this component never does day math. */
   prior?: { label: string; series: Array<{ date: string; total: number }> };
   goal?: number | null;
+  /** Line/fill colour for the active series. Defaults to the cohort blue; a
+   *  single-program view passes that program's colour so the chart matches the
+   *  swatch the reader picked it by. */
+  color?: string;
 }) {
   // Joined on date because the prior curve runs all the way to the close while
   // the active cohort's stops at the keyed day; rows past that day simply have
@@ -68,6 +72,8 @@ export function RunningTotalChart({ series, currentLabel, prior, goal }: {
     return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
   }, [series, prior]);
 
+  const fillId = `wh-fill-${color.replace(/[^a-z0-9]/gi, '')}`;
+
   if (series.length < 2) {
     return <p className="text-sm text-gray-500 py-8">Not enough days keyed yet to draw the trend.</p>;
   }
@@ -77,9 +83,9 @@ export function RunningTotalChart({ series, currentLabel, prior, goal }: {
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
           <defs>
-            <linearGradient id="wh-total-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={TOTAL_COLOR} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={TOTAL_COLOR} stopOpacity={0.02} />
+            <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke={GRID} vertical={false} />
@@ -129,9 +135,9 @@ export function RunningTotalChart({ series, currentLabel, prior, goal }: {
             type="monotone"
             dataKey="total"
             name={currentLabel ?? 'Enrollments'}
-            stroke={TOTAL_COLOR}
+            stroke={color}
             strokeWidth={2}
-            fill="url(#wh-total-fill)"
+            fill={`url(#${fillId})`}
             dot={false}
             activeDot={{ r: 4, strokeWidth: 2, stroke: '#0d1117' }}
             // No draw-in animation: on a page whose whole job is one number and
