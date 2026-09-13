@@ -1,6 +1,5 @@
 import type { WhartonPartnerResult } from '@/lib/whartonPartner';
-import { ProgramMixChart } from './Charts';
-import RunningTotalSection from './RunningTotalSection';
+import { ProgramMixChart, RunningTotalChart } from './Charts';
 import { SERIES_COLORS, longDate, programColors, shortDate } from './shared';
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -311,19 +310,31 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
 
       {/* ── Running totals ───────────────────────────────────────────────── */}
       <section className="bg-[#161b22] border border-white/10 rounded-xl p-6 sm:p-7 mt-5">
-        <RunningTotalSection
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-1">
+          Running total
+        </h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Cumulative enrollments since the cohort opened on {shortDate(data.opened)}.
+          {data.prior &&
+            ` The ${data.prior.cohort} curve is aligned by days before close and runs to its final of ${data.prior.final.toLocaleString()} — the pace that matches the goal.`}
+        </p>
+        {data.prior && (
+          <div className="flex flex-wrap gap-x-5 gap-y-2 mb-3">
+            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: SERIES_COLORS[0] }} />
+              {data.cohort}
+            </span>
+            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+              <span className="inline-block w-4 border-t border-dashed" style={{ borderColor: '#9aa4b2' }} />
+              {data.prior.cohort} (prior cohort)
+            </span>
+          </div>
+        )}
+        <RunningTotalChart
           series={data.series}
-          cohort={data.cohort}
-          description={`Cumulative enrollments since the cohort opened on ${shortDate(data.opened)}.${
-            data.prior
-              ? ` The ${data.prior.cohort} curve is aligned by days before close and runs to its final of ${data.prior.final.toLocaleString()} — the pace that matches the goal.`
-              : ''
-          }`}
+          currentLabel={data.cohort}
           prior={data.prior ? { label: `${data.prior.cohort} (prior)`, series: data.prior.series } : undefined}
           goal={data.goal}
-          programs={data.programs.map(p => ({ program: p.program, series: p.series }))}
-          colors={colors}
-          totalColor={SERIES_COLORS[0]}
         />
       </section>
 

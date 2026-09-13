@@ -47,7 +47,7 @@ function ChartTooltip({ active, payload, label }: TooltipPayload) {
 
 const PRIOR_COLOR = '#9aa4b2';
 
-export function RunningTotalChart({ series, currentLabel, prior, goal, overlays = [] }: {
+export function RunningTotalChart({ series, currentLabel, prior, goal }: {
   series: Array<{ date: string; total: number }>;
   /** Name for the active cohort's line in the tooltip (defaults to "Enrollments"). */
   currentLabel?: string;
@@ -55,27 +55,18 @@ export function RunningTotalChart({ series, currentLabel, prior, goal, overlays 
    *  the payload (whartonPartner.ts) — this component never does day math. */
   prior?: { label: string; series: Array<{ date: string; total: number }> };
   goal?: number | null;
-  /** Per-program curves to draw over the cohort total, chosen by the reader in
-   *  the selector above the chart. Empty by default: the cohort total is the
-   *  headline, and the breakdown is opt-in. */
-  overlays?: Array<{ program: string; color: string; series: Array<{ date: string; total: number }> }>;
 }) {
   // Joined on date because the prior curve runs all the way to the close while
   // the active cohort's stops at the keyed day; rows past that day simply have
   // no `total`, and the area ends there instead of dropping to zero.
   const data = useMemo(() => {
-    type Row = { date: string; total?: number; prior?: number } & Record<string, unknown>;
+    type Row = { date: string; total?: number; prior?: number };
     const byDate = new Map<string, Row>();
     const at = (date: string): Row => byDate.get(date) ?? { date };
     for (const pt of series) byDate.set(pt.date, { ...at(pt.date), total: pt.total });
     for (const pt of prior?.series ?? []) byDate.set(pt.date, { ...at(pt.date), prior: pt.total });
-    for (const o of overlays) {
-      // Prefixed so a program called "total" or "prior" can never collide with
-      // the cohort keys above.
-      for (const pt of o.series) byDate.set(pt.date, { ...at(pt.date), [`p:${o.program}`]: pt.total });
-    }
     return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-  }, [series, prior, overlays]);
+  }, [series, prior]);
 
   if (series.length < 2) {
     return <p className="text-sm text-gray-500 py-8">Not enough days keyed yet to draw the trend.</p>;
@@ -134,19 +125,6 @@ export function RunningTotalChart({ series, currentLabel, prior, goal, overlays 
               isAnimationActive={false}
             />
           )}
-          {overlays.map(o => (
-            <Line
-              key={o.program}
-              type="monotone"
-              dataKey={`p:${o.program}`}
-              name={o.program}
-              stroke={o.color}
-              strokeWidth={1.75}
-              dot={false}
-              activeDot={{ r: 3, strokeWidth: 2, stroke: '#0d1117' }}
-              isAnimationActive={false}
-            />
-          ))}
           <Area
             type="monotone"
             dataKey="total"
