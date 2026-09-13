@@ -1945,3 +1945,106 @@ export async function getPacingDataCurrent(
     programs: ['wharton', 'cbsee'],
   };
 }
+
+// ─── Per-program enrollments by cohort ───────────────────────────────────────
+//
+// The tracker's "Program ROAS Analysis" tab is the only source that splits
+// enrollments by program ACROSS cohorts. It opens with a "Total B2C
+// Enrollments" block — one row per program, one column per cohort, closed by a
+// "Cohort Total" row. Everything below that block is ROAS and spend, and is
+// deliberately NOT read: this reader feeds an external partner page, and
+// spend-derived figures must not be reachable from it.
+//
+// Two properties of the block that callers must handle rather than assume away:
+//   1. It is B2C ONLY. The tracker's per-cohort tabs carry a "Grand Total" that
+//      includes B2B (Spring 2026: 1,002 with B2B, 993 without), so a column here
+//      can sit a few enrollments under the final the AN Summary reports for the
+//      same cohort. Label the basis; don't present the two as one number.
+//   2. It mixes schools — the "AI" row is the Columbia/CBS certificate, and the
+//      "Cohort Total" row includes it. A Wharton-only caller filters AI out, at
+//      which point its total legitimately no longer matches `sheetTotal`.
+//
+// Columns are coded "C1 '25" — cohort 1 of 2025. C1/C2/C3 are Winter/Spring/Fall,
+// matching the season ordering in cohortCalendar.ts.
+
+export interface CohortProgramMix {
+  /** "Fall 2025" — the academic term name used everywhere else in the app. */
+  cohort: string;
+  /** Chronological sort key: year * 10 + cohort number. */
+  order: number;
+  /** Enrollments per program label, as the sheet states them (AI included). */
+  byProgram: Record<string, number>;
+  /** The sheet's own "Cohort Total" for this column — ALL schools, B2C only.
+   *  Carried so a caller can assert it still equals the sum of the rows it
+   *  read, which is what catches a column or row shifting underneath us. */
+  sheetTotal: number | null;
+}
+
+/** The tab abbreviates FP&A without the ampersand; every other surface (the
+ *  cohort doc's deadline table, the goals tab, the WoW block) writes "FP&A".
+ *  Normalised so one program can't appear under two names across the app. */
+const MIX_PROGRAM_ALIASES: Record<string, string> = { FPA: 'FP&A', RD: 'RDI' };
+
+const MIX_SEASONS: Record<string, string> = { '1': 'Winter', '2': 'Spring', '3': 'Fall' };
+
+export async function readProgramMixByCohort(
+  sheetId: string = COHORT_TRACKER_DOC_ID,
+  tab = 'Program ROAS Analysis',
+): Promise<CohortProgramMix[] | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:P14`,
+    });
+    const rows = (res.data.values ?? []) as string[][];
+
+    // Anchor on the block's own header text, never a row index — the ROAS
+    // blocks below repeat the same cohort columns, so landing on the wrong one
+    // would return ratios typed as enrollments.
+    const hIdx = rows.findIndex(r =>
+      (r ?? []).some(c => /^total b2c enrollments/i.test(String(c ?? '').trim())));
+    if (hIdx < 0) return null;
+
+    const header = rows[hIdx];
+    const labelCol = header.findIndex(c => /^total b2c enrollments/i.test(String(c ?? '').trim()));
+
+    // Cohort columns resolved by their coded label, so a spacer column between
+    // academic years (there is one today) shifts nothing.
+    const cohortCols: Array<{ col: number; cohort: string; order: number }> = [];
+    header.forEach((cell, col) => {
+      const m = String(cell ?? '').trim().match(/^C(\d)\s*'(\d{2})$/i);
+      if (!m) return;
+      const season = MIX_SEASONS[m[1]];
+      if (!season) return;
+      cohortCols.push({ col, cohort: `${season} 20${m[2]}`, order: Number(`20${m[2]}`) * 10 + Number(m[1]) });
+    });
+    if (cohortCols.length === 0) return null;
+
+    const out: CohortProgramMix[] = cohortCols.map(c => ({
+      cohort: c.cohort, order: c.order, byProgram: {}, sheetTotal: null,
+    }));
+
+    for (const r of rows.slice(hIdx + 1, hIdx + 12)) {
+      const rawLabel = String(r?.[labelCol] ?? '').trim();
+      if (!rawLabel) break;
+      // The block closes on its own total row; capture it as the cross-check.
+      const isTotal = /^cohort total$/i.test(rawLabel);
+      // "AI*" carries a footnote marker on the label.
+      const label = rawLabel.replace(/\*+$/, '').trim().toUpperCase();
+      const program = MIX_PROGRAM_ALIASES[label] ?? label;
+      cohortCols.forEach((c, i) => {
+        const v = N(r?.[c.col]);
+        if (v === null) return;
+        if (isTotal) out[i].sheetTotal = v;
+        else out[i].byProgram[program] = v;
+      });
+      if (isTotal) break;
+    }
+
+    const populated = out.filter(c => Object.keys(c.byProgram).length > 0);
+    return populated.length > 0 ? populated.sort((a, b) => a.order - b.order) : null;
+  } catch {
+    return null;
+  }
+}

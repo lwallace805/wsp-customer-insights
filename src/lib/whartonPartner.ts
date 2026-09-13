@@ -22,7 +22,12 @@
 // from the AN Summary sheet through getClosedWhartonCurve() — the same source
 // the internal cohort comparison reads.
 
-import { readDeadlineTable, getClosedWhartonCohorts } from '@/lib/sheets';
+import {
+  readDeadlineTable,
+  getClosedWhartonCohorts,
+  readProgramMixByCohort,
+  type CohortProgramMix,
+} from '@/lib/sheets';
 import { COHORT_SHEETS } from '@/lib/cohortSheets';
 import { getActiveCohort, getPreviousCohort, nowET, daysUntilCutover } from '@/lib/cohortCalendar';
 
@@ -73,6 +78,23 @@ export interface WhartonCohortComparisons {
   }>;
 }
 
+export interface WhartonProgramMix {
+  /** Chronological, oldest first; the active cohort is last when present. */
+  cohorts: Array<{
+    cohort: string;
+    /** Enrollments per program. Wharton programs only — see COLUMBIA_PROGRAMS. */
+    byProgram: Record<string, number>;
+    /** Sum of `byProgram`. For closed cohorts this is a B2C figure and can sit
+     *  a few under the cohort final shown elsewhere on the page; the UI says so
+     *  rather than letting the two read as the same measure. */
+    total: number;
+    /** True for the cohort still enrolling — a running total, not a final. */
+    inProgress: boolean;
+  }>;
+  /** Program labels in stacking order, largest across the whole set first. */
+  programs: string[];
+}
+
 export interface WhartonPartnerData {
   ok: true;
   /** "Fall 2026" — the academic term name, which is what Wharton calls it. */
@@ -81,6 +103,10 @@ export interface WhartonPartnerData {
   opened: string;
   deadline: string;
   extendedClose: string;
+  /** Early enrollment deadline (the EEB date), YYYY-MM-DD. Requested by Wharton
+   *  on the Sep 1 markup. Often already past for an active cohort, so the UI
+   *  marks it done rather than listing it among upcoming dates. */
+  earlyDeadline: string;
   /** Days from today (ET) to the extended close — the countdown the cohort doc
    *  itself runs on. Zero once enrollment has closed. */
   daysRemaining: number;
@@ -106,6 +132,9 @@ export interface WhartonPartnerData {
   /** Table of recent closed cohorts at the same days-to-close. Null when the
    *  history sheet can't be read or the active cohort has no keyed day yet. */
   comparisons: WhartonCohortComparisons | null;
+  /** Per-program enrollments across cohorts, for the Programs' Performance
+   *  stack. Null when the tracker tab can't be read or nothing reconciled. */
+  programMix: WhartonProgramMix | null;
   generatedAt: string;
 }
 
@@ -147,6 +176,71 @@ function atDayNear(byDay: Map<number, number>, day: number): number | null {
   return null;
 }
 
+/** Columbia's certificate ("AI") shares the tracker tab with Wharton's programs.
+ *  It is filtered out HERE rather than in the UI, so no Columbia figure exists
+ *  anywhere in the payload — the same rule the rest of this file follows. */
+const COLUMBIA_PROGRAMS = new Set(['AI']);
+
+function buildProgramMix(
+  mix: CohortProgramMix[] | null,
+  activeCohort: string,
+  activePrograms: Array<{ program: string; total: number | null }>,
+): WhartonProgramMix | null {
+  if (!mix || mix.length === 0) return null;
+
+  const cohorts: WhartonProgramMix['cohorts'] = [];
+  for (const c of mix) {
+    // Structural check before anything is trusted: the rows read must still add
+    // up to the sheet's own total for that column. A mismatch means a row or
+    // column moved, and the honest response is to drop that cohort rather than
+    // publish a stack that has quietly lost a program.
+    const readTotal = Object.values(c.byProgram).reduce((s, v) => s + v, 0);
+    if (c.sheetTotal !== null && readTotal !== c.sheetTotal) continue;
+
+    const byProgram: Record<string, number> = {};
+    for (const [program, n] of Object.entries(c.byProgram)) {
+      if (COLUMBIA_PROGRAMS.has(program) || n === 0) continue;
+      byProgram[program] = n;
+    }
+    if (Object.keys(byProgram).length === 0) continue;
+    cohorts.push({
+      cohort: c.cohort,
+      byProgram,
+      total: Object.values(byProgram).reduce((s, v) => s + v, 0),
+      inProgress: false,
+    });
+  }
+
+  // The live cohort isn't in the tracker until it closes, so its split comes
+  // from the same deadline table the rest of the page reads. Flagged so the UI
+  // can say why the column is short instead of letting it read as a collapse.
+  const activeByProgram: Record<string, number> = {};
+  for (const p of activePrograms) {
+    if (p.total === null || p.total === 0 || COLUMBIA_PROGRAMS.has(p.program)) continue;
+    activeByProgram[p.program] = p.total;
+  }
+  if (Object.keys(activeByProgram).length > 0 && !cohorts.some(c => c.cohort === activeCohort)) {
+    cohorts.push({
+      cohort: activeCohort,
+      byProgram: activeByProgram,
+      total: Object.values(activeByProgram).reduce((s, v) => s + v, 0),
+      inProgress: true,
+    });
+  }
+
+  if (cohorts.length === 0) return null;
+
+  // Stacking order is by total across the whole set, so a program keeps its
+  // band position from column to column instead of reshuffling per cohort.
+  const totals = new Map<string, number>();
+  for (const c of cohorts) {
+    for (const [p, n] of Object.entries(c.byProgram)) totals.set(p, (totals.get(p) ?? 0) + n);
+  }
+  const programs = [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([p]) => p);
+
+  return { cohorts, programs };
+}
+
 export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<WhartonPartnerResult> {
   const win = getActiveCohort('wharton', asOf);
   if (!win) {
@@ -169,9 +263,10 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
   // — so it must never take the enrollment figures down with it.
   const prevWin = getPreviousCohort('wharton', asOf);
   const historySheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const [card, closedCohorts] = await Promise.all([
+  const [card, closedCohorts, cohortMix] = await Promise.all([
     readDeadlineTable(sheetId, wiring.deadlineTab, win.termLabel, asOf),
     historySheetId ? getClosedWhartonCohorts(historySheetId) : Promise.resolve([]),
+    readProgramMixByCohort().catch(() => null),
   ]);
   if (!card || card.cohortToDate === null) {
     return { ok: false, reason: `${win.termLabel} enrollment data is temporarily unavailable. Please try again shortly.` };
@@ -231,6 +326,7 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
     opened: win.opens,
     deadline: win.termStart,
     extendedClose: win.extEnds,
+    earlyDeadline: win.eeEnds,
     daysRemaining: daysUntilCutover(win, asOf),
     total: card.cohortToDate,
     // Left in the cohort doc's own column order, NOT sorted by size: the UI
@@ -245,6 +341,7 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
     goal: PARTNER_GOAL_OVERRIDES[win.key] ?? prior?.final ?? null,
     prior,
     comparisons,
+    programMix: buildProgramMix(cohortMix, win.termLabel, reconciles ? card.programs : []),
     generatedAt: new Date().toISOString(),
   };
 }

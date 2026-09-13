@@ -73,6 +73,14 @@ outside the internal Google gate, and it is deliberately narrow:
   surface. Per-program figures are the table's own `<PROGRAM> Total Enrollment`
   columns; the reader asserts they sum to the cohort total and the page withholds
   the breakdown rather than showing a split that doesn't reconcile.
+- **Cross-cohort program history** (the Programs' Performance stack) is the one
+  figure NOT from the cohort doc: `readProgramMixByCohort()` reads the tracker's
+  "Program ROAS Analysis" tab, enrollment block only. Two traps live there — it
+  is **B2C only** (so a cohort can land a few under the final shown elsewhere on
+  the page; Spring 2026 is 993 here vs 997 there, and the section footnotes the
+  difference), and its rows include Columbia's **AI** program, filtered out in
+  `COLUMBIA_PROGRAMS` before the payload is built. Each column is checked against
+  the sheet's own "Cohort Total" row and dropped if it no longer reconciles.
 
 ### Page / API Structure
 
