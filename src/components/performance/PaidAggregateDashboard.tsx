@@ -16,6 +16,16 @@ import {
 } from './ChannelPerformanceDashboard';
 import type { PartnerKey } from '@/lib/performance/partners';
 
+/** This page's scopes: the funnel doc's per-platform PPC view, plus the
+ *  Channel Tables V2 tiers shared with /channels. */
+type AggScope = 'ppc' | ChannelScope;
+const AGG_SCOPE_LABELS: Record<AggScope, string> = {
+  ppc: 'PPC by platform',
+  paid: 'All paid',
+  nonpaid: 'Non-paid',
+  all: 'All channels',
+};
+
 interface ApiResponse {
   live: PaidAggregateData | null;
   needsAccess: boolean;
@@ -313,10 +323,12 @@ export default function PaidAggregateDashboard() {
   const [fetched, setFetched] = useState<{ partner: PartnerKey; res: ApiResponse } | null>(null);
   const [programKey, setProgramKey] = useState<ProgramKey | null>(null);
   const [metric, setMetric] = useState<MetricKey>('leads');
-  // Paid vs Non-paid scope. "paid" is this page's original funnel-doc view;
-  // the other scopes render the Channel Tables view (same data as /channels)
-  // so the program filter can be sliced by paid / non-paid / all channels.
-  const [scope, setScope] = useState<ChannelScope>('paid');
+  // Scope. "ppc" is this page's original funnel-doc view (per platform, with
+  // forecast); the others render the Channel Tables V2 view (same data as
+  // /channels) sliced by the attribution model's tiers. Under V2 the Paid tier
+  // is broader than PPC — it adds Paid Other, Paid Affiliate and Sponsored
+  // Content — so "All paid" is its own scope rather than an alias of "ppc".
+  const [scope, setScope] = useState<AggScope>('ppc');
   const [chFetched, setChFetched] =
     useState<{ partner: PartnerKey; res: ChannelsApiResponse } | null>(null);
   // Which partner's channel-tables read has already been started.
@@ -338,7 +350,7 @@ export default function PaidAggregateDashboard() {
   // Channel-tables data is only needed once the user leaves the paid scope —
   // and again whenever the partner changes under a non-paid scope.
   useEffect(() => {
-    if (scope === 'paid' || chFetchedFor.current === partner) return;
+    if (scope === 'ppc' || chFetchedFor.current === partner) return;
     chFetchedFor.current = partner;
     let cancelled = false;
     fetch(`/api/performance/channels?partner=${partner}`)
@@ -435,7 +447,7 @@ export default function PaidAggregateDashboard() {
     .filter(r => r.channel !== 'Total')
     .map(r => r.channel);
   const metricLabel = program?.metrics[metric]?.label ?? META[metric].short;
-  const paidView = scope === 'paid';
+  const paidView = scope === 'ppc';
   const sheetUrl = paidView || !chData
     ? `https://docs.google.com/spreadsheets/d/${data.sheetId}/edit`
     : `https://docs.google.com/spreadsheets/d/${chData.sheetId}/edit`;
@@ -451,7 +463,7 @@ export default function PaidAggregateDashboard() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-semibold text-white">
-              {paidView ? 'Paid Marketing Aggregate' : 'Marketing Aggregate — all channels'}
+              {paidView ? 'Paid Marketing Aggregate' : `Marketing Aggregate — ${AGG_SCOPE_LABELS[scope].toLowerCase()}`}
             </h1>
             <LiveChip />
           </div>
@@ -468,7 +480,7 @@ export default function PaidAggregateDashboard() {
               </>
             ) : (
               <>
-                {chData?.docTitle ?? 'Cohort performance doc'} · paid and non-paid channels ·
+                {chData?.docTitle ?? 'Cohort performance doc'} · attribution model V2 ·
                 prior cohorts aligned to the same point in cohort
               </>
             )}
@@ -521,9 +533,14 @@ export default function PaidAggregateDashboard() {
                 </button>
               ))}
         </div>
-        {/* "Paid (PPC)" here is the funnel-doc view (per-platform, with
-            forecast); All / Non-paid slice the cohort doc's channel tables. */}
-        <ScopePills scope={scope} onChange={setScope} scopes={['paid', 'nonpaid', 'all']} />
+        {/* "PPC by platform" is the funnel-doc view (per-platform, with
+            forecast); the rest slice the cohort doc's Channel Tables V2. */}
+        <ScopePills<AggScope>
+          scope={scope}
+          onChange={setScope}
+          scopes={['ppc', 'paid', 'nonpaid', 'all']}
+          labels={AGG_SCOPE_LABELS}
+        />
       </div>
 
       {/* Non-paid / all-channels scope: the channel-tables view */}

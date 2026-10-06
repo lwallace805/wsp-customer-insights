@@ -2,23 +2,25 @@
 
 // Channel Performance — channel × cohort comparison for every marketing
 // channel (paid and non-paid), per program, from the cohort doc's
-// "Channel Tables" tab, plus the current cohort's channel economics from
-// "Overall Performance Tables".
+// "Channel Tables V2" tab, plus the current cohort's channel economics from
+// "Overall Performance Tables - V2". Both follow the V2 attribution model:
+// Paid/Non-Paid tier → Channel → Sub-Channel (see channelV2.ts).
 //
 // The `ChannelMatrixSection` piece is also embedded by the Paid Marketing
-// Aggregate page when its scope filter is set to Non-paid / All channels.
+// Aggregate page when its scope filter is set to a channel-tables view.
 
 import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { ExternalLink, AlertTriangle } from 'lucide-react';
+import { ExternalLink, AlertTriangle, ChevronRight, ChevronDown } from 'lucide-react';
 import type {
   ChannelTablesData, ChannelMetricKey, ChannelScope, ProgramKey,
   ProgramChannelBlock, ChannelSeriesRow, ForecastSide, ProgramForecast,
+  ChannelEconFigures, ChannelTier,
 } from '@/lib/performance/channelTablesTypes';
 import {
-  CHANNEL_METRIC_KEYS, PROGRAM_DISPLAY, PROGRAM_ORDER,
+  CHANNEL_METRIC_KEYS, PROGRAM_DISPLAY, PROGRAM_ORDER, econMetrics, sumEcon,
 } from '@/lib/performance/channelTablesTypes';
 import type { PartnerKey } from '@/lib/performance/partners';
 import { PARTNER_DISPLAY, PARTNER_ORDER } from '@/lib/performance/partners';
@@ -82,10 +84,18 @@ function attainClass(r: number | null): string {
   return r >= 1 ? 'text-emerald-400' : 'text-red-400';
 }
 
-/** The forecast slice matching the current scope. */
-function sideForScope(f: ProgramForecast | undefined, scope: ChannelScope): ForecastSide | null {
-  if (!f) return null;
-  return scope === 'all' ? f.overall : scope === 'paid' ? f.paid : f.nonpaid;
+/** The forecast slice matching the current scope, with what it covers. The
+ *  WoW tabs forecast all channels and the PPC slice only, so neither V2 tier
+ *  has a forecast of its own: Paid is compared on its PPC part and Non-paid
+ *  on "everything except PPC" (which also holds affiliates, sponsored content
+ *  and Paid Other) — each labelled for what it is. */
+function forecastForScope(
+  f: ProgramForecast | undefined, scope: ChannelScope,
+): { side: ForecastSide | null; label: string } {
+  if (!f) return { side: null, label: 'of forecast' };
+  if (scope === 'all') return { side: f.overall, label: 'of forecast' };
+  if (scope === 'paid') return { side: f.ppc, label: 'PPC of forecast' };
+  return { side: f.nonPpc, label: 'non-PPC of forecast' };
 }
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -109,20 +119,24 @@ const THL = 'text-left px-5 py-2.5 text-[11px] font-semibold text-gray-400 upper
 
 export const SCOPE_LABELS: Record<ChannelScope, string> = {
   all: 'All channels',
-  paid: 'Paid (PPC)',
+  paid: 'Paid',
   nonpaid: 'Non-paid',
 };
 
-function rowsForScope(block: ProgramChannelBlock, scope: ChannelScope): ChannelSeriesRow[] {
-  if (scope === 'paid') return block.rows.filter(r => r.paid);
-  if (scope === 'nonpaid') return block.rows.filter(r => !r.paid);
-  return block.rows;
+const TIER_LABEL: Record<ChannelTier, string> = { paid: 'Paid', nonpaid: 'Non-paid' };
+
+function rowsForScope<T extends { tier: ChannelTier }>(rows: T[], scope: ChannelScope): T[] {
+  if (scope === 'all') return rows;
+  return rows.filter(r => r.tier === scope);
 }
 
 /** Sum a metric across rows per cohort column. A column no row has data for
  *  stays null (RDI predates the older cohorts); otherwise blanks were already
  *  normalised to 0 by the reader, so summing is safe. */
-function sumSeries(rows: ChannelSeriesRow[], metric: 'leads' | 'enrollments', nCols: number): Array<number | null> {
+function sumSeries(
+  rows: Array<Pick<ChannelSeriesRow, 'leads' | 'enrollments'>>,
+  metric: 'leads' | 'enrollments', nCols: number,
+): Array<number | null> {
   return Array.from({ length: nCols }, (_, i) => {
     let any = false;
     let total = 0;
@@ -139,69 +153,204 @@ function ratio(e: number | null, l: number | null): number | null {
   return e / l;
 }
 
-interface MatrixRow {
-  label: string;
-  hasSpend: boolean;
-  kind: 'channel' | 'subtotal' | 'total';
-  values: Array<number | null>;
+/** Which channels show their sub-channels. Paid Search and Paid Social open by
+ *  default — the platform split is what most questions about them turn on. */
+const DEFAULT_OPEN = ['Paid Search', 'Paid Social'];
+
+function useExpanded() {
+  const [open, setOpen] = useState<Set<string>>(() => new Set(DEFAULT_OPEN));
+  const toggle = (ch: string) => setOpen(prev => {
+    const next = new Set(prev);
+    if (next.has(ch)) next.delete(ch); else next.add(ch);
+    return next;
+  });
+  return { open, toggle, setOpen };
 }
 
-/** Build display rows for one metric: scoped channel rows, Paid/Non-paid
- *  subtotals (when the scope shows both), and the total for the scope. */
+/** A channel row expands only when it has more than one sub-channel; a single
+ *  named sub ("Paid Other → Employer Test") is folded into its label. */
+const expandable = (subs: unknown[]) => subs.length > 1;
+const channelLabel = (channel: string, subs: Array<{ name: string }>) =>
+  subs.length === 1 ? `${channel} · ${subs[0].name}` : channel;
+
+interface MatrixRow {
+  key: string;
+  label: string;
+  kind: 'tier' | 'channel' | 'sub' | 'memo' | 'total';
+  values: Array<number | null>;
+  channel?: string;
+  canExpand?: boolean;
+}
+
+/** Display rows for one metric. Tier rows head their group, as in the sheet;
+ *  the PPC memo line ties the Paid tier back to the per-platform figures the
+ *  Paid Marketing Aggregate page and the Paid WoW tab report. */
 function buildMatrixRows(
-  block: ProgramChannelBlock, scope: ChannelScope, metric: ChannelMetricKey,
+  block: ProgramChannelBlock, scope: ChannelScope, metric: ChannelMetricKey, open: Set<string>,
 ): MatrixRow[] {
   const n = block.cohorts.length;
-  const scoped = rowsForScope(block, scope);
-  const paidRows = block.rows.filter(r => r.paid);
-  const nonpaidRows = block.rows.filter(r => !r.paid);
-
-  const seriesOf = (rows: ChannelSeriesRow[]): Array<number | null> => {
+  const seriesOf = (rows: Array<Pick<ChannelSeriesRow, 'leads' | 'enrollments'>>): Array<number | null> => {
     const leads = sumSeries(rows, 'leads', n);
     const enrolls = sumSeries(rows, 'enrollments', n);
     if (metric === 'leads') return leads;
     if (metric === 'enrollments') return enrolls;
     return leads.map((l, i) => ratio(enrolls[i], l));
   };
+  const one = (r: Pick<ChannelSeriesRow, 'leads' | 'enrollments'>) => seriesOf([r]);
 
-  const rowValues = (r: ChannelSeriesRow): Array<number | null> => {
-    if (metric === 'leads') return r.leads;
-    if (metric === 'enrollments') return r.enrollments;
-    return r.leads.map((l, i) => ratio(r.enrollments[i], l));
-  };
-
-  const out: MatrixRow[] = scoped.map(r => ({
-    label: r.channel, hasSpend: r.hasSpend, kind: 'channel', values: rowValues(r),
-  }));
-
-  if (scope === 'all') {
-    out.push({ label: 'Paid (PPC)', hasSpend: false, kind: 'subtotal', values: seriesOf(paidRows) });
-    out.push({ label: 'Non-paid', hasSpend: false, kind: 'subtotal', values: seriesOf(nonpaidRows) });
-    out.push({ label: 'Total', hasSpend: false, kind: 'total', values: seriesOf(block.rows) });
-  } else {
-    out.push({
-      label: scope === 'paid' ? 'Paid total' : 'Non-paid total',
-      hasSpend: false, kind: 'total', values: seriesOf(scoped),
-    });
+  const out: MatrixRow[] = [];
+  const tiers: ChannelTier[] = scope === 'all' ? ['paid', 'nonpaid'] : [scope];
+  for (const tier of tiers) {
+    const rows = block.rows.filter(r => r.tier === tier);
+    if (!rows.length) continue;
+    if (scope === 'all') {
+      out.push({ key: `tier-${tier}`, label: TIER_LABEL[tier], kind: 'tier', values: seriesOf(rows) });
+    }
+    for (const r of rows) {
+      out.push({
+        key: `ch-${r.channel}`, label: channelLabel(r.channel, r.subs), kind: 'channel',
+        values: one(r), channel: r.channel, canExpand: expandable(r.subs),
+      });
+      if (expandable(r.subs) && open.has(r.channel)) {
+        for (const s of r.subs) {
+          out.push({ key: `sub-${r.channel}-${s.name}`, label: s.name, kind: 'sub', values: one(s) });
+        }
+      }
+    }
+    if (tier === 'paid') {
+      const ppc = rows.filter(r => r.ppc);
+      if (ppc.length && ppc.length < rows.length) {
+        out.push({
+          key: 'memo-ppc', label: `of which PPC (${ppc.map(r => r.channel).join(' + ')})`,
+          kind: 'memo', values: seriesOf(ppc),
+        });
+      }
+    }
   }
+  const scoped = rowsForScope(block.rows, scope);
+  out.push({
+    key: 'total',
+    label: scope === 'all' ? 'Total' : `${TIER_LABEL[scope]} total`,
+    kind: 'total',
+    values: seriesOf(scoped),
+  });
   return out;
+}
+
+// ─── Enrollment origin (the doc's "In Cohort" tab) ────────────────────────────
+
+/** Which enrollments the matrix counts: all of them, only those whose lead was
+ *  created inside the cohort's own window, or the carry-over from earlier
+ *  cohorts' leads. In-cohort CVR is the cleanest conversion rate the doc
+ *  offers — numerator and denominator from the same window. */
+type EnrollOrigin = 'all' | 'in' | 'carry';
+
+const ORIGIN_LABEL: Record<EnrollOrigin, string> = {
+  all: 'All leads',
+  in: 'This cohort’s leads',
+  carry: 'Earlier cohorts’ leads',
+};
+
+const ORIGIN_SUFFIX: Record<EnrollOrigin, string> = {
+  all: '',
+  in: ' — from this cohort’s leads',
+  carry: ' — from earlier cohorts’ leads',
+};
+
+function originSeries(
+  enrollments: Array<number | null>, inCohort: Array<number | null> | null, origin: EnrollOrigin,
+): Array<number | null> {
+  if (origin === 'all' || !inCohort) return enrollments;
+  if (origin === 'in') return inCohort;
+  return enrollments.map((e, i) => (e === null || inCohort[i] === null ? null : e - inCohort[i]!));
+}
+
+/** The block with its enrollments swapped for the chosen origin, so every
+ *  table and chart below reads it unchanged. */
+function withOrigin(block: ProgramChannelBlock, origin: EnrollOrigin): ProgramChannelBlock {
+  if (origin === 'all' || !block.hasInCohort) return block;
+  return {
+    ...block,
+    rows: block.rows.map(r => ({
+      ...r,
+      enrollments: originSeries(r.enrollments, r.inCohort, origin),
+      subs: r.subs.map(s => ({ ...s, enrollments: originSeries(s.enrollments, s.inCohort, origin) })),
+    })),
+  };
+}
+
+function OriginPills({ origin, onChange, metric }: {
+  origin: EnrollOrigin; onChange: (o: EnrollOrigin) => void; metric: ChannelMetricKey;
+}) {
+  // Carry-over enrollments ÷ this cohort's leads isn't a conversion rate.
+  const options: EnrollOrigin[] = metric === 'cvr' ? ['all', 'in'] : ['all', 'in', 'carry'];
+  return (
+    <div className="inline-flex items-center gap-2">
+      <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+        Enrollments from
+      </span>
+      <div className="inline-flex rounded-md border border-white/10 overflow-hidden">
+        {options.map(o => (
+          <button
+            key={o}
+            onClick={() => onChange(o)}
+            className={`px-2.5 py-1 text-[11px] transition-colors ${
+              o === origin ? 'bg-white/15 text-white font-medium' : 'bg-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            {ORIGIN_LABEL[o]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** "72.8% of Current Cohort enrollments came from this cohort's leads
+ *  (Spring 2026: 71.7%)" for the rows in scope. */
+function InCohortShare({ block, scope }: { block: ProgramChannelBlock; scope: ChannelScope }) {
+  if (!block.hasInCohort) return null;
+  const rows = rowsForScope(block.rows, scope);
+  const n = block.cohorts.length;
+  const share = (i: number) => {
+    let e = 0;
+    let inc = 0;
+    for (const r of rows) {
+      if (r.enrollments[i] === null || r.inCohort?.[i] == null) return null;
+      e += r.enrollments[i]!;
+      inc += r.inCohort[i]!;
+    }
+    return e > 0 ? inc / e : null;
+  };
+  const cur = share(n - 1);
+  const prior = n >= 2 ? share(n - 2) : null;
+  if (cur === null) return null;
+  return (
+    <p className="text-[11px] text-gray-400 mt-1.5">
+      <span className="text-white font-medium tabular-nums">{(cur * 100).toFixed(1)}%</span> of{' '}
+      {block.cohorts[n - 1]} enrollments{scope !== 'all' ? ` (${SCOPE_LABELS[scope].toLowerCase()})` : ''}{' '}
+      came from leads created in this cohort&apos;s window
+      {prior !== null && <> — {block.cohorts[n - 2]}: {(prior * 100).toFixed(1)}% at the same point</>}.
+      The rest are earlier cohorts&apos; leads enrolling now.
+    </p>
+  );
 }
 
 // ─── KPI tiles ────────────────────────────────────────────────────────────────
 
 function ChannelKpiTile({
-  metricKey, block, scope, forecastSide, active, onClick,
+  metricKey, block, scope, forecast, active, onClick,
 }: {
   metricKey: ChannelMetricKey;
   block: ProgramChannelBlock;
   scope: ChannelScope;
-  forecastSide: ForecastSide | null;
+  forecast: { side: ForecastSide | null; label: string };
   active: boolean;
   onClick: () => void;
 }) {
   const m = METRIC_META[metricKey];
   const n = block.cohorts.length;
-  const scoped = rowsForScope(block, scope);
+  const scoped = rowsForScope(block.rows, scope);
   const leads = sumSeries(scoped, 'leads', n);
   const enrolls = sumSeries(scoped, 'enrollments', n);
   const series =
@@ -217,13 +366,11 @@ function ChannelKpiTile({
   // Attainment is WoW-actual ÷ WoW-forecast — the two live on the same tab, so
   // the ratio is self-consistent even though the tile's headline number comes
   // from the channel matrix (bases drift slightly; see the footnotes).
-  const att = forecastSide === null ? null :
-    metricKey === 'leads' ? attainment(forecastSide.leads, forecastSide.leadsF) :
-    metricKey === 'enrollments' ? attainment(forecastSide.enrolls, forecastSide.enrollsF) :
-    attainment(
-      ratio(forecastSide.enrolls, forecastSide.leads),
-      ratio(forecastSide.enrollsF, forecastSide.leadsF),
-    );
+  const fs = forecast.side;
+  const att = fs === null ? null :
+    metricKey === 'leads' ? attainment(fs.leads, fs.leadsF) :
+    metricKey === 'enrollments' ? attainment(fs.enrolls, fs.enrollsF) :
+    attainment(ratio(fs.enrolls, fs.leads), ratio(fs.enrollsF, fs.leadsF));
 
   return (
     <button
@@ -240,7 +387,7 @@ function ChannelKpiTile({
       <div className="text-2xl font-semibold text-white mt-1 tabular-nums">{m.fmt(current)}</div>
       <div className="mt-2 space-y-0.5 text-[11px]">
         <div className="flex justify-between gap-3">
-          <span className="text-gray-500">of forecast</span>
+          <span className="text-gray-500">{forecast.label}</span>
           <span className={`tabular-nums font-medium ${attainClass(att)}`}>{attainStr(att)}</span>
         </div>
         <div className="flex justify-between gap-3">
@@ -265,9 +412,9 @@ function ForecastCard({ forecast, programKey, source }: {
 }) {
   if (!forecast) return null;
   const slices: { label: string; side: ForecastSide | null }[] = [
-    { label: 'Paid (PPC)', side: forecast.paid },
-    { label: 'Non-paid', side: forecast.nonpaid },
-    { label: 'Total', side: forecast.overall },
+    { label: 'PPC (Paid Search + Paid Social)', side: forecast.ppc },
+    { label: 'Everything except PPC', side: forecast.nonPpc },
+    { label: 'All channels', side: forecast.overall },
   ];
   if (slices.every(s => s.side === null)) return null;
   const fmtN = (v: number | null) => (v === null ? '—' : Math.round(v).toLocaleString());
@@ -280,9 +427,10 @@ function ForecastCard({ forecast, programKey, source }: {
         </h2>
         <p className="text-[11px] text-gray-500 mt-0.5">
           {source ? <>From &ldquo;{source}&rdquo;. </> : null}
-          Forecasts are cumulative through the current cohort week. Non-paid is derived as
-          Overall − Paid; per-channel forecasts exist only for the paid platforms, on the
-          Paid Marketing Aggregate page.
+          Cumulative through the current cohort week. The doc forecasts only the ad platforms
+          and all channels together; &ldquo;everything except PPC&rdquo; is the difference. That
+          is not the Non-paid tier — it also holds Paid Other, Paid Affiliate and Sponsored
+          Content, which have no forecast of their own.
         </p>
       </div>
       <div className="overflow-x-auto">
@@ -302,13 +450,11 @@ function ForecastCard({ forecast, programKey, source }: {
             {slices.map((s, i) => {
               const lAtt = s.side ? attainment(s.side.leads, s.side.leadsF) : null;
               const eAtt = s.side ? attainment(s.side.enrolls, s.side.enrollsF) : null;
-              const isTotal = s.label === 'Total';
+              const isTotal = i === slices.length - 1;
               return (
                 <tr
                   key={s.label}
-                  className={`border-b border-white/5 ${
-                    isTotal ? 'bg-white/5 font-semibold' : i % 2 ? 'bg-white/[0.02]' : ''
-                  }`}
+                  className={`border-b border-white/5 ${isTotal ? 'bg-white/5 font-semibold' : ''}`}
                 >
                   <td className="px-5 py-2.5 text-gray-200">{s.label}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-white">{fmtN(s.side?.leads ?? null)}</td>
@@ -329,12 +475,48 @@ function ForecastCard({ forecast, programKey, source }: {
 
 // ─── Matrix table + chart + economics ─────────────────────────────────────────
 
+const ROW_STYLE: Record<MatrixRow['kind'], string> = {
+  tier: 'bg-white/[0.04] font-semibold',
+  channel: '',
+  sub: 'text-[13px]',
+  memo: 'italic',
+  total: 'bg-white/5 font-semibold',
+};
+
+function LabelCell({ row, open, onToggle }: {
+  row: { label: string; kind: MatrixRow['kind']; channel?: string; canExpand?: boolean };
+  open: Set<string>;
+  onToggle: (ch: string) => void;
+}) {
+  const pad = row.kind === 'sub' ? 'pl-12' : row.kind === 'channel' || row.kind === 'memo' ? 'pl-7' : 'pl-5';
+  const tone = row.kind === 'sub' || row.kind === 'memo' ? 'text-gray-400' : 'text-gray-200';
+  if (row.kind === 'channel' && row.canExpand && row.channel) {
+    const isOpen = open.has(row.channel);
+    return (
+      <td className={`pr-5 py-2.5 ${pad} ${tone}`}>
+        <button
+          onClick={() => onToggle(row.channel!)}
+          className="inline-flex items-center gap-1 -ml-5 hover:text-white"
+          aria-expanded={isOpen}
+        >
+          {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          {row.label}
+        </button>
+      </td>
+    );
+  }
+  return <td className={`pr-5 py-2.5 ${pad} ${tone}`}>{row.label}</td>;
+}
+
 function MatrixTable({
-  block, scope, metric,
-}: { block: ProgramChannelBlock; scope: ChannelScope; metric: ChannelMetricKey }) {
+  block, scope, metric, open, onToggle,
+}: {
+  block: ProgramChannelBlock; scope: ChannelScope; metric: ChannelMetricKey;
+  open: Set<string>; onToggle: (ch: string) => void;
+}) {
   const m = METRIC_META[metric];
   const n = block.cohorts.length;
-  const rows = buildMatrixRows(block, scope, metric);
+  const rows = buildMatrixRows(block, scope, metric, open);
   const priorIdx = n - 2;
 
   return (
@@ -350,24 +532,17 @@ function MatrixTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => {
+          {rows.map(r => {
             const vsPrior = priorIdx >= 0 ? coc(r.values[n - 1], r.values[priorIdx]) : null;
-            const emphasis =
-              r.kind === 'total' ? 'bg-white/5 font-semibold'
-              : r.kind === 'subtotal' ? 'bg-white/[0.03] font-medium'
-              : i % 2 ? 'bg-white/[0.02]' : '';
             return (
-              <tr key={`${r.kind}-${r.label}`} className={`border-b border-white/5 ${emphasis}`}>
-                <td className="px-5 py-2.5 text-gray-200">
-                  {r.label}
-                  {r.hasSpend && (
-                    <span className="text-amber-400/80 ml-1" title="Carries direct spend but sits outside the paid (PPC) rollup">$</span>
-                  )}
-                </td>
+              <tr key={r.key} className={`border-b border-white/5 ${ROW_STYLE[r.kind]}`}>
+                <LabelCell row={r} open={open} onToggle={onToggle} />
                 {r.values.map((v, j) => (
                   <td
                     key={j}
-                    className={`px-4 py-2.5 text-right tabular-nums ${j === n - 1 ? 'text-white' : 'text-gray-400'}`}
+                    className={`px-4 py-2.5 text-right tabular-nums ${
+                      j === n - 1 && r.kind !== 'sub' && r.kind !== 'memo' ? 'text-white' : 'text-gray-400'
+                    }`}
                   >
                     {m.fmt(v)}
                   </td>
@@ -394,7 +569,7 @@ function MatrixChart({
 }: { block: ProgramChannelBlock; scope: ChannelScope; metric: ChannelMetricKey }) {
   const m = METRIC_META[metric];
   const n = block.cohorts.length;
-  const scoped = rowsForScope(block, scope);
+  const scoped = rowsForScope(block.rows, scope);
   const data = scoped.map(r => {
     const values =
       metric === 'leads' ? r.leads :
@@ -450,14 +625,80 @@ function MatrixChart({
   );
 }
 
-function EconTable({ data, programKey, scope }: {
+function SpendCell({ f, decimals = 0, value }: {
+  f: ChannelEconFigures; decimals?: number; value: number | null;
+}) {
+  if (f.spendWithheld) {
+    return (
+      <td
+        className="px-4 py-2.5 text-right tabular-nums text-amber-400/80"
+        title="The sheet's spend here failed a consistency check — see the notes at the top of the page."
+      >
+        withheld
+      </td>
+    );
+  }
+  return (
+    <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">
+      {money(value, decimals)}
+      {f.spendCorrected && value !== null && (
+        <span
+          className="text-sky-400/80 ml-0.5"
+          title="Corrected: the sheet repeated another platform's spend here; this is the Paid WoW tab's figure for the same program and platform. See the notes at the top of the page."
+        >†</span>
+      )}
+    </td>
+  );
+}
+
+function EconTable({ data, programKey, scope, open, onToggle }: {
   data: ChannelTablesData; programKey: ProgramKey; scope: ChannelScope;
+  open: Set<string>; onToggle: (ch: string) => void;
 }) {
   const econ = data.econ.find(e => e.program === programKey);
   if (!econ) return null;
-  const rows = econ.rows.filter(r =>
-    scope === 'all' ? true : scope === 'paid' ? r.paid : !r.paid);
-  if (rows.length === 0) return null;
+  const totalEnrolls = econ.total?.enrolls ?? null;
+
+  type EconLine = {
+    key: string; label: string; kind: MatrixRow['kind']; f: ChannelEconFigures;
+    channel?: string; canExpand?: boolean;
+  };
+  const lines: EconLine[] = [];
+  const tiers: ChannelTier[] = scope === 'all' ? ['paid', 'nonpaid'] : [scope];
+  for (const tier of tiers) {
+    const rows = econ.rows.filter(r => r.tier === tier);
+    if (!rows.length) continue;
+    if (scope === 'all') {
+      lines.push({ key: `tier-${tier}`, label: TIER_LABEL[tier], kind: 'tier', f: sumEcon(rows) });
+    }
+    for (const r of rows) {
+      lines.push({
+        key: `ch-${r.channel}`, label: channelLabel(r.channel, r.subs), kind: 'channel', f: r,
+        channel: r.channel, canExpand: expandable(r.subs),
+      });
+      if (expandable(r.subs) && open.has(r.channel)) {
+        for (const s of r.subs) lines.push({ key: `sub-${r.channel}-${s.name}`, label: s.name, kind: 'sub', f: s });
+      }
+    }
+    if (tier === 'paid') {
+      const ppc = rows.filter(r => r.ppc);
+      if (ppc.length && ppc.length < rows.length) {
+        lines.push({
+          key: 'memo-ppc', label: `of which PPC (${ppc.map(r => r.channel).join(' + ')})`,
+          kind: 'memo', f: sumEcon(ppc),
+        });
+      }
+    }
+  }
+  const scopedTotal = scope === 'all' ? econ.total : sumEcon(rowsForScope(econ.rows, scope));
+  if (scopedTotal) {
+    lines.push({
+      key: 'total', label: scope === 'all' ? 'Total' : `${TIER_LABEL[scope]} total`,
+      kind: 'total', f: scopedTotal,
+    });
+  }
+  if (lines.length <= 1) return null;
+  const showSpend = scope !== 'nonpaid';
 
   return (
     <Card>
@@ -466,8 +707,9 @@ function EconTable({ data, programKey, scope }: {
           Current-cohort channel economics — {PROGRAM_DISPLAY[programKey]}
         </h2>
         <p className="text-[11px] text-gray-500 mt-0.5">
-          From the doc&apos;s &ldquo;Overall Performance Tables&rdquo;. Current cohort to date; no
-          prior-cohort or forecast columns exist for these figures.
+          From the doc&apos;s &ldquo;{data.econTab}&rdquo;. Current cohort to date; no prior-cohort or
+          forecast columns exist for these figures. Spend is direct, program-attributed spend —
+          non-paid channels carry none.
         </p>
       </div>
       <div className="overflow-x-auto">
@@ -479,37 +721,39 @@ function EconTable({ data, programKey, scope }: {
               <th className={TH}>Enrolls</th>
               <th className={TH}>% of enrolls</th>
               <th className={TH}>CVR</th>
-              <th className={TH}>Spend</th>
-              <th className={TH}>CPL</th>
-              <th className={TH}>CPE</th>
+              {showSpend && <th className={TH}>Spend</th>}
+              {showSpend && <th className={TH}>CPL</th>}
+              {showSpend && <th className={TH}>CPE</th>}
             </tr>
           </thead>
           <tbody>
-            {[...rows, ...(scope === 'all' && econ.total ? [econ.total] : [])].map((r, i) => {
-              const isTotal = /^grand total/i.test(r.channel);
+            {lines.map(l => {
+              const mx = econMetrics(l.f, totalEnrolls);
+              const paidish = l.f.spend !== null || l.f.spendWithheld;
               return (
-                <tr
-                  key={r.channel}
-                  className={`border-b border-white/5 ${
-                    isTotal ? 'bg-white/5 font-semibold' : i % 2 ? 'bg-white/[0.02]' : ''
-                  }`}
-                >
-                  <td className="px-5 py-2.5 text-gray-200">{r.channel}</td>
+                <tr key={l.key} className={`border-b border-white/5 ${ROW_STYLE[l.kind]}`}>
+                  <LabelCell row={l} open={open} onToggle={onToggle} />
                   <td className="px-4 py-2.5 text-right tabular-nums text-gray-300">
-                    {r.leads === null ? '—' : Math.round(r.leads).toLocaleString()}
+                    {l.f.leads === null ? '—' : Math.round(l.f.leads).toLocaleString()}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-white">
-                    {r.enrolls === null ? '—' : Math.round(r.enrolls).toLocaleString()}
+                    {l.f.enrolls === null ? '—' : Math.round(l.f.enrolls).toLocaleString()}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">
-                    {r.pct === null ? '—' : `${(r.pct * 100).toFixed(0)}%`}
+                    {mx.share === null ? '—' : `${(mx.share * 100).toFixed(1)}%`}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">
-                    {r.cvr === null ? '—' : `${(r.cvr * 100).toFixed(2)}%`}
+                    {mx.cvr === null ? '—' : `${(mx.cvr * 100).toFixed(2)}%`}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{money(r.spend)}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{r.cpl === null ? '—' : money(r.cpl, 2)}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-400">{money(r.cpe)}</td>
+                  {showSpend && (paidish
+                    ? <SpendCell f={l.f} value={l.f.spend} />
+                    : <td className="px-4 py-2.5 text-right text-gray-600">·</td>)}
+                  {showSpend && (paidish
+                    ? <SpendCell f={l.f} value={mx.cpl} decimals={2} />
+                    : <td className="px-4 py-2.5 text-right text-gray-600">·</td>)}
+                  {showSpend && (paidish
+                    ? <SpendCell f={l.f} value={mx.cpe} />
+                    : <td className="px-4 py-2.5 text-right text-gray-600">·</td>)}
                 </tr>
               );
             })}
@@ -522,24 +766,59 @@ function EconTable({ data, programKey, scope }: {
 
 // ─── The reusable section (also embedded by the paid-aggregate page) ──────────
 
+/** What the reader found when it checked the sheet against itself — upstream
+ *  gaps, subtotals that don't add up, spend it withheld. Shown above the
+ *  numbers rather than in the footnotes: they are the reason a figure on this
+ *  page reads "—" or differs from the sheet, and someone comparing against the
+ *  doc needs that first. Renders nothing in the normal case. */
+function SourceGapNotes({ notes }: { notes: string[] }) {
+  if (!notes.length) return null;
+  return (
+    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+      <div className="flex items-start gap-2.5">
+        <AlertTriangle size={16} className="text-amber-400 mt-0.5 shrink-0" />
+        <div className="space-y-1.5">
+          <p className="text-[12px] font-semibold text-amber-200">
+            Source-sheet checks — {notes.length} {notes.length === 1 ? 'issue' : 'issues'} to know before quoting
+          </p>
+          {notes.map(n => (
+            <p key={n} className="text-[12px] text-amber-100/80 leading-relaxed">{n}</p>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ChannelMatrixSection({
   data, programKey, scope,
 }: { data: ChannelTablesData; programKey: ProgramKey; scope: ChannelScope }) {
   const [metric, setMetric] = useState<ChannelMetricKey>('leads');
+  const [originPick, setOrigin] = useState<EnrollOrigin>('all');
+  const { open, toggle, setOpen } = useExpanded();
   const block =
     data.programs.find(p => p.program === programKey) ?? data.programs[0] ?? null;
   if (!block) return null;
+  // Origin applies to enrollments and CVR only; leads have no origin split.
+  // Derived (not reset in an effect) so a stale pick can't outlive its metric.
+  const origin: EnrollOrigin =
+    !block.hasInCohort || metric === 'leads' || (metric === 'cvr' && originPick === 'carry')
+      ? 'all' : originPick;
+  const viewBlock = withOrigin(block, origin);
   const forecast = data.forecasts.find(f => f.program === block.program);
-  const forecastSide = sideForScope(forecast, scope);
-  // Several of the read-this-right notes describe quirks of one partner's doc.
+  const scopedForecast = forecastForScope(forecast, scope);
   const isCbs = data.partner === 'cbs';
-  // The WoW tabs and the channel matrix don't cover the same channel set; the
-  // note below names the current gap rather than a figure that will drift.
+  const expandableChannels = block.rows.filter(r => expandable(r.subs)).map(r => r.channel);
+  const allOpen = expandableChannels.every(c => open.has(c));
+  // WoW all-channel leads vs the matrix's current column — two keyings of the
+  // same cohort, quoted live rather than as a figure that will drift.
   const wowLeads = forecast?.overall?.leads ?? null;
   const matrixLeads = block.totals.leads[block.cohorts.length - 1] ?? null;
 
   return (
     <div className="space-y-5">
+      <SourceGapNotes notes={data.notes} />
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
         {CHANNEL_METRIC_KEYS.map(k => (
           <ChannelKpiTile
@@ -547,7 +826,7 @@ export function ChannelMatrixSection({
             metricKey={k}
             block={block}
             scope={scope}
-            forecastSide={forecastSide}
+            forecast={scopedForecast}
             active={k === metric}
             onClick={() => setMetric(k)}
           />
@@ -557,21 +836,37 @@ export function ChannelMatrixSection({
       <ForecastCard forecast={forecast} programKey={block.program} source={data.forecastSource} />
 
       <Card>
-        <div className="px-5 py-4 border-b border-white/10">
-          <h2 className="text-sm font-semibold text-white">
-            {METRIC_META[metric].label} by channel — {PROGRAM_DISPLAY[block.program]} · {SCOPE_LABELS[scope]}
-          </h2>
-          <p className="text-[11px] text-gray-500 mt-0.5">
-            Click a tile above to change the metric. Prior-cohort columns are cumulative through
-            the same point of those cohorts, so the comparison is like-for-like.
-          </p>
+        <div className="px-5 py-4 border-b border-white/10 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-semibold text-white">
+              {METRIC_META[metric].label}{ORIGIN_SUFFIX[origin]} by channel — {PROGRAM_DISPLAY[block.program]} · {SCOPE_LABELS[scope]}
+            </h2>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Click a tile above to change the metric, a channel to show its sub-channels. Prior
+              cohorts are cumulative through the same point of those cohorts.
+            </p>
+            {block.hasInCohort && metric !== 'leads' && (
+              <div className="mt-2.5">
+                <OriginPills origin={origin} onChange={setOrigin} metric={metric} />
+              </div>
+            )}
+            {metric !== 'leads' && <InCohortShare block={block} scope={scope} />}
+          </div>
+          {expandableChannels.length > 0 && (
+            <button
+              onClick={() => setOpen(allOpen ? new Set() : new Set(expandableChannels))}
+              className="shrink-0 text-[11px] text-gray-400 hover:text-white border border-white/10 rounded-md px-2.5 py-1"
+            >
+              {allOpen ? 'Collapse all' : 'Expand all'}
+            </button>
+          )}
         </div>
-        <MatrixTable block={block} scope={scope} metric={metric} />
+        <MatrixTable block={viewBlock} scope={scope} metric={metric} open={open} onToggle={toggle} />
       </Card>
 
-      <MatrixChart block={block} scope={scope} metric={metric} />
+      <MatrixChart block={viewBlock} scope={scope} metric={metric} />
 
-      <EconTable data={data} programKey={block.program} scope={scope} />
+      <EconTable data={data} programKey={block.program} scope={scope} open={open} onToggle={toggle} />
 
       <Card className="p-5">
         <h3 className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2.5">
@@ -579,77 +874,67 @@ export function ChannelMatrixSection({
         </h3>
         <ul className="text-[12px] text-gray-500 space-y-1.5 list-disc pl-4">
           <li>
-            <span className="text-gray-400">&ldquo;Paid&rdquo; = PPC</span>{' '}
+            <span className="text-gray-400">Attribution model V2</span>{' '}
+            (the doc&apos;s &ldquo;Channel Definitions&rdquo; tab): every lead and enrollment is
+            credited to its <em>original</em>{' '}source, grouped Paid / Non-paid → channel →
+            sub-channel. Read from &ldquo;{data.tab}&rdquo; and &ldquo;{data.econTab}&rdquo;; the
+            retired V1 tabs are no longer read.
+          </li>
+          <li>
+            <span className="text-gray-400">&ldquo;Paid&rdquo; is the doc&apos;s Paid tier</span>{' '}
+            — Paid Search, Paid Social, Paid Other ({isCbs ? 'Open AI' : 'Employer Test'}), Paid
+            Affiliate and Sponsored Content. This is broader than the old PPC-only definition. The
+            &ldquo;of which PPC&rdquo; line (Paid Search + Paid Social) is the slice the Paid WoW tab
+            and the Paid Marketing Aggregate page report
             {isCbs
-              ? '(Google, Bing, Meta, LinkedIn and Open AI — the platforms inside this doc’s "Ads" line)'
-              : '(Google, Bing, Meta, LinkedIn)'}{' '}
-            — the same definition behind every paid figure on the Paid Marketing
-            Aggregate page. Channels marked{' '}
-            <span className="text-amber-400/80">$</span>{' '}(Sponsored Content, Paid Affiliates)
-            carry direct spend but sit outside the paid rollup, matching how the source doc
-            reports them.
+              ? ' (CBS’s Paid WoW also counts Open AI). If the notes above report a channel folded into another row, this line won’t tie until the sheet is fixed.'
+              : ', and ties to them.'}
           </li>
           <li>
-            <span className="text-gray-400">Paid + Non-paid always equals Total here.</span>{' '}
-            {!isCbs && (
-              <>
-                The source tab&apos;s own PPC/Non-PPC summary block excludes AI Referral (and, for
-                Spring enrollments, Offline/Direct) from its ranges, so it reads slightly lower
-                than these rollups.
-              </>
-            )}
-            {isCbs && (
-              <>
-                Both rollups are computed here from the channel rows, so they always tie to the
-                column total.
-              </>
-            )}
+            <span className="text-gray-400">Rollups are rebuilt from the sub-channels up,</span>{' '}
+            so Paid + Non-paid always equals Total. Where the sheet&apos;s own subtotal row
+            disagrees, it&apos;s listed in the notes at the top.
           </li>
           <li>
-            <span className="text-gray-400">Prior-cohort columns are week-aligned snapshots</span>{' '}
-            maintained by hand in the source tab; only the current-cohort column is
-            formula-driven. Blank cells mean the program or channel predates that cohort
-            {!isCbs && <> (e.g. RDI before Spring 2026)</>}, not zero.
+            <span className="text-gray-400">Prior-cohort columns are snapshots</span>{' '}imported
+            from each program&apos;s own doc and refreshed by hand; only the current-cohort column
+            is formula-driven. They are meant to sit at the same days-before-deadline as the
+            current cohort, not full-cohort finals
+            {data.alignment.length > 0 ? (
+              <>
+                {' '}— checked on every load against {data.alignmentSource}:{' '}
+                {data.alignment.map(a =>
+                  `${a.cohort} ${a.value.toLocaleString()} vs ${a.matchValue.toLocaleString()} at ` +
+                  `${a.matchDay} days out${a.ok ? '' : ' (OUT OF LINE)'}`).join('; ')}
+                {' '}(current cohort: {data.alignment[0].currentDay} days out)
+              </>
+            ) : ' (no pacing curve was reachable to check them against)'}
+            . Blank cells mean the program predates that cohort
+            {!isCbs && <> (RDI before Spring 2026)</>}.
           </li>
-          {isCbs && (
+          {data.inCohortTab && (
             <li>
-              <span className="text-gray-400">
-                Two known gaps between this doc&apos;s own tabs.
-              </span>{' '}
-              The economics table&apos;s &ldquo;Ads&rdquo; spend leaves out the Open AI line&apos;s
-              spend that the paid WoW total includes, even though both count its leads. And the
-              all-channel WoW total
-              {wowLeads !== null && matrixLeads !== null && (
-                <> ({Math.round(wowLeads).toLocaleString()} leads)</>
-              )}{' '}
-              includes the doc&apos;s separate &ldquo;Employer Test&rdquo; line, which is not a row
-              in the channel matrix
-              {matrixLeads !== null && <> ({Math.round(matrixLeads).toLocaleString()})</>}.
-              Neither is corrected here — figures are shown as each tab states them, which is why
-              &ldquo;% of forecast&rdquo; is always computed WoW-against-WoW.
+              <span className="text-gray-400">&ldquo;Enrollments from&rdquo;</span>{' '}splits
+              enrollments by when the lead was created, from &ldquo;{data.inCohortTab}&rdquo;:
+              this cohort&apos;s own window vs earlier cohorts&apos; leads enrolling now. CVR on
+              this cohort&apos;s leads only is the like-for-like conversion rate — numerator and
+              denominator from the same window.
             </li>
           )}
           <li>
             <span className="text-gray-400">CVR = enrollments ÷ leads</span>{' '}for the same
-            cohort-to-date window — identical to the source tab&apos;s Conversions block.
+            cohort-to-date window. Sub-channels like SamCart and Inbound can exceed 100%: they
+            record enrollments whose lead was never created under that channel.
           </li>
           <li>
-            <span className="text-gray-400">Forecast figures come from the doc&apos;s WoW tabs</span>{' '}
-            (all-channel and paid, newest version), cumulative through the current week;
-            Non-paid forecast is derived as Overall − Paid. They sit on a slightly different
-            basis than the matrix — the WoW paid rows count the four ad platforms while the
-            matrix&apos;s PPC row is the doc&apos;s &ldquo;Ads&rdquo; line, and refresh timing
-            differs — so &ldquo;% of forecast&rdquo; is always WoW-actual ÷ WoW-forecast, never
-            a mix. Per-channel forecasts exist only for paid platforms, on the Paid Marketing
-            Aggregate page.
+            <span className="text-gray-400">Forecasts come from the doc&apos;s WoW tabs</span>{' '}
+            and exist only for all channels and for the PPC slice, so &ldquo;% of forecast&rdquo;
+            under Paid is the PPC slice&apos;s and under Non-paid is &ldquo;everything except
+            PPC&rdquo;. It is always WoW-actual ÷ WoW-forecast, never a mix
+            {wowLeads !== null && matrixLeads !== null &&
+              ` — the WoW tab keys ${Math.round(wowLeads).toLocaleString()} leads to date ` +
+              `against this matrix’s ${Math.round(matrixLeads).toLocaleString()}`}.
           </li>
-          {!isCbs && (
-            <li>
-              <span className="text-gray-400">Overall spend includes brand/generic spend</span>{' '}
-              not attributed to any program, so the program tables&apos; spends do not sum to the
-              Overall table&apos;s.
-            </li>
-          )}
         </ul>
       </Card>
     </div>
@@ -691,9 +976,16 @@ export function PartnerPills({
 
 // ─── Scope pills (shared with the paid-aggregate page) ────────────────────────
 
-export function ScopePills({
-  scope, onChange, scopes = ['all', 'paid', 'nonpaid'],
-}: { scope: ChannelScope; onChange: (s: ChannelScope) => void; scopes?: ChannelScope[] }) {
+/** Generic over the scope type so the paid-aggregate page can add its own
+ *  per-platform PPC view beside the channel-tables scopes. */
+export function ScopePills<S extends string = ChannelScope>({
+  scope, onChange, scopes = ['all', 'paid', 'nonpaid'] as S[], labels,
+}: {
+  scope: S;
+  onChange: (s: S) => void;
+  scopes?: S[];
+  labels?: Partial<Record<S, string>>;
+}) {
   return (
     <div className="inline-flex rounded-lg border border-white/10 overflow-hidden">
       {scopes.map(s => (
@@ -706,7 +998,7 @@ export function ScopePills({
               : 'bg-[#161b22] text-gray-400 hover:text-white'
           }`}
         >
-          {SCOPE_LABELS[s]}
+          {labels?.[s] ?? SCOPE_LABELS[s as unknown as ChannelScope] ?? s}
         </button>
       ))}
     </div>
