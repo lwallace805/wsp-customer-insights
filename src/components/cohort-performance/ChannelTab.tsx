@@ -23,6 +23,11 @@ function fmt(n: number | null) { return n === null ? '—' : n.toLocaleString();
 // a neutral grey rather than dropping an unrecognised channel.
 const CHANNEL_COLORS: Array<[RegExp, string]> = [
   [/^ads|google/i, '#4285f4'],
+  [/bing/i, '#00a4ef'],
+  [/employer|open ai/i, '#f472b6'],
+  [/wall street prep/i, '#22d3ee'],
+  [/lifecycle/i, '#059669'],
+  [/^enrollment/i, '#eab308'],
   [/facebook|meta/i, '#1877f2'],
   [/linkedin/i, '#0a66c2'],
   [/affiliate/i, '#14b8a6'],
@@ -121,6 +126,11 @@ export default function ChannelTab({ cohort, live }: Props) {
               The two are keyed separately, so they can sit a day apart.
             </p>
           )}
+          {(table.notes ?? []).map(n => (
+            <p key={n} className="text-[11px] text-amber-300/90 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+              {n}
+            </p>
+          ))}
           {mixedBasis && (
             <p className="text-[11px] text-yellow-400/80 bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-3 py-2">
               ROAS is not comparable down this column — the sheet computes each row against a different revenue per
@@ -236,7 +246,15 @@ export default function ChannelTab({ cohort, live }: Props) {
                   <td className={`px-4 py-3 text-right ${(c.cvr ?? 0) >= 3 ? 'text-emerald-400' : 'text-gray-300'}`}>
                     {fmtCvr(c.cvr)}
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-300">{fmtDollar(c.spend)}</td>
+                  <td
+                    className={`px-4 py-3 text-right ${c.spendWithheld ? 'text-amber-400/80' : 'text-gray-300'}`}
+                    title={c.spendWithheld ? 'Withheld — the sheet repeats another platform’s spend here. See the note above the charts.' : undefined}
+                  >
+                    {c.spendWithheld ? 'withheld' : fmtDollar(c.spend)}
+                    {c.spendCorrected && (
+                      <span className="text-sky-400/80 ml-0.5" title="Corrected from the Paid WoW tab — see the note above the charts.">†</span>
+                    )}
+                  </td>
                   <td className={`px-4 py-3 text-right ${c.roas === null ? 'text-gray-500' : c.roas >= 2.5 ? 'text-emerald-400' : 'text-yellow-400'}`}>
                     {c.roas === null ? '—' : `${c.roas.toFixed(1)}x`}
                     {c.roas !== null && c.roasArpu !== null && (
@@ -258,7 +276,15 @@ export default function ChannelTab({ cohort, live }: Props) {
                   <td className="px-4 py-3 text-right text-white font-semibold">{fmtPct(table.total.pct)}</td>
                   <td className="px-4 py-3 text-right text-white font-semibold">{fmt(table.total.leads)}</td>
                   <td className="px-4 py-3 text-right text-white font-semibold">{fmtCvr(table.total.cvr)}</td>
-                  <td className="px-4 py-3 text-right text-white font-semibold">{fmtDollar(table.total.spend)}</td>
+                  <td
+                    className={`px-4 py-3 text-right font-semibold ${table.total.spendWithheld ? 'text-amber-400/80' : 'text-white'}`}
+                    title={table.total.spendWithheld ? 'Withheld — includes a platform whose spend failed a consistency check.' : undefined}
+                  >
+                    {table.total.spendWithheld ? 'withheld' : fmtDollar(table.total.spend)}
+                    {table.total.spendCorrected && (
+                      <span className="text-sky-400/80 ml-0.5" title="Includes spend corrected from the Paid WoW tab.">†</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right text-white font-semibold">
                     {table.total.roas === null ? '—' : `${table.total.roas.toFixed(1)}x`}
                     {table.total.roas !== null && table.total.roasArpu !== null && (

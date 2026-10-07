@@ -1,46 +1,52 @@
 // ─── Channel Performance — live reader ────────────────────────────────────────
 //
-// Reads two tabs of a cohort performance doc — Wharton's (the doc Pulse and
-// Cohort Command already read) or the CBS AI certificate's, selected by the
-// `partner` argument. Both docs use the same tab names and block shapes; CBS
-// carries a single program block instead of seven, so nothing here may assume
-// more than one:
+// Reads a cohort performance doc — Wharton's (the doc Pulse and Cohort Command
+// already read) or the CBS AI certificate's, selected by the `partner`
+// argument — in the V2 attribution model (Oct 2026; see channelV2.ts for the
+// model and the row grammar):
 //
-//   "Channel Tables" — channel × cohort matrices, one block per program on a
-//   6-column stride (Overall | Overall (No RDI) | Private Equity | Real Estate
-//   | FP&A | AVI | RDI). Each block stacks Leads / Enrollments / Conversions
-//   sections; each section is
-//       Channel | Fall 2025 | Winter 2026 | Spring 2026 | Current Cohort
-//   ending in a Totals row. RDI (launched Spring 2026) carries only two cohort
-//   columns, so cohort labels are read per block, never assumed.
+//   "Channel Tables V2" — Paid/Non-Paid → Channel → Sub-Channel × cohort
+//   matrices, one block per program on an 11-column stride (Overall | Overall
+//   (No - RDI) | PE | RE | FP&A | AVI | RDI). CBS carries ONE block and no
+//   banner row at all. Each block stacks Leads / Enrollments / Conversions;
+//   cohort columns are Fall 2025 | Winter 2026 | Spring 2026 | Current Cohort.
 //
-//   "Overall Performance Tables" — the current cohort's channel economics
-//   (leads, enrolls, spend, CPL, CPE, CVR), one table per program.
+//   "Overall Performance Tables - V2" — the current cohort's economics (leads,
+//   enrolls, spend) on the same hierarchy, one table per program.
 //
 // IMPORTANT semantics, carried through to the UI:
-//   • Prior-cohort columns in "Channel Tables" are STATIC week-aligned
-//     snapshots maintained by hand; only the Current Cohort column is formula-
-//     driven off "Overall Performance Tables". Verified 8/21/26 by reading the
-//     tab with valueRenderOption=FORMULA.
-//   • The tab's own PPC/Non-PPC rollup block is NOT reproduced here: its
-//     ranges skip the AI Referral row entirely and (for Spring enrollments)
-//     the Offline/Direct row, so it understates. Paid/Non-paid rollups are
-//     computed in code from the channel rows instead, so Paid + Non-paid
-//     always equals the column total.
-//   • A blank cell inside a populated cohort column is a zero (the sheet
-//     leaves 0-enrollment cells empty); a cohort column whose Totals cell is
-//     also blank is treated as absent (null) so "no data" never reads as 0.
-//   • The Conversions section is not read — CVR is derived as
-//     enrollments ÷ leads, which is exactly what the sheet's own block does.
+//   • Only the Current Cohort column is formula-driven (off the economics
+//     tab). Prior-cohort columns are IMPORTRANGE'd snapshots from each
+//     program's own doc ("Channel Level Tables"), refreshed by hand. On
+//     10/6/26 they sat within 1% of each cohort's pacing-sheet total at the
+//     same days-to-deadline (Fall '25 832 vs 834, Winter '26 975 vs 976,
+//     Spring '26 940 vs 948 at 7 days out) — day-aligned, not finals.
+//   • "Paid" is the doc's V2 Paid tier — PPC plus Paid Other, Paid Affiliate
+//     and Sponsored Content. The PPC slice (Paid Search + Paid Social) is
+//     flagged per row because the WoW forecasts and the Paid Marketing
+//     Aggregate page only cover that slice.
+//   • The V1 tabs are hidden and frozen. There is deliberately NO fallback to
+//     them: a doc without the V2 tabs is an error, not a quiet stale read.
+//   • The Conversions section is not read — CVR is derived as enrollments ÷
+//     leads, which is exactly what the sheet's own block does.
 
 import { google } from 'googleapis';
-import { readPaidWoW, resolveVersionedTab } from '@/lib/sheets';
+import {
+  readPaidWoW, resolveVersionedTab, readDeadlineTable, getClosedWhartonCohorts,
+} from '@/lib/sheets';
 import { readWoWLeads } from '@/lib/pulseLive';
+import { COHORT_WINDOWS, getActiveCohort, daysOutAt, nowET } from '@/lib/cohortCalendar';
+import { COHORT_SHEETS } from '@/lib/cohortSheets';
 import type {
-  ChannelTablesData, ProgramChannelBlock, ChannelSeriesRow,
-  ProgramEconBlock, ChannelEconRow, ProgramForecast, ForecastSide, ProgramKey,
+  ChannelTablesData, ProgramForecast, ForecastSide, ProgramKey, ProgramChannelBlock,
+  AlignmentCheck,
 } from './channelTablesTypes';
 import { resolveProgramKey } from './channelTablesTypes';
+import {
+  parseMatrixV2, parseEconV2, reconcileCurrent, channelSubtotalNotes, attachInCohortV2,
+  platformFiguresFromPaidWoW,
+} from './channelV2';
+import type { Grid, PlatformFigures } from './channelV2';
 import type { PartnerKey } from './partners';
 export type {
   ChannelTablesData, ProgramChannelBlock, ChannelSeriesRow,
@@ -53,7 +59,7 @@ export const CHANNEL_TABLES_DOC_ID =
   '1pUVvHARYuZaOLwUqkAtRbOdTkDvt4WRinWX2cd--5Kw';
 
 /** The CBS AI certificate's own cohort performance doc — same tab names and
- *  same block shapes as Wharton's, one program instead of seven. Kept in sync
+ *  same row grammar as Wharton's, one program instead of seven. Kept in sync
  *  with the 'c-fall-26' entry in src/lib/cohortSheets.ts. */
 export const CBS_CHANNEL_TABLES_DOC_ID =
   process.env.CBS_FALL26_COHORT_DOC_ID ??
@@ -63,17 +69,20 @@ interface PartnerSource {
   docId: () => string;
   /** Banner aliases for this doc — see resolveProgramKey. */
   programAliases?: Record<string, ProgramKey>;
+  /** Program for a matrix block with no banner (CBS has a single, unbannered
+   *  block). */
+  singleProgram?: ProgramKey;
   /** Keys to publish forecasts for, in order. */
   forecastKeys: ProgramKey[];
-  /** Key that carries the doc's own cohort-wide WoW totals. Wharton splits
-   *  those into Overall and Overall (No RDI); CBS has a single program, so its
+  /** Key that carries the doc's own cohort-wide totals. Wharton splits those
+   *  into Overall and Overall (No RDI); CBS has a single program, so its
    *  totals ARE that program's. */
   totalsKey: ProgramKey;
   /** Wharton's WoW tabs carry a No-RDI restatement; CBS has no RDI. */
   hasNoRdiRollup: boolean;
 }
 
-const PARTNER_SOURCES: Record<PartnerKey, PartnerSource> = {
+export const PARTNER_SOURCES: Record<PartnerKey, PartnerSource> = {
   wharton: {
     docId: () => CHANNEL_TABLES_DOC_ID,
     forecastKeys: ['overall', 'overall-no-rdi', 'pe', 're', 'fpa', 'avi', 'rdi'],
@@ -82,9 +91,10 @@ const PARTNER_SOURCES: Record<PartnerKey, PartnerSource> = {
   },
   cbs: {
     docId: () => CBS_CHANNEL_TABLES_DOC_ID,
-    // The matrix is bannered "AI", the economics table "Overall Performance";
-    // both describe the same single program.
+    // The economics table is bannered "Overall Performance"; it describes the
+    // one program the unbannered matrix block covers.
     programAliases: { ai: 'ai', overall: 'ai' },
+    singleProgram: 'ai',
     forecastKeys: ['ai'],
     totalsKey: 'ai',
     hasNoRdiRollup: false,
@@ -95,8 +105,10 @@ export function channelTablesDocId(partner: PartnerKey): string {
   return PARTNER_SOURCES[partner].docId();
 }
 
-const MATRIX_TAB = 'Channel Tables';
-const ECON_TAB = 'Overall Performance Tables';
+export const MATRIX_BASE_TAB = 'Channel Tables';
+export const ECON_BASE_TAB = 'Overall Performance Tables';
+/** The in-cohort tab is named differently in each doc. Newest version wins. */
+const IN_COHORT_BASE_TABS = ['Channel Tables - In Cohort Enrollments', 'In-Cohort Channel Tables'];
 
 export type ChannelsResult =
   | { ok: true; data: ChannelTablesData }
@@ -121,290 +133,46 @@ export function getServiceAccountEmail(): string | null {
   }
 }
 
-/** Unformatted cells arrive as numbers already; `#DIV/0!`, "-" and blanks → null. */
-function N(v: unknown): number | null {
-  if (v === null || v === undefined) return null;
-  if (typeof v === 'number') return isFinite(v) ? v : null;
-  const s = String(v).trim();
-  if (s === '' || s === '-' || s.startsWith('#')) return null;
-  const n = parseFloat(s.replace(/[$,%]/g, ''));
-  return isNaN(n) ? null : n;
-}
-
-function S(v: unknown): string {
-  return String(v ?? '').trim();
-}
-
-type Grid = unknown[][];
-const cell = (g: Grid, r: number, c: number): unknown => g[r]?.[c];
-
-/** PPC is the only channel counted as paid — the house definition used in the
- *  funnel doc and in every number already quoted to leadership. */
-function isPaidChannel(label: string): boolean {
-  return /^ppc\b/i.test(label.trim());
-}
-
-/** Channels that carry direct spend without being in the paid (PPC) rollup. */
-function carriesSpend(label: string): boolean {
-  return /^(sponsored|paid affiliate)/i.test(label.trim());
-}
-
-/** Join key for a channel label across the Leads/Enrollments sections, which
- *  don't always agree ("SEO" vs "WSP SEO", "WSP Customers" vs "WSP Customer"). */
-function channelKey(label: string): string {
-  return label.trim().toLowerCase().replace(/^wsp\s+/, '').replace(/s$/, '');
-}
-
-// ─── "Channel Tables" matrix parsing ──────────────────────────────────────────
-
-/** Program banners: cells in the top rows that have a "Channel" header below
- *  them in the same column within the next 6 rows. */
-function findMatrixPrograms(grid: Grid): { name: string; col: number }[] {
-  const candidates: { name: string; col: number }[][] = [];
-  for (let r = 0; r < Math.min(grid.length, 4); r++) {
-    const row = grid[r] ?? [];
-    const found: { name: string; col: number }[] = [];
-    for (let c = 0; c < row.length; c++) {
-      const name = S(row[c]);
-      if (!name) continue;
-      for (let j = r + 1; j < Math.min(r + 7, grid.length); j++) {
-        if (S(cell(grid, j, c)).toLowerCase() === 'channel') {
-          found.push({ name, col: c });
-          break;
-        }
-      }
-    }
-    // Two or more blocks on one row is unambiguously the banner row.
-    if (found.length >= 2) return found;
-    if (found.length === 1) candidates.push(found);
-  }
-  // A single-program doc (CBS) has exactly one banner; take the topmost row
-  // that has one rather than reporting the tab as unrecognised.
-  return candidates[0] ?? [];
-}
-
-interface Section {
-  cohorts: string[];
-  rows: { channel: string; values: Array<number | null> }[];
-  totals: Array<number | null>;
-}
-
-/** Locate the Leads and Enrollments "Channel" header rows of one program
- *  block. Every block stacks its sections in the fixed order
- *  Leads → Enrollments → Conversions, but the little section label above each
- *  header is present inconsistently (PE carries "Leads" and "Conversions" but
- *  not "Enrollments"; "Overall (No RDI)" carries everything but "Leads"), so
- *  position assigns the sections and any label that IS present must agree —
- *  a contradiction fails the block instead of misfiling a section. */
-function findSectionHeaders(grid: Grid, col: number): { leads: number; enrolls: number } | null {
-  const headers: { row: number; label: string }[] = [];
-  for (let r = 0; r < grid.length; r++) {
-    if (S(cell(grid, r, col)).toLowerCase() !== 'channel') continue;
-    // Nearest non-empty cell above is the section label when it names one;
-    // anything else there (a Totals row, the program banner) is not a label.
-    let label = '';
-    for (let j = r - 1; j >= Math.max(0, r - 3); j--) {
-      const t = S(cell(grid, j, col)).toLowerCase();
-      if (!t) continue;
-      if (/^(leads|enrollments?|conversions?)$/.test(t)) label = t;
-      break;
-    }
-    headers.push({ row: r, label });
-  }
-  if (headers.length < 2) return null;
-  const expected = [/^leads$/, /^enrollments?$/, /^conversions?$/];
-  for (let i = 0; i < Math.min(headers.length, 3); i++) {
-    if (headers[i].label && !expected[i].test(headers[i].label)) return null;
-  }
-  return { leads: headers[0].row, enrolls: headers[1].row };
-}
-
-/** Read one metric section given its "Channel" header row. */
-function readSection(grid: Grid, col: number, hdr: number): Section | null {
-  const cohorts: string[] = [];
-  for (let c = col + 1; c < col + 7; c++) {
-    const l = S(cell(grid, hdr, c));
-    if (!l) break;
-    cohorts.push(l);
-  }
-  if (cohorts.length === 0) return null;
-
-  const rows: Section['rows'] = [];
-  let totals: Array<number | null> | null = null;
-  for (let r = hdr + 1; r < Math.min(hdr + 20, grid.length); r++) {
-    const ch = S(cell(grid, r, col));
-    if (!ch) break;
-    const values = cohorts.map((_, i) => N(cell(grid, r, col + 1 + i)));
-    if (/^totals?$/i.test(ch)) { totals = values; break; }
-    rows.push({ channel: ch, values });
-  }
-  if (!totals || rows.length === 0) return null;
-
-  // A populated column leaves blanks for zeroes; a column whose Totals cell is
-  // blank has no data at all — keep those cells null so absence stays visible.
-  const populated = totals.map(t => t !== null);
-  for (const row of rows) {
-    row.values = row.values.map((v, i) => (v === null && populated[i] ? 0 : v));
-  }
-  return { cohorts, rows, totals };
-}
-
-function parseMatrixBlock(
-  grid: Grid, name: string, col: number, aliases?: Record<string, ProgramKey>,
-): ProgramChannelBlock | null {
-  const program = resolveProgramKey(name, aliases);
-  if (!program) return null;
-  const headers = findSectionHeaders(grid, col);
-  if (!headers) return null;
-  const leads = readSection(grid, col, headers.leads);
-  const enrolls = readSection(grid, col, headers.enrolls);
-  if (!leads || !enrolls) return null;
-  // The two sections must describe the same cohorts, or the join below would
-  // silently misalign columns.
-  if (leads.cohorts.join('|') !== enrolls.cohorts.join('|')) return null;
-  // Enrollments are always a small fraction of leads — a column where the
-  // "enrollments" total exceeds the "leads" total means the positional section
-  // assignment above landed on the wrong tables.
-  for (let i = 0; i < leads.cohorts.length; i++) {
-    const l = leads.totals[i];
-    const e = enrolls.totals[i];
-    if (l !== null && e !== null && e > l) return null;
-  }
-
-  const enrollByChannel = new Map(enrolls.rows.map(r => [channelKey(r.channel), r.values]));
-  const rows: ChannelSeriesRow[] = [];
-  for (const r of leads.rows) {
-    const enrollments = enrollByChannel.get(channelKey(r.channel));
-    // Every leads channel must have an enrollments row — a rename that breaks
-    // the join fails the block visibly instead of misreporting a channel as
-    // having no enrollments.
-    if (!enrollments) return null;
-    rows.push({
-      channel: r.channel,
-      paid: isPaidChannel(r.channel),
-      hasSpend: carriesSpend(r.channel),
-      leads: r.values,
-      enrollments,
-    });
-  }
-
-  return {
-    program,
-    displayName: name,
-    cohorts: leads.cohorts,
-    rows,
-    totals: { leads: leads.totals, enrollments: enrolls.totals },
-  };
-}
-
-// ─── "Overall Performance Tables" economics parsing ───────────────────────────
-
-function parseEcon(grid: Grid, aliases?: Record<string, ProgramKey>): ProgramEconBlock[] {
-  const out: ProgramEconBlock[] = [];
-  for (let r = 0; r < grid.length; r++) {
-    const banner = S(cell(grid, r, 0));
-    // A table banner ("Overall Performance", "PE Fall 2026 Marketing
-    // Performance", …) is immediately followed by its Channel header row.
-    if (!/performance/i.test(banner)) continue;
-    if (S(cell(grid, r + 1, 0)).toLowerCase() !== 'channel') continue;
-
-    const name = banner
-      .replace(/(fall|spring|winter|summer)\s*20\d\d/i, '')
-      .replace(/marketing performance|performance/i, '')
-      .trim() || 'Overall';
-    const program = resolveProgramKey(name, aliases);
-    if (!program) continue;
-
-    const header = (grid[r + 1] ?? []).map(c => S(c).toLowerCase());
-    const col = (...needles: string[]) =>
-      header.findIndex(h => h !== '' && needles.every(n => h.includes(n)));
-    const c = {
-      enrolls: col('enroll'),
-      pct: col('%'),
-      leads: header.findIndex(h => h === 'leads'),
-      spend: col('spend'),
-      cpl: col('cost per lead'),
-      cpe: col('cost per enrollment'),
-      cvr: col('lead:enroll'),
-    };
-    if (c.enrolls < 0 || c.leads < 0) continue;
-
-    const at = (row: unknown[], i: number) => (i >= 0 ? N(row[i]) : null);
-    const build = (row: unknown[], label: string): ChannelEconRow => ({
-      channel: label,
-      paid: /^(ads\b|ppc\b)/i.test(label.trim()),
-      enrolls: at(row, c.enrolls),
-      pct: at(row, c.pct),
-      leads: at(row, c.leads),
-      spend: at(row, c.spend),
-      cpl: at(row, c.cpl),
-      cpe: at(row, c.cpe),
-      cvr: at(row, c.cvr),
-    });
-
-    const rows: ChannelEconRow[] = [];
-    let total: ChannelEconRow | null = null;
-    for (let j = r + 2; j < Math.min(r + 30, grid.length); j++) {
-      const label = S(cell(grid, j, 0));
-      if (!label) break;
-      // First Grand Total closes the table; the "Excl. B2B" restatement that
-      // follows is the same cohort again, not another channel.
-      if (/^grand total/i.test(label)) { total = build(grid[j] ?? [], label); break; }
-      rows.push(build(grid[j] ?? [], label));
-    }
-    if (rows.length > 0) out.push({ program, displayName: name, rows, total });
-  }
-  return out;
-}
-
-// ─── Forecast sides from the WoW tabs ─────────────────────────────────────────
+// ─── Forecasts + platform spend from the WoW tabs ─────────────────────────────
 //
 // The channel matrix has no forecast — the source tab carries none. To-date
 // forecasts live in the same doc's WoW tabs: "Overall WoW Performance & Goals"
-// (all channels, by program) and "Paid WoW Performance & Goals" (paid, by
-// program), newest version of each. Non-paid = overall − paid, field by field.
-// "Overall (No RDI)" = Total − RDI, matching the tabs' own No-RDI rows.
+// (all channels, by program) and "Paid WoW Performance & Goals" (the ad
+// platforms, by program), newest version of each.
 //
-// NOTE these are a slightly different basis than the matrix: the WoW paid rows
-// count the four ad platforms (funnel-doc basis) while the matrix's PPC row is
-// the doc's "Ads - Google / FB / LI / Other" line, and refresh timing differs.
-// Forecast attainment is therefore computed WoW-actual ÷ WoW-forecast — never
-// matrix-actual ÷ WoW-forecast — and surfaced with its own actual column.
-
-function sub(a: number | null, b: number | null): number | null {
-  if (a === null || b === null) return null;
-  const d = a - b;
-  // Volumes can't be negative — a negative difference means the two source
-  // tabs contradict each other (PE's all-channel leads forecast currently sits
-  // BELOW its paid leads forecast). Show a gap, not a nonsense number.
-  return d < 0 ? null : d;
-}
-
-function subSides(a: ForecastSide | null, b: ForecastSide | null): ForecastSide | null {
-  if (!a || !b) return null;
-  return {
-    leads: sub(a.leads, b.leads),
-    leadsF: sub(a.leadsF, b.leadsF),
-    enrolls: sub(a.enrolls, b.enrolls),
-    enrollsF: sub(a.enrollsF, b.enrollsF),
-  };
-}
+// Under V2 the Paid WoW tab covers the PPC slice only (Wharton: Google, Bing,
+// Meta, LinkedIn — its 11,767 leads / 405 enrollments on 10/6/26 equal Paid
+// Search + Paid Social exactly; CBS also counts Open AI). Overall − PPC is
+// still derived, but it is "everything except PPC", not the Non-Paid tier:
+// Paid Other, Paid Affiliate and Sponsored Content sit in it too.
+//
+// Attainment is always WoW-actual ÷ WoW-forecast, never matrix ÷ WoW.
 
 async function readForecasts(sheetId: string, src: PartnerSource): Promise<{
   forecasts: ProgramForecast[];
   source: string | null;
+  platform: PlatformFigures | undefined;
 }> {
   try {
     const [overall, paid, overallTab, paidTab] = await Promise.all([
       readWoWLeads(sheetId, 'current'),
-      readPaidWoW(sheetId),
+      // Unformatted: spend is compared to the cent with the economics tab.
+      readPaidWoW(sheetId, undefined, { unformatted: true }),
       resolveVersionedTab(sheetId, 'Overall WoW Performance & Goals'),
       resolveVersionedTab(sheetId, 'Paid WoW Performance & Goals'),
     ]);
-    if (!overall && !paid) return { forecasts: [], source: null };
+
+    const platform = platformFiguresFromPaidWoW(paid, src.totalsKey, src.programAliases);
+
+    if (!overall && !paid) return { forecasts: [], source: null, platform };
 
     const side = (r: { leads: number | null; leadsF: number | null; enrolls: number | null; enrollsF: number | null } | null | undefined): ForecastSide | null =>
       r ? { leads: r.leads, leadsF: r.leadsF, enrolls: r.enrolls, enrollsF: r.enrollsF } : null;
+    const minus = (a: ForecastSide | null, b: ForecastSide | null): ForecastSide | null => {
+      if (!a || !b) return null;
+      const d = (x: number | null, y: number | null) => (x === null || y === null || x - y < 0 ? null : x - y);
+      return { leads: d(a.leads, b.leads), leadsF: d(a.leadsF, b.leadsF), enrolls: d(a.enrolls, b.enrolls), enrollsF: d(a.enrollsF, b.enrollsF) };
+    };
 
     const overallByKey = new Map<ProgramKey, ForecastSide | null>();
     const paidByKey = new Map<ProgramKey, ForecastSide | null>();
@@ -422,10 +190,8 @@ async function readForecasts(sheetId: string, src: PartnerSource): Promise<{
     overallByKey.set(src.totalsKey, side(overall?.totals));
     paidByKey.set(src.totalsKey, side(paid?.totals));
     if (src.hasNoRdiRollup) {
-      overallByKey.set('overall-no-rdi',
-        subSides(side(overall?.totals), overallByKey.get('rdi') ?? null));
-      paidByKey.set('overall-no-rdi',
-        subSides(side(paid?.totals), paidByKey.get('rdi') ?? null));
+      overallByKey.set('overall-no-rdi', minus(side(overall?.totals), overallByKey.get('rdi') ?? null));
+      paidByKey.set('overall-no-rdi', minus(side(paid?.totals), paidByKey.get('rdi') ?? null));
     }
 
     const forecasts: ProgramForecast[] = src.forecastKeys
@@ -433,16 +199,104 @@ async function readForecasts(sheetId: string, src: PartnerSource): Promise<{
         const o = overallByKey.get(program) ?? null;
         const p = paidByKey.get(program) ?? null;
         if (!o && !p) return null;
-        return { program, overall: o, paid: p, nonpaid: subSides(o, p) };
+        return { program, overall: o, ppc: p, nonPpc: minus(o, p) };
       })
       .filter((f): f is ProgramForecast => f !== null);
 
     return {
       forecasts,
       source: forecasts.length ? `${overallTab} + ${paidTab}` : null,
+      platform,
     };
   } catch {
-    return { forecasts: [], source: null };
+    return { forecasts: [], source: null, platform: undefined };
+  }
+}
+
+// ─── Prior-column alignment check ─────────────────────────────────────────────
+//
+// The matrix's prior-cohort columns are hand-refreshed snapshots, so nothing in
+// the doc says WHEN they were cut. Each one is checked against that cohort's
+// own pacing curve: find the days-before-deadline at which the curve comes
+// closest to the column's enrollment total, and compare with where the
+// current cohort is now. A snapshot left behind as the current cohort moves on
+// (seen 8/31/26, ~2 days stale) or a column holding a full-cohort final shows
+// up as a mismatch instead of as a flattering or damning "vs prior" delta.
+//
+// Curves: Wharton's closed cohorts come from the AN Summary pacing sheet;
+// CBS's from each closed cohort's own doc where it's wired in cohortSheets.ts
+// (Spring '26 today — Fall '25 and Winter '26 have no wired doc, so they go
+// unchecked rather than being guessed at).
+
+/** "Spring 2026" → "Spring '26", the label the pacing sources use. */
+const shortLabel = (c: string) => c.replace(/^(\w+)\s+20(\d\d)$/, "$1 '$2");
+
+const DAY_TOLERANCE = 2;
+const VALUE_TOLERANCE = 0.02;
+
+export function matchCurve(
+  cohort: string, value: number, curve: Map<number, number>, currentDay: number,
+): AlignmentCheck | null {
+  let best: { day: number; v: number } | null = null;
+  for (const [day, v] of curve) {
+    if (!best) { best = { day, v }; continue; }
+    const d = Math.abs(v - value);
+    const bd = Math.abs(best.v - value);
+    if (d < bd || (d === bd && Math.abs(day - currentDay) < Math.abs(best.day - currentDay))) {
+      best = { day, v };
+    }
+  }
+  if (!best) return null;
+  const atCurrent = curve.get(currentDay);
+  const ok = Math.abs(best.day - currentDay) <= DAY_TOLERANCE ||
+    (atCurrent !== undefined && atCurrent > 0 && Math.abs(value - atCurrent) / atCurrent <= VALUE_TOLERANCE);
+  return { cohort, value, matchDay: best.day, matchValue: best.v, currentDay, ok };
+}
+
+async function checkAlignment(
+  partner: PartnerKey, block: ProgramChannelBlock | undefined,
+): Promise<{ checks: AlignmentCheck[]; source: string | null }> {
+  if (!block) return { checks: [], source: null };
+  const family = partner === 'wharton' ? 'wharton' : 'columbia';
+  const now = nowET();
+  const win = getActiveCohort(family, now);
+  if (!win) return { checks: [], source: null };
+  const currentDay = daysOutAt(win, now);
+  const priors = block.cohorts.slice(0, -1)
+    .map((cohort, i) => ({ cohort, value: block.totals.enrollments[i] }))
+    .filter((p): p is { cohort: string; value: number } => p.value !== null && p.value > 0);
+
+  try {
+    const curves = new Map<string, Map<number, number>>();
+    let source: string | null = null;
+    if (partner === 'wharton') {
+      const id = process.env.GOOGLE_PACING_SHEET_ID;
+      if (!id) return { checks: [], source: null };
+      for (const c of await getClosedWhartonCohorts(id)) curves.set(c.label, c.byDay);
+      source = 'the AN Summary pacing sheet';
+    } else {
+      const closed = COHORT_WINDOWS.filter(w => w.family === family && COHORT_SHEETS[w.key] && w.key !== win.key);
+      for (const w of closed) {
+        const wiring = COHORT_SHEETS[w.key]!;
+        const id = wiring.sheetId();
+        if (!id) continue;
+        const end = new Date(`${w.extEnds}T12:00:00Z`);
+        const t = await readDeadlineTable(id, wiring.deadlineTab, w.label, new Date(end.getTime() + 2 * 86400000));
+        if (!t) continue;
+        curves.set(w.label, new Map(t.series.map(p =>
+          [Math.round((end.getTime() - new Date(`${p.date}T12:00:00Z`).getTime()) / 86400000), p.total])));
+      }
+      source = 'each closed cohort’s own deadline pacing table';
+    }
+    const checks = priors
+      .map(p => {
+        const curve = curves.get(shortLabel(p.cohort));
+        return curve ? matchCurve(p.cohort, p.value, curve, currentDay) : null;
+      })
+      .filter((c): c is AlignmentCheck => c !== null);
+    return { checks, source: checks.length ? source : null };
+  } catch {
+    return { checks: [], source: null };
   }
 }
 
@@ -458,45 +312,117 @@ export async function getChannelTables(
   const docId = src.docId();
   try {
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
-    const [meta, values, wow] = await Promise.all([
+    const [meta, matrixTab, econTab, wow, ...inCohortTabs] = await Promise.all([
       sheets.spreadsheets.get({ spreadsheetId: docId, fields: 'properties.title' }),
-      sheets.spreadsheets.values.batchGet({
-        spreadsheetId: docId,
-        ranges: [`'${MATRIX_TAB}'!A1:BZ70`, `'${ECON_TAB}'!A1:J120`],
-        valueRenderOption: 'UNFORMATTED_VALUE',
-      }),
+      resolveVersionedTab(docId, MATRIX_BASE_TAB),
+      resolveVersionedTab(docId, ECON_BASE_TAB),
       readForecasts(docId, src),
+      ...IN_COHORT_BASE_TABS.map(b => resolveVersionedTab(docId, b)),
     ]);
+    // Only a V2+ in-cohort tab: the unversioned ones are V1 and frozen.
+    const inCohortTab = inCohortTabs.find((t, i) => t !== IN_COHORT_BASE_TABS[i]) ?? null;
+    // The unversioned tabs are the frozen V1 model — never read them here.
+    for (const [tab, base] of [[matrixTab, MATRIX_BASE_TAB], [econTab, ECON_BASE_TAB]]) {
+      if (tab === base) {
+        return {
+          ok: false,
+          needsAccess: false,
+          error: `No V2 "${base}" tab found in ${meta.data.properties?.title ?? 'the doc'}. ` +
+            `The unversioned "${base}" tab is the retired V1 model and stopped updating, so it ` +
+            `is not read as a fallback.`,
+        };
+      }
+    }
 
+    const values = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: docId,
+      ranges: [
+        `'${matrixTab}'!A1:CA130`,
+        `'${econTab}'!A1:P260`,
+        ...(inCohortTab ? [`'${inCohortTab}'!A1:CK80`] : []),
+      ],
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
     const matrixGrid = (values.data.valueRanges?.[0]?.values ?? []) as Grid;
     const econGrid = (values.data.valueRanges?.[1]?.values ?? []) as Grid;
+    const inCohortGrid = (values.data.valueRanges?.[2]?.values ?? []) as Grid;
     if (!matrixGrid.length) {
-      return { ok: false, needsAccess: false, error: `"${MATRIX_TAB}" tab is empty` };
+      return { ok: false, needsAccess: false, error: `"${matrixTab}" tab is empty` };
     }
 
-    const banners = findMatrixPrograms(matrixGrid);
-    const programs = banners
-      .map(b => parseMatrixBlock(matrixGrid, b.name, b.col, src.programAliases))
-      .filter((p): p is ProgramChannelBlock => p !== null);
-    if (programs.length === 0) {
-      return { ok: false, needsAccess: false, error: `"${MATRIX_TAB}" tab layout not recognised` };
+    const matrix = parseMatrixV2(matrixGrid, {
+      aliases: src.programAliases,
+      singleProgram: src.singleProgram,
+    });
+    if (matrix.programs.length === 0) {
+      // Name what actually failed. "Layout not recognised" on its own sends
+      // whoever picks this up hunting for a layout change that may not exist.
+      return {
+        ok: false,
+        needsAccess: false,
+        error: `"${matrixTab}" tab could not be parsed — ` +
+          (matrix.fails.length ? matrix.fails.join('; ') : 'no Paid/Non-Paid header rows found'),
+      };
     }
 
-    const currentLabel =
-      programs[0].cohorts[programs[0].cohorts.length - 1] ?? 'Current Cohort';
+    const econ = parseEconV2(econGrid, {
+      aliases: src.programAliases,
+      totalsKey: src.totalsKey,
+      platform: wow.platform,
+      tabName: `"${econTab}"`,
+    });
 
+    const inCohortNotes = inCohortTab && inCohortGrid.length
+      ? attachInCohortV2(inCohortGrid, matrix.programs, {
+          aliases: src.programAliases,
+          singleProgram: src.singleProgram,
+          tabName: `"${inCohortTab}"`,
+        })
+      : [];
+    const alignment = await checkAlignment(
+      partner, matrix.programs.find(p => p.program === src.totalsKey));
+
+    // Order matters: the in-cohort split is joined by position, so it must be
+    // attached before any correction adds a row; subtotal notes are judged
+    // only after the correction, against what the page will actually show.
+    const reconciled =
+      reconcileCurrent(matrix.programs, econ.blocks, `"${econTab}"`, `"${matrixTab}"`);
+    const notes = [
+      ...matrix.notes,
+      ...channelSubtotalNotes(matrix, reconciled.corrected),
+      ...econ.notes,
+      ...reconciled.notes,
+      ...inCohortNotes,
+      ...alignment.checks.filter(c => !c.ok).map(c =>
+        `The ${c.cohort} column (${c.value.toLocaleString('en-US')} enrollments) matches ${c.cohort} at ` +
+        `${c.matchDay} days before its deadline (${c.matchValue.toLocaleString('en-US')} in ` +
+        `${alignment.source}), but the current cohort is ${c.currentDay} days out. The imported ` +
+        `snapshot isn't cut at the same point, so "vs ${c.cohort}" deltas are not like-for-like ` +
+        `until the program docs' Channel Level Tables are refreshed.`),
+    ];
+    // A block that failed while others parsed is a silent hole otherwise.
+    if (matrix.fails.length) {
+      notes.push(`Some program blocks could not be read and are omitted: ${matrix.fails.join('; ')}.`);
+    }
+
+    const first = matrix.programs[0];
     return {
       ok: true,
       data: {
         partner,
-        programs,
-        econ: parseEcon(econGrid, src.programAliases),
+        programs: matrix.programs,
+        econ: econ.blocks,
         forecasts: wow.forecasts,
         forecastSource: wow.source,
-        currentLabel,
+        notes,
+        currentLabel: first.cohorts[first.cohorts.length - 1] ?? 'Current Cohort',
         docTitle: meta.data.properties?.title ?? 'Cohort Performance Doc',
         sheetId: docId,
-        tab: MATRIX_TAB,
+        tab: matrixTab,
+        econTab,
+        inCohortTab: matrix.programs.some(p => p.hasInCohort) ? inCohortTab : null,
+        alignment: alignment.checks,
+        alignmentSource: alignment.source,
         fetchedAt: new Date().toISOString(),
       },
     };

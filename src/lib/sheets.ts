@@ -2,6 +2,8 @@ import { google } from 'googleapis';
 import { isDemo } from '@/lib/demo/flag';
 import { getDemoPacing } from '@/lib/demo/enrollment';
 import { nowET, getActiveCohort } from '@/lib/cohortCalendar';
+import { parseEconV2, platformFiguresFromPaidWoW } from '@/lib/performance/channelV2';
+import { econMetrics, type ChannelEconFigures } from '@/lib/performance/channelTablesTypes';
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -194,6 +196,13 @@ export async function readProgramGoals(sheetId: string, tab: string): Promise<Pr
 
 export interface ChannelRowLive {
   channel: string;
+  /** V2 attribution tier. Absent on rows read from a V1 table. */
+  tier?: 'paid' | 'nonpaid';
+  /** The sheet has a spend figure here that failed a consistency check (V2
+   *  only — see ChannelTable.notes). Spend, ROAS, CPL and CPE are null. */
+  spendWithheld?: boolean;
+  /** Spend replaced with the Paid WoW tab's figure (V2 — see notes). */
+  spendCorrected?: boolean;
   enrolls: number | null;
   pct: number | null;      // % of total enrollments
   leads: number | null;
@@ -210,6 +219,8 @@ export interface ChannelTable {
   rows: ChannelRowLive[];
   total: ChannelRowLive | null;
   source: string;
+  /** Reader caveats (V2): withheld spend, subtotals that don't add up. */
+  notes?: string[];
 }
 
 /** Pull the revenue-per-enrollment constant out of `=(B3*4500)/F3`. */
@@ -229,7 +240,88 @@ function NUM(v: string | undefined | null): number | null {
   return isNaN(n) ? null : n;
 }
 
-export async function readChannelTable(sheetId: string, tab = 'Overall Performance Tables'): Promise<ChannelTable | null> {
+// ── V2 (Oct 2026) ──
+// Both current cohort docs replaced this table with "Overall Performance
+// Tables - V2" (Paid/Non-Paid → Channel → Sub-Channel) and hid the V1 tab,
+// which stopped updating. The V2 block is parsed by the same code as /channels
+// (src/lib/performance/channelV2.ts) and flattened to this shape: paid
+// platforms at sub-channel grain (Google, Bing, Meta, LinkedIn, Employer
+// Test…), non-paid at channel grain. V1 is read only from docs that have no V2
+// tab — older cohort docs.
+
+const V1_CHANNEL_TAB = 'Overall Performance Tables';
+
+async function readChannelTableV2(sheetId: string, tab: string): Promise<ChannelTable | null> {
+  const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+  const [res, paid] = await Promise.all([
+    sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      // Every block, not just the first: the spend checks compare blocks, and
+      // a truncated block would surface as a spurious "skipped" note.
+      range: `'${tab}'!A1:P260`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    }),
+    readPaidWoW(sheetId, undefined, { unformatted: true }).catch(() => null),
+  ]);
+  // No partner aliases here: the first block resolves to 'overall' in both docs.
+  const parsed = parseEconV2((res.data.values ?? []) as unknown[][], {
+    totalsKey: 'overall', platform: platformFiguresFromPaidWoW(paid, 'overall'), tabName: `"${tab}"`,
+  });
+  // The first block is the cohort-wide one ("Overall Performance").
+  const block = parsed.blocks[0];
+  if (!block || !block.total) return null;
+  const totalEnrolls = block.total.enrolls;
+
+  const toRow = (label: string, tier: 'paid' | 'nonpaid' | undefined, f: ChannelEconFigures): ChannelRowLive => {
+    const m = econMetrics(f, totalEnrolls);
+    const spend = f.spendWithheld ? null : f.spend;
+    const roas = spend && f.enrolls !== null && parsed.aov ? (f.enrolls * parsed.aov) / spend : null;
+    return {
+      channel: label,
+      tier,
+      spendWithheld: f.spendWithheld || undefined,
+      spendCorrected: f.spendCorrected || undefined,
+      enrolls: f.enrolls,
+      pct: m.share === null ? null : m.share * 100,
+      leads: f.leads,
+      spend,
+      roas,
+      cpl: m.cpl,
+      cpe: m.cpe,
+      cvr: m.cvr === null ? null : m.cvr * 100,
+      roasArpu: roas !== null ? parsed.aov : null,
+    };
+  };
+
+  const rows: ChannelRowLive[] = [];
+  for (const r of block.rows) {
+    if (r.tier === 'paid' && r.subs.length) {
+      for (const sub of r.subs) rows.push(toRow(sub.name, 'paid', sub));
+    } else {
+      rows.push(toRow(r.channel, r.tier, r));
+    }
+  }
+  return {
+    rows,
+    total: toRow('Total', undefined, block.total),
+    source: `${tab} (attribution model V2)`,
+    notes: parsed.notes,
+  };
+}
+
+export async function readChannelTable(sheetId: string, tab = V1_CHANNEL_TAB): Promise<ChannelTable | null> {
+  if (tab === V1_CHANNEL_TAB) {
+    const resolved = await resolveVersionedTab(sheetId, V1_CHANNEL_TAB);
+    if (resolved !== V1_CHANNEL_TAB) {
+      try {
+        return await readChannelTableV2(sheetId, resolved);
+      } catch {
+        // A V2 doc whose V2 tab can't be read must not fall back to its frozen
+        // V1 tab — that is the stale read this path exists to prevent.
+        return null;
+      }
+    }
+  }
   try {
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
     const range = `'${tab}'!A1:J24`;
@@ -346,6 +438,9 @@ export interface PaidWoW {
   programs: PaidRow[];
   /** Per-channel "Total (All)" rows — Google / Bing / Meta / LinkedIn / … */
   channels: PaidRow[];
+  /** Per-channel program rows (PE, RE, …), keyed by channel label. Empty for a
+   *  single-program doc (CBS), whose channel blocks carry only their Total. */
+  channelPrograms: Record<string, PaidRow[]>;
   weeks: PaidWeek[];
   source: string;
 }
@@ -400,13 +495,14 @@ async function listTabs(sheetId: string): Promise<string[]> {
   return titles;
 }
 
-/** Newest "<base>" / "<base> V2" / "<base> V3"… present in the doc.
+/** Newest "<base>" / "<base> V2" / "<base> - V2" / "<base> V3"… present in
+ *  the doc ("Overall Performance Tables - V2" uses the dashed form).
  *  Falls back to `base` when the doc can't be listed, so a metadata failure
  *  degrades to today's behaviour rather than throwing. */
 export async function resolveVersionedTab(sheetId: string, base: string): Promise<string> {
   try {
     const titles = await listTabs(sheetId);
-    const re = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+V(\\d+))?$`, 'i');
+    const re = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s+(?:-\\s*)?V(\\d+))?$`, 'i');
     let best = base;
     let bestV = 0;
     for (const t of titles) {
@@ -503,6 +599,7 @@ async function readPaidWoWFrom(
     }
 
     const channels: PaidRow[] = [];
+    const channelPrograms: Record<string, PaidRow[]> = {};
     if (banner >= 0) {
       const spots = PAID_CHANNELS
         .map(ch => ({ ch, col: rows[banner].findIndex(c => String(c ?? '').trim() === ch) }))
@@ -520,6 +617,15 @@ async function readPaidWoWFrom(
             break;
           }
         }
+        // Its program rows, down to the first blank / footnote line.
+        const progs: PaidRow[] = [];
+        for (let i = hdr + 1; i < hdr + 14 && i < rows.length; i++) {
+          const label = cell(i, s.col);
+          if (!label || /^\*/.test(label)) break;
+          if (/^total/i.test(label)) continue;
+          progs.push(readRow(rows[i], find, label));
+        }
+        channelPrograms[s.ch] = progs;
       });
     }
 
@@ -559,7 +665,7 @@ async function readPaidWoWFrom(
     // quietly corrupt every figure derived from it. Channels are shown as the
     // sheet states them so a bad row stays visibly attributable to its channel.
     if (!totals && channels.length === 0 && weeks.length === 0) return null;
-    return { totals, programs, channels, weeks, source: tab };
+    return { totals, programs, channels, channelPrograms, weeks, source: tab };
   } catch {
     return null;
   }
