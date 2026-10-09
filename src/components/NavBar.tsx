@@ -21,22 +21,22 @@ const TOOLS = [
   { href: '/tools/webinar-repurposer',     label: 'Webinar Repurposer',           icon: Mic },
 ];
 
-const PERFORMANCE_V2 = [
+const DASHBOARDS = [
   { href: '/pulse',                       label: 'Pulse',                     icon: Gauge },
   { href: '/weekly',                      label: 'Weekly Report',             icon: Mail },
-  { href: '/cohort-performance/wharton',  label: 'Cohort Command — Wharton',  icon: GraduationCap },
-  { href: '/cohort-performance/columbia', label: 'Cohort Command — Columbia', icon: GraduationCap },
-  { href: '/enrollment-team',             label: 'Enrollment Team',           icon: Phone },
+  { href: '/enrollment',                  label: 'Enrollment Pacing',         icon: TrendingUp },
   { href: '/paid-aggregate',              label: 'Paid Marketing Aggregate',  icon: Megaphone },
   { href: '/channels',                    label: 'Channels — Paid vs Non-paid', icon: GitBranch },
   // The external Wharton view. Opens in a new tab and is marked `external` so it
   // never highlights as the active internal page — it's a different audience's
   // surface that we keep a door to, not a section of the hub.
   { href: '/wharton',                     label: 'Wharton (external view)',   icon: ExternalLink, external: true },
+  { href: '/enrollment-team',             label: 'Enrollment Team',           icon: Phone },
 ];
 
-const PERFORMANCE_DASHBOARDS = [
-  { href: '/enrollment',               label: 'Enrollment Pacing',       icon: TrendingUp },
+const ARCHIVE = [
+  { href: '/cohort-performance/wharton',  label: 'Cohort Command — Wharton',  icon: GraduationCap },
+  { href: '/cohort-performance/columbia', label: 'Cohort Command — Columbia', icon: GraduationCap },
   { href: '/performance/overview',     label: 'Executive Overview',      icon: Gauge },
   { href: '/performance/trends',       label: 'Historical Trends',       icon: TrendingUp },
   { href: '/performance/channels',     label: 'Channel Performance',     icon: GitBranch },
@@ -164,17 +164,17 @@ export default function NavBar() {
             activePath={pathname}
           />
 
-          {/* Performance 2.0 — the centralized dashboard build */}
+          {/* Dashboards — the centralized dashboard build */}
           <DropdownMenu
-            label="Performance 2.0"
-            items={PERFORMANCE_V2}
+            label="Dashboards"
+            items={DASHBOARDS}
             activePath={pathname}
           />
 
-          {/* Performance Dashboards dropdown */}
+          {/* Archive — earlier dashboards, still reachable */}
           <DropdownMenu
-            label="Performance"
-            items={PERFORMANCE_DASHBOARDS}
+            label="Archive"
+            items={ARCHIVE}
             activePath={pathname}
           />
 
