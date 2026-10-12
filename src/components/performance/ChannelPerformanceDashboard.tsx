@@ -770,22 +770,36 @@ function EconTable({ data, programKey, scope, open, onToggle }: {
  *  gaps, subtotals that don't add up, spend it withheld. Shown above the
  *  numbers rather than in the footnotes: they are the reason a figure on this
  *  page reads "—" or differs from the sheet, and someone comparing against the
- *  doc needs that first. Renders nothing in the normal case. */
+ *  doc needs that first. Collapsed to its one-line count by default — the list
+ *  runs to dozens of lines on a busy cohort and would push the numbers below
+ *  the fold — and expands on click. Renders nothing in the normal case. */
 function SourceGapNotes({ notes }: { notes: string[] }) {
+  const [open, setOpen] = useState(false);
   if (!notes.length) return null;
   return (
     <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-      <div className="flex items-start gap-2.5">
-        <AlertTriangle size={16} className="text-amber-400 mt-0.5 shrink-0" />
-        <div className="space-y-1.5">
-          <p className="text-[12px] font-semibold text-amber-200">
-            Source-sheet checks — {notes.length} {notes.length === 1 ? 'issue' : 'issues'} to know before quoting
-          </p>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 text-left"
+      >
+        <AlertTriangle size={16} className="text-amber-400 shrink-0" />
+        <span className="text-[12px] font-semibold text-amber-200 grow">
+          Source-sheet checks — {notes.length} {notes.length === 1 ? 'issue' : 'issues'} to know before quoting
+        </span>
+        <span className="inline-flex items-center gap-1 text-[11px] text-amber-200/70 shrink-0">
+          {open ? 'Hide' : 'Show'}
+          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 pl-[26px] space-y-1.5">
           {notes.map(n => (
             <p key={n} className="text-[12px] text-amber-100/80 leading-relaxed">{n}</p>
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }
