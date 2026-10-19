@@ -36,7 +36,9 @@ A third static data source lives in `src/data/historicalNPS.json` — pre-Airtab
 
 ### Auth
 
-NextAuth v4 with Google OAuth, JWT sessions. `src/middleware.ts` protects every route except static assets and redirects unauthenticated users to `/login`. The `signIn` callback in `src/lib/auth.ts` blocks any email not ending in `@wallstreetprep.com`. Required env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`.
+NextAuth v4 with Google OAuth, JWT sessions. `src/middleware.ts` protects every route except static assets and redirects unauthenticated users to `/login`. Required env vars: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`.
+
+**Who may sign in** is decided by `isAllowedEmail()` in `src/lib/allowedEmails.ts`: any `@wallstreetprep.com` account, plus specific outside Google accounts listed in the optional `ALLOWED_EXTERNAL_EMAILS` env var (comma-separated, matched case-insensitively against the address Google reports for the account). The predicate runs in the `signIn` callback in `src/lib/auth.ts` **and** in middleware on every request, so removing an address from the env var and redeploying revokes access on the guest's next request rather than when their 30-day JWT expires. Guest access is to the whole hub — for single-page access use the partner gate below instead. Outside accounts also need the Google Cloud OAuth consent screen set to **External** (an Internal consent screen rejects non-Workspace accounts before our callback runs), and while that screen is in Testing status the guest must be listed there as a test user.
 
 ### The Wharton partner surface (`/wharton`)
 

@@ -36,7 +36,7 @@ function LoginForm() {
           <p className="text-xs text-gray-500 mb-6">
             {DEMO
               ? 'Demo environment — fabricated data. Enter the shared demo password.'
-              : <>Access is restricted to <span className="text-gray-400">@wallstreetprep.com</span> accounts.</>}
+              : <>Access is restricted to <span className="text-gray-400">@wallstreetprep.com</span> accounts and invited guests.</>}
           </p>
 
           {error && (
@@ -44,7 +44,7 @@ function LoginForm() {
               {DEMO
                 ? 'Incorrect password. Please try again.'
                 : error === 'AccessDenied'
-                  ? 'Access denied — only @wallstreetprep.com accounts are allowed.'
+                  ? "Access denied — this Google account isn't authorized. Use your @wallstreetprep.com account, or ask for this address to be added."
                   : 'Sign-in failed. Please try again.'}
             </div>
           )}

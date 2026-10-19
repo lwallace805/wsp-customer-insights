@@ -2,13 +2,15 @@ import { withAuth, type NextRequestWithAuth } from 'next-auth/middleware';
 import { getToken } from 'next-auth/jwt';
 import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server';
 import { PARTNER_COOKIE, verifyPartnerToken } from '@/lib/partnerAccess';
+import { isAllowedEmail } from '@/lib/allowedEmails';
 
 // ─── Two gates, not one ───────────────────────────────────────────────────────
 //
 //  /wharton, /api/wharton  → partner gate: shared-password cookie (30 days), OR
 //                            an internal Google session (so staff following the
 //                            nav link aren't asked for the partner password).
-//  everything else         → NextAuth, @wallstreetprep.com only, unchanged.
+//  everything else         → NextAuth: @wallstreetprep.com, or a guest address
+//                            on ALLOWED_EXTERNAL_EMAILS (allowedEmails.ts).
 //
 // Order matters: the partner branch runs FIRST, so a Wharton viewer is never
 // bounced to the Google sign-in page, and the partner cookie is never accepted
@@ -32,10 +34,14 @@ const internalMiddleware = withAuth(
   },
   {
     callbacks: {
+      // A session alone isn't enough: the email on it must still pass the
+      // allowlist, so removing a guest from ALLOWED_EXTERNAL_EMAILS takes
+      // effect on their next request rather than when their 30-day JWT expires.
+      //
       // DISABLE_AUTH is a local-dev-only escape hatch (double-gated so it can
       // never activate in a production build).
       authorized: ({ token }) =>
-        !!token ||
+        (!!token && isAllowedEmail(token.email)) ||
         (process.env.NODE_ENV !== 'production' && process.env.DISABLE_AUTH === '1'),
     },
     pages: {
@@ -87,11 +93,13 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
     const granted = await verifyPartnerToken(req.cookies.get(PARTNER_COOKIE)?.value);
     if (granted) return proceed();
 
-    // Internal staff reach the same page with their normal Google session.
+    // Internal staff (and allowlisted guests) reach the same page with their
+    // normal Google session — subject to the same allowlist check as the rest
+    // of the hub, so a revoked guest can't keep using a stale token here.
     // A failure here (e.g. NEXTAUTH_SECRET missing) must degrade to "no internal
     // session", never to a 500 on the partner's dashboard.
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET }).catch(() => null);
-    if (token) return proceed();
+    if (token && isAllowedEmail(token.email)) return proceed();
 
     if (effectivePath.startsWith('/api/')) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
