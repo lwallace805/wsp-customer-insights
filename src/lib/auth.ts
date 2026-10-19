@@ -2,6 +2,7 @@ import type { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { isDemo } from '@/lib/demo/flag';
+import { isAllowedEmail } from '@/lib/allowedEmails';
 
 const providers: NextAuthOptions['providers'] = [
   GoogleProvider({
@@ -34,12 +35,16 @@ export const authOptions: NextAuthOptions = {
   providers,
 
   callbacks: {
-    // Allow the demo password provider; otherwise block any email not on
-    // @wallstreetprep.com.
+    // Allow the demo password provider; otherwise the account must be on
+    // @wallstreetprep.com or on the ALLOWED_EXTERNAL_EMAILS allowlist (see
+    // allowedEmails.ts — the same predicate is enforced again in middleware).
     async signIn({ account, profile }) {
       if (account?.provider === 'credentials') return true;
-      const email = profile?.email ?? '';
-      return email.endsWith('@wallstreetprep.com');
+      // Google reports whether it has verified ownership of the address. A
+      // guest address only counts when it is verified.
+      const verified = (profile as { email_verified?: boolean } | undefined)?.email_verified;
+      if (verified === false) return false;
+      return isAllowedEmail(profile?.email);
     },
 
     // Forward the email into the session so we can display it if needed
