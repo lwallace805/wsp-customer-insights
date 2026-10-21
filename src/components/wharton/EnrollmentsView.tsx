@@ -42,8 +42,14 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
   // is rendered on the server, and a UTC "today" would flip this a few hours
   // early for a reader in the US.
   const earlyPassed = data.dataThrough !== null && data.earlyDeadline <= data.dataThrough;
+  // The program split is on the doc's daily-keyed basis. For a held cohort with
+  // a reconciled final that is a smaller number than the headline, so shares
+  // and the table's own total are taken over the keyed figure, and the gap is
+  // spelled out under the table rather than left as a sum that doesn't match.
+  const keyedTotal = data.reconciled?.keyedTotal ?? data.total;
+  const unattributed = data.reconciled ? data.reconciled.total - data.reconciled.keyedTotal : 0;
   // Share of enrollments to date — a mix figure, not progress against a target.
-  const share = (n: number) => (data.total > 0 ? (n / data.total) * 100 : 0);
+  const share = (n: number) => (keyedTotal > 0 ? (n / keyedTotal) * 100 : 0);
   const maxEnrolls = data.programs.reduce((m, p) => Math.max(m, p.enrolls), 0);
   // Colour follows the program, not its rank: the index is taken from the
   // payload's (source) order, while the table below is sorted largest-first.
@@ -96,8 +102,9 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
               {data.total.toLocaleString()}
             </p>
             <p className="text-sm text-gray-400 mt-1.5">
-              {closed ? 'final enrollment' : 'total enrollments'}
-              {data.dataThrough ? ` through ${longDate(data.dataThrough)}` : ''}
+              {data.reconciled
+                ? 'final enrollment, reconciled after the cohort closed'
+                : `${closed ? 'final enrollment' : 'total enrollments'}${data.dataThrough ? ` through ${longDate(data.dataThrough)}` : ''}`}
             </p>
           </div>
           <dl className="text-sm text-left sm:text-right space-y-2">
@@ -335,13 +342,20 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
               <tr>
                 <td className="py-3 font-medium text-gray-200">Total</td>
                 <td className="py-3 px-3 text-right tabular-nums text-white font-semibold">
-                  {data.total.toLocaleString()}
+                  {keyedTotal.toLocaleString()}
                 </td>
                 <td className="py-3 text-right tabular-nums text-gray-400">100%</td>
                 <td className="hidden sm:table-cell" />
               </tr>
             </tbody>
           </table>
+        )}
+        {data.reconciled && unattributed !== 0 && data.programs.length > 0 && (
+          <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
+            {`The program split is as keyed daily${data.dataThrough ? ` through ${longDate(data.dataThrough)}` : ''} and totals ${keyedTotal.toLocaleString()}. The reconciled final of ${data.reconciled.total.toLocaleString()}${
+              data.reconciled.b2b ? `, which includes ${data.reconciled.b2b.toLocaleString()} corporate (B2B) enrollment${data.reconciled.b2b === 1 ? '' : 's'},` : ''
+            } is ${Math.abs(unattributed).toLocaleString()} ${unattributed > 0 ? 'higher' : 'lower'}; those enrollments are not attributed to a program here.`}
+          </p>
         )}
       </section>
 
@@ -351,6 +365,10 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
           series={data.series}
           cohort={data.cohort}
           description={`Cumulative enrollments since the cohort opened on ${shortDate(data.opened)}.${
+            data.reconciled && unattributed !== 0
+              ? ` The curve is as keyed daily and ends at ${keyedTotal.toLocaleString()}${data.dataThrough ? ` on ${shortDate(data.dataThrough)}` : ''}; the reconciled final is ${data.reconciled.total.toLocaleString()}.`
+              : ''
+          }${
             data.prior
               ? ` The ${data.prior.cohort} curve is aligned by days before close and runs to its final of ${data.prior.final.toLocaleString()} — the pace that matches the goal.`
               : ''

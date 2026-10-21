@@ -26,13 +26,18 @@
 // wired yet (the days or weeks after a close, before the new doc exists), the
 // page HOLDS on the cohort that just closed — its final figures, marked closed,
 // with the open cohort named — rather than going blank on the partner (Oct 21
-// 2026 ask). It never reaches further back than one cohort.
+// 2026 ask). It never reaches further back than one cohort. A held cohort's
+// headline is the RECONCILED final from the tracker's Summary tab (corporate
+// included — 957 for Fall 2026, per Luke on Oct 21), not the doc's daily-keyed
+// day-0 total (944), which is never reconciled after close. The running total
+// and program split still come from the doc and are footnoted as such.
 
 import {
   readDeadlineTable,
   getClosedWhartonCohorts,
   readProgramMixByCohort,
   readPriorCohortProgramCurves,
+  readTrackerCohortFinals,
   type CohortProgramMix,
 } from '@/lib/sheets';
 import { COHORT_SHEETS, type CohortSheet } from '@/lib/cohortSheets';
@@ -146,8 +151,16 @@ export interface WhartonPartnerData {
    *  the page is still showing the one before it. Null while the shown cohort
    *  is the live one. Only the term name and open date — nothing from a doc. */
   nextCohort: { cohort: string; opened: string } | null;
-  /** Cumulative enrollments for the cohort as of `dataThrough`. */
+  /** Cumulative enrollments for the cohort as of `dataThrough` — or, for a
+   *  closed cohort with a `reconciled` entry, that reconciled final. */
   total: number;
+  /** Set only for a closed cohort whose reconciled final exists on the cohort
+   *  tracker's Summary tab. `total` is then that figure, corporate (B2B)
+   *  enrollments included; the doc's daily-keyed day-0 total is kept here so
+   *  the UI can say the running total and program split stop at it. Null while
+   *  live, or when the tracker has no column for the term yet (then `total` is
+   *  the keyed figure and nothing on the page claims otherwise). */
+  reconciled: { total: number; b2b: number | null; keyedTotal: number } | null;
   programs: WhartonProgramRow[];
   /** Cohort-level running total, one point per day. */
   series: Array<{ date: string; total: number }>;
@@ -322,17 +335,28 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
   // — so it must never take the enrollment figures down with it.
   const prevWin = getCohortBefore(win);
   const historySheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const [card, history, cohortMix, priorPrograms] = await Promise.all([
+  const [card, history, cohortMix, priorPrograms, trackerFinals] = await Promise.all([
     readDeadlineTable(sheetId, wiring.deadlineTab, win.termLabel, readAt),
     historySheetId ? getClosedWhartonCohorts(historySheetId) : Promise.resolve([]),
     readProgramMixByCohort().catch(() => null),
     prevWin
       ? readPriorCohortProgramCurves(sheetId, prevWin.termLabel).catch(() => null)
       : Promise.resolve(null),
+    // Only a closed cohort has a reconciled final; the live one is the doc's number.
+    closed ? readTrackerCohortFinals().catch(() => null) : Promise.resolve(null),
   ]);
   if (!card || card.cohortToDate === null) {
     return { ok: false, reason: `${win.termLabel} enrollment data is temporarily unavailable. Please try again shortly.` };
   }
+
+  // The headline for a held cohort is the tracker's reconciled total when the
+  // tab has a column for this term. The keyed day-0 total rides along so the
+  // UI can label the curve and the split, which are still on that basis.
+  const trackerFinal = closed ? trackerFinals?.get(win.termLabel) ?? null : null;
+  const reconciled = trackerFinal
+    ? { total: trackerFinal.total, b2b: trackerFinal.b2b, keyedTotal: card.cohortToDate }
+    : null;
+  const total = reconciled?.total ?? card.cohortToDate;
 
   // Once the shown cohort has closed it may already have its own column in the
   // history sheet. It is the subject of the page, not one of the earlier
@@ -413,7 +437,8 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
     daysRemaining: daysUntilCutover(win, asOf),
     closed,
     nextCohort: next ? { cohort: next.termLabel, opened: next.opens } : null,
-    total: card.cohortToDate,
+    total,
+    reconciled,
     // Left in the cohort doc's own column order, NOT sorted by size: the UI
     // colours each program by its position here, and a rank-ordered list would
     // repaint every program the day two of them swap places.
