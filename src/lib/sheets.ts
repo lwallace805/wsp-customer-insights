@@ -2155,6 +2155,74 @@ export async function readProgramMixByCohort(
   }
 }
 
+// ─── A closed cohort's reconciled final (tracker "Summary" tab) ──────────────
+//
+// The cohort doc's deadline table is a DAILY-KEYED running total that stops on
+// the close date and is never reconciled afterwards — Spring 2026 ended at
+// 1,003 there against 1,002 reconciled; Fall 2026 at 944 against 957. The
+// reconciled number lives on the tracker's Summary tab: one column per cohort
+// term, with a "Total Enrollments" row (corporate/B2B included), a "B2B
+// Enrollments" row, and a "Total Enrollments Excl. B2B" row.
+//
+// Read by header text, never by position (the owner adds a column each cohort).
+// Each column is checked against the sheet's own identity — total − B2B must
+// equal the excl.-B2B row — and dropped if it doesn't hold, so a row moving
+// under us produces a missing cohort rather than a confident wrong final.
+
+export interface TrackerCohortFinal {
+  /** Every enrollment during the cohort, corporate (B2B) included. */
+  total: number;
+  /** Corporate/B2B enrollments inside `total`; null when that row isn't present. */
+  b2b: number | null;
+}
+
+export async function readTrackerCohortFinals(
+  sheetId: string = COHORT_TRACKER_DOC_ID,
+  tab = 'Summary',
+): Promise<Map<string, TrackerCohortFinal> | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:AZ40`,
+    });
+    const rows = (res.data.values ?? []) as string[][];
+    const text = (c: unknown) => String(c ?? '').replace(/\s+/g, ' ').trim();
+
+    // Anchor on the "Term" row; every cell to its right that reads like an
+    // academic term ("Fall 2026") is a cohort column.
+    const termRow = rows.find(r => (r ?? []).some(c => /^term$/i.test(text(c))));
+    if (!termRow) return null;
+    const labelCol = termRow.findIndex(c => /^term$/i.test(text(c)));
+    const cohortCols: Array<{ col: number; term: string }> = [];
+    termRow.forEach((c, col) => {
+      const t = text(c);
+      if (col > labelCol && /^(Winter|Spring|Summer|Fall) 20\d\d$/.test(t)) cohortCols.push({ col, term: t });
+    });
+    if (cohortCols.length === 0) return null;
+
+    // Row labels carry footnote markers ("Total Enrollments*", "B2B Enrollments**").
+    const rowBy = (pred: (label: string) => boolean) => rows.find(r => pred(text(r?.[labelCol])));
+    const totalRow = rowBy(l => /^total enrollments\**$/i.test(l));
+    const b2bRow = rowBy(l => /^b2b enrollments\**$/i.test(l));
+    const exclRow = rowBy(l => /^total enrollments excl/i.test(l));
+    if (!totalRow) return null;
+
+    const out = new Map<string, TrackerCohortFinal>();
+    for (const { col, term } of cohortCols) {
+      const total = N(totalRow[col]);
+      if (total === null) continue;
+      const b2b = b2bRow ? N(b2bRow[col]) : null;
+      const excl = exclRow ? N(exclRow[col]) : null;
+      if (b2b !== null && excl !== null && total - b2b !== excl) continue;
+      out.set(term, { total, b2b });
+    }
+    return out.size > 0 ? out : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── A closed cohort's per-program curves ────────────────────────────────────
 //
 // Each Wharton cohort doc keeps a "<Term> Data" tab for the cohorts before it —

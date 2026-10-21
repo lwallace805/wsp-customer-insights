@@ -71,6 +71,15 @@ outside the internal Google gate, and it is deliberately narrow:
   banner, "final enrollment" wording and a Closed badge. It never reaches back
   more than one cohort; two cohorts stale shows the "not connected" message
   instead. Wiring the new cohort's doc into `COHORT_SHEETS` flips the page over.
+  A held cohort's **headline is the reconciled final** from the tracker's
+  "Summary" tab (`readTrackerCohortFinals()`, "Total Enrollments" row, B2B
+  included — 957 for Fall 2026), because the doc's deadline table stops at its
+  daily-keyed day-0 total (944) and is never reconciled. The running total and
+  program split stay on the doc's keyed basis and the page footnotes the gap.
+  Note the finals used for the goal and the comparison table are still the AN
+  Summary's day-0 values (closer to the tracker's excl.-B2B row), so bases are
+  mixed by a few enrollments; moving everything to one basis is a deliberate
+  scope decision, not a quick edit.
 - **Middleware** runs the partner branch before NextAuth. The partner cookie is
   accepted on `/wharton` and `/api/wharton` only; an internal Google session also
   works, so staff following the nav link aren't asked for the partner password.
