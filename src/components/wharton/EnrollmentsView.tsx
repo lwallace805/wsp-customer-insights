@@ -15,8 +15,8 @@ function Shell({ children }: { children: React.ReactNode }) {
       {children}
       <footer className="mt-12 pt-6 border-t border-white/10 text-xs text-gray-500">
         Prepared by Wall Street Prep. Figures are enrollments recorded in the cohort tracker and are
-        updated each business day. The cohort goal is set in line with the prior cohort&apos;s final
-        enrollment.
+        updated each business day while enrollment is open. The cohort goal is set in line with the
+        prior cohort&apos;s final enrollment.
       </footer>
     </div>
   );
@@ -33,7 +33,11 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
     );
   }
 
-  const closed = data.daysRemaining === 0;
+  // Set by the payload only while the page is holding on a cohort that has
+  // already closed (the next one's tracker isn't connected yet). The live
+  // cohort is never "closed" here, even on its last day — "0 days left" is the
+  // honest reading of that day.
+  const closed = data.closed;
   // Compared against the day the data runs through, not `new Date()`: the page
   // is rendered on the server, and a UTC "today" would flip this a few hours
   // early for a reader in the US.
@@ -68,6 +72,19 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
 
   return (
     <Shell>
+      {/* ── Closed-cohort notice ─────────────────────────────────────────── */}
+      {closed && (
+        <div
+          role="status"
+          className="mb-5 bg-amber-400/[0.07] border border-amber-400/30 rounded-xl px-5 py-4 text-sm text-amber-100/90 leading-relaxed"
+        >
+          {`${data.cohort} enrollment closed on ${longDate(data.extendedClose)}; the figures below are that cohort's final numbers.`}
+          {data.nextCohort
+            ? ` ${data.nextCohort.cohort} enrollment opened on ${longDate(data.nextCohort.opened)} — its figures will appear here once its tracker is connected.`
+            : ''}
+        </div>
+      )}
+
       {/* ── Headline ─────────────────────────────────────────────────────── */}
       <section className="bg-[#161b22] border border-white/10 rounded-xl p-6 sm:p-7">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -79,7 +96,8 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
               {data.total.toLocaleString()}
             </p>
             <p className="text-sm text-gray-400 mt-1.5">
-              total enrollments{data.dataThrough ? ` through ${longDate(data.dataThrough)}` : ''}
+              {closed ? 'final enrollment' : 'total enrollments'}
+              {data.dataThrough ? ` through ${longDate(data.dataThrough)}` : ''}
             </p>
           </div>
           <dl className="text-sm text-left sm:text-right space-y-2">
@@ -135,7 +153,11 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
           {/* One template literal, not JSX text: the compiler drops the space
               between an expression and a following HTML entity (&apos;). */}
           <p className="text-xs text-gray-500 mb-5">
-            {`The ${data.cohort} goal is set ${data.goal === data.prior.final ? 'flat to' : 'in line with'} the ${data.prior.cohort} cohort's final enrollment (${data.prior.final.toLocaleString()}). Pacing compares each cohort at the same number of days before close — enrollment is heavily deadline-weighted, so the like-for-like point matters more than percent of goal.`}
+            {`The ${data.cohort} goal ${closed ? 'was' : 'is'} set ${data.goal === data.prior.final ? 'flat to' : 'in line with'} the ${data.prior.cohort} cohort's final enrollment (${data.prior.final.toLocaleString()}). ${
+              closed
+                ? `Enrollment has closed, so this is the cohort's final result against that goal.`
+                : `Pacing compares each cohort at the same number of days before close — enrollment is heavily deadline-weighted, so the like-for-like point matters more than percent of goal.`
+            }`}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -144,12 +166,14 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
               <p className="text-xs text-gray-500 mt-0.5">{data.prior.cohort} finished at {data.prior.final.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-gray-500 text-xs uppercase tracking-wider">Enrolled so far</p>
+              <p className="text-gray-500 text-xs uppercase tracking-wider">
+                {closed ? 'Final enrollment' : 'Enrolled so far'}
+              </p>
               <p className="text-2xl font-semibold tabular-nums mt-1">
                 {data.total.toLocaleString()}
                 <span className="text-sm font-normal text-gray-400"> · {((data.total / data.goal) * 100).toFixed(0)}% of goal</span>
               </p>
-              {data.prior.daysToClose !== null && (
+              {!closed && data.prior.daysToClose !== null && (
                 <p className="text-xs text-gray-500 mt-0.5">
                   {`${data.prior.daysToClose} days to close as of ${data.dataThrough ? shortDate(data.dataThrough) : 'the last keyed day'}`}
                 </p>
@@ -158,7 +182,7 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
             {data.prior.totalAtSamePoint !== null && (
               <div>
                 <p className="text-gray-500 text-xs uppercase tracking-wider">
-                  {data.prior.cohort} at this point
+                  {closed && data.prior.daysToClose === 0 ? `${data.prior.cohort} final` : `${data.prior.cohort} at this point`}
                 </p>
                 <p className="text-2xl font-semibold tabular-nums mt-1">
                   {data.prior.totalAtSamePoint.toLocaleString()}
@@ -168,7 +192,9 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
                     {` · ${Math.abs(data.total - data.prior.totalAtSamePoint).toLocaleString()} ${data.total >= data.prior.totalAtSamePoint ? 'ahead' : 'behind'}`}
                   </span>
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">same days to close, prior cohort</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {closed && data.prior.daysToClose === 0 ? 'prior cohort, at its close' : 'same days to close, prior cohort'}
+                </p>
               </div>
             )}
           </div>
@@ -183,11 +209,15 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
               Cohort comparison
             </h2>
             <span className="text-xs text-gray-500">
-              {`Compared at ${data.comparisons.daysOut} days out`}
+              {data.comparisons.daysOut === 0 ? 'Compared at close' : `Compared at ${data.comparisons.daysOut} days out`}
             </span>
           </div>
           <p className="text-xs text-gray-500 mb-4">
-            {`Each cohort is measured at the same point in its countdown — ${data.comparisons.daysOut} days before close. Closed cohorts show their final enrollment; ${data.cohort} shows its goal.`}
+            {`${
+              data.comparisons.daysOut === 0
+                ? 'Each cohort is shown at its close.'
+                : `Each cohort is measured at the same point in its countdown — ${data.comparisons.daysOut} days before close.`
+            } Earlier cohorts show their final enrollment; ${data.cohort} shows its goal.`}
           </p>
           <table className="w-full text-sm">
             <thead>
@@ -202,9 +232,15 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
               <tr className="border-b border-white/5 bg-white/[0.03]">
                 <td className="py-2.5 text-gray-100 font-medium">
                   {data.cohort}
-                  <span className="ml-2 align-middle text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-400/40 text-amber-300">
-                    Active
-                  </span>
+                  {closed ? (
+                    <span className="ml-2 align-middle text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-white/20 text-gray-400">
+                      Closed
+                    </span>
+                  ) : (
+                    <span className="ml-2 align-middle text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-400/40 text-amber-300">
+                      Active
+                    </span>
+                  )}
                 </td>
                 <td className="py-2.5 px-3 text-right tabular-nums text-white font-medium">
                   {data.goal !== null ? pctOf(data.total, data.goal) : '—'}
@@ -232,7 +268,7 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
               )}
               <tr>
                 <td colSpan={4} className="pt-3 pb-1 text-[10px] uppercase tracking-wider text-gray-500">
-                  Closed cohorts
+                  Earlier cohorts
                 </td>
               </tr>
               {compRows.map(r => (
@@ -343,8 +379,9 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
             Programs&apos; performance
           </h2>
           <p className="text-xs text-gray-500 mb-4">
-            Enrollments by program across cohorts. Closed cohorts show their final enrollment;{' '}
-            {data.cohort} is still enrolling, so its column is a running total and will keep rising.
+            {closed
+              ? 'Enrollments by program across cohorts, each at its final enrollment.'
+              : `Enrollments by program across cohorts. Closed cohorts show their final enrollment; ${data.cohort} is still enrolling, so its column is a running total and will keep rising.`}
           </p>
           <div className="flex flex-wrap gap-x-5 gap-y-2 mb-3">
             {data.programMix.programs.map(p => (

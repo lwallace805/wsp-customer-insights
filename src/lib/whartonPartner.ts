@@ -21,6 +21,12 @@
 // split, or which day the data runs through. The prior cohort's curve comes
 // from the AN Summary sheet through getClosedWhartonCurve() — the same source
 // the internal cohort comparison reads.
+//
+// Between cohorts: when the cohort now open for enrollment has no tracker
+// wired yet (the days or weeks after a close, before the new doc exists), the
+// page HOLDS on the cohort that just closed — its final figures, marked closed,
+// with the open cohort named — rather than going blank on the partner (Oct 21
+// 2026 ask). It never reaches further back than one cohort.
 
 import {
   readDeadlineTable,
@@ -29,8 +35,16 @@ import {
   readPriorCohortProgramCurves,
   type CohortProgramMix,
 } from '@/lib/sheets';
-import { COHORT_SHEETS } from '@/lib/cohortSheets';
-import { getActiveCohort, getPreviousCohort, nowET, daysUntilCutover } from '@/lib/cohortCalendar';
+import { COHORT_SHEETS, type CohortSheet } from '@/lib/cohortSheets';
+import {
+  getActiveCohort,
+  getPreviousCohort,
+  getCohortBefore,
+  nowET,
+  dateOf,
+  daysUntilCutover,
+  type CohortWindow,
+} from '@/lib/cohortCalendar';
 
 export interface WhartonProgramRow {
   /** Program code as the cohort doc states it (PE, RE, FP&A, AVI, RDI). Rows
@@ -122,6 +136,16 @@ export interface WhartonPartnerData {
   /** Days from today (ET) to the extended close — the countdown the cohort doc
    *  itself runs on. Zero once enrollment has closed. */
   daysRemaining: number;
+  /** True when the cohort shown has already closed. That is only ever the case
+   *  while the page is holding on the previous cohort because the next one's
+   *  tracker isn't connected yet — the live cohort is never marked closed, even
+   *  on its last day. Figures are then read as of the close date, which is the
+   *  same day-0 basis the history sheet records a cohort's final on. */
+  closed: boolean;
+  /** The cohort now open for enrollment whose tracker isn't connected yet, so
+   *  the page is still showing the one before it. Null while the shown cohort
+   *  is the live one. Only the term name and open date — nothing from a doc. */
+  nextCohort: { cohort: string; opened: string } | null;
   /** Cumulative enrollments for the cohort as of `dataThrough`. */
   total: number;
   programs: WhartonProgramRow[];
@@ -197,6 +221,8 @@ function buildProgramMix(
   mix: CohortProgramMix[] | null,
   activeCohort: string,
   activePrograms: Array<{ program: string; total: number | null }>,
+  /** The shown cohort has closed, so its column is a final, not a running total. */
+  activeClosed: boolean,
 ): WhartonProgramMix | null {
   if (!mix || mix.length === 0) return null;
 
@@ -236,7 +262,7 @@ function buildProgramMix(
       cohort: activeCohort,
       byProgram: activeByProgram,
       total: Object.values(activeByProgram).reduce((s, v) => s + v, 0),
-      inProgress: true,
+      inProgress: !activeClosed,
     });
   }
 
@@ -253,30 +279,51 @@ function buildProgramMix(
   return { cohorts, programs };
 }
 
-export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<WhartonPartnerResult> {
-  const win = getActiveCohort('wharton', asOf);
-  if (!win) {
-    return { ok: false, reason: 'No Wharton cohort is currently open for enrollment.' };
-  }
+/** Which cohort the page shows. The cohort open for enrollment, whenever its
+ *  tracker is wired; otherwise the one that just closed, if THAT is wired,
+ *  flagged `closed` so the UI can say so. Never any further back — a page two
+ *  cohorts stale would look current in a way a reader couldn't tell from the
+ *  figures, and that is worse than the "not connected" message. */
+function resolveShownCohort(asOf: Date):
+  | { win: CohortWindow; wiring: CohortSheet; sheetId: string; closed: boolean; next: CohortWindow | null }
+  | { unavailable: string } {
+  const wired = (w: CohortWindow | null) => {
+    const wiring = w ? COHORT_SHEETS[w.key] : undefined;
+    const sheetId = wiring?.sheetId();
+    return w && wiring && sheetId ? { win: w, wiring, sheetId } : null;
+  };
 
-  const wiring = COHORT_SHEETS[win.key];
-  const sheetId = wiring?.sheetId();
-  if (!wiring || !sheetId) {
-    // Deliberately not falling back to the previous cohort's doc: a partner
-    // reading a stale cohort as the live one is worse than an empty page.
-    return {
-      ok: false,
-      reason: `The ${win.termLabel} cohort tracker isn't connected yet. Your Wall Street Prep contact has been able to see this too.`,
-    };
-  }
+  const live = getActiveCohort('wharton', asOf);
+  const liveWired = wired(live);
+  if (liveWired) return { ...liveWired, closed: false, next: null };
+
+  const lastWired = wired(getPreviousCohort('wharton', asOf));
+  if (lastWired) return { ...lastWired, closed: true, next: live };
+
+  return {
+    unavailable: live
+      ? `The ${live.termLabel} cohort tracker isn't connected yet. Your Wall Street Prep contact has been able to see this too.`
+      : 'No Wharton cohort is currently open for enrollment.',
+  };
+}
+
+export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<WhartonPartnerResult> {
+  const shown = resolveShownCohort(asOf);
+  if ('unavailable' in shown) return { ok: false, reason: shown.unavailable };
+  const { win, wiring, sheetId, closed, next } = shown;
+
+  // A closed cohort is read as of its close date, not today: that is the day-0
+  // row the history sheet records its final on, so the headline here and the
+  // same cohort's "final" in the next cohort's comparison table can't disagree.
+  const readAt = closed ? dateOf(win.extEnds) : asOf;
 
   // The closed cohorts' curves ride along with the main read. A missing history
   // is NOT an error for the page — the goal and comparisons are simply withheld
   // — so it must never take the enrollment figures down with it.
-  const prevWin = getPreviousCohort('wharton', asOf);
+  const prevWin = getCohortBefore(win);
   const historySheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const [card, closedCohorts, cohortMix, priorPrograms] = await Promise.all([
-    readDeadlineTable(sheetId, wiring.deadlineTab, win.termLabel, asOf),
+  const [card, history, cohortMix, priorPrograms] = await Promise.all([
+    readDeadlineTable(sheetId, wiring.deadlineTab, win.termLabel, readAt),
     historySheetId ? getClosedWhartonCohorts(historySheetId) : Promise.resolve([]),
     readProgramMixByCohort().catch(() => null),
     prevWin
@@ -286,6 +333,11 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
   if (!card || card.cohortToDate === null) {
     return { ok: false, reason: `${win.termLabel} enrollment data is temporarily unavailable. Please try again shortly.` };
   }
+
+  // Once the shown cohort has closed it may already have its own column in the
+  // history sheet. It is the subject of the page, not one of the earlier
+  // cohorts it is compared against, so it is dropped from that list here.
+  const closedCohorts = history.filter(c => c.label !== win.label);
 
   // Withhold rather than reshape: if the program columns don't sum to the cohort
   // total, the split is wrong in a way we can't correct here, and a partner
@@ -359,6 +411,8 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
     extendedClose: win.extEnds,
     earlyDeadline: win.eeEnds,
     daysRemaining: daysUntilCutover(win, asOf),
+    closed,
+    nextCohort: next ? { cohort: next.termLabel, opened: next.opens } : null,
     total: card.cohortToDate,
     // Left in the cohort doc's own column order, NOT sorted by size: the UI
     // colours each program by its position here, and a rank-ordered list would
@@ -377,7 +431,7 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
     goal: PARTNER_GOAL_OVERRIDES[win.key] ?? prior?.final ?? null,
     prior,
     comparisons,
-    programMix: buildProgramMix(cohortMix, win.termLabel, reconciles ? card.programs : []),
+    programMix: buildProgramMix(cohortMix, win.termLabel, reconciles ? card.programs : [], closed),
     generatedAt: new Date().toISOString(),
   };
 }

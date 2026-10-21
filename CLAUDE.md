@@ -63,6 +63,14 @@ outside the internal Google gate, and it is deliberately narrow:
   password that minted it, so **changing `WHARTON_ACCESS_PASSWORD` immediately
   revokes every cookie already issued** — that is the revocation mechanism.
   The gate fails closed: no password or no signing secret configured → nobody in.
+- **Between cohorts** the page holds on the cohort that just closed. When the
+  cohort open for enrollment has no entry in `COHORT_SHEETS` yet (or its env var
+  is unset), `resolveShownCohort()` falls back to the previous cohort if THAT is
+  wired, reads its doc as of its close date (the history sheet's day-0 "final"
+  basis), and sets `closed: true` plus `nextCohort` so the UI shows a closed
+  banner, "final enrollment" wording and a Closed badge. It never reaches back
+  more than one cohort; two cohorts stale shows the "not connected" message
+  instead. Wiring the new cohort's doc into `COHORT_SHEETS` flips the page over.
 - **Middleware** runs the partner branch before NextAuth. The partner cookie is
   accepted on `/wharton` and `/api/wharton` only; an internal Google session also
   works, so staff following the nav link aren't asked for the partner password.
