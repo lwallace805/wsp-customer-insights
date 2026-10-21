@@ -114,6 +114,25 @@ export function getPreviousCohort(family: 'wharton' | 'columbia', date: Date = n
   return past.length ? past[past.length - 1] : null;
 }
 
+/** The cohort immediately before `w` in the same family — the prior cohort
+ *  relative to a WINDOW rather than to today. For the active cohort this equals
+ *  getPreviousCohort(); for a surface holding on a cohort that has already
+ *  closed, it is that cohort's own predecessor, not itself. Ordered by open
+ *  date, not "closed before `w` opened": Spring '27 is transcribed as opening
+ *  on the day Winter '27's extension ends, and a close-based test would skip
+ *  Winter '27 entirely. */
+export function getCohortBefore(w: CohortWindow): CohortWindow | null {
+  const past = COHORT_WINDOWS
+    .filter(x => x.family === w.family && toMs(x.opens) < toMs(w.opens))
+    .sort((a, b) => toMs(a.opens) - toMs(b.opens));
+  return past.length ? past[past.length - 1] : null;
+}
+
+/** Local-midnight Date for a YYYY-MM-DD string. */
+export function dateOf(ymd: string): Date {
+  return new Date(toMs(ymd));
+}
+
 /** 1-based marketing-cycle week number (Aubrey's "Wharton Week 2 / Columbia Week 15"). */
 export function getCohortWeek(w: CohortWindow, date: Date = nowET()): number {
   const d = new Date(date).setHours(0, 0, 0, 0);
