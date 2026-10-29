@@ -8,10 +8,10 @@ import {
 import { AlertTriangle, TrendingUp, TrendingDown, Info, Lightbulb } from 'lucide-react';
 import type { School, SchoolFilter } from '@/data/performance/types';
 import {
-  CHANNEL_LABEL, PROGRAMS_BY_SCHOOL, MATRIX_CHANNELS,
-  MISSING_PLATFORM_METRICS, NET_REV,
+  CHANNEL_LABEL, PROGRAMS_BY_SCHOOL, MATRIX_CHANNELS, WEEKLY_CHANNELS,
+  MISSING_PLATFORM_METRICS, NET_REV, STATIC_PAID_DATA,
   derive, sumCounts,
-  type PaidChannel, type DerivedMetrics, type PaidWeekPoint, type PaidData, type CohortContext,
+  type PaidChannel, type DerivedMetrics, type PaidWeekPoint, type PaidData, type PaidSchoolSource,
 } from '@/data/performance/paidOptimization';
 import { COMBINED_EFFICIENCY } from '@/data/performance/historical';
 import {
@@ -22,11 +22,33 @@ import {
 const SCHOOL_LABEL: Record<School, string> = { wharton: 'Wharton', columbia: 'Columbia' };
 const SCHOOLS: School[] = ['wharton', 'columbia'];
 
-/** "Wharton at deadline; Columbia ~18 days left" — from each school's cohort context. */
+/** "Wharton Spring 2026 snapshot; Columbia ~18 days left" — from each school's
+ *  paid source and cohort context. */
 function cohortStatusLine(data: PaidData): string {
-  const status = (c: CohortContext) =>
-    c.daysRemaining == null ? 'in progress' : c.daysRemaining <= 0 ? 'at deadline' : `~${c.daysRemaining} days left`;
-  return SCHOOLS.map(s => `${SCHOOL_LABEL[s]} ${status(data.cohortContext[s])}`).join('; ');
+  const status = (s: School) => {
+    if (data.sources[s].state !== 'live') return `${data.sources[s].cohort} snapshot`;
+    const c = data.cohortContext[s];
+    return c.daysRemaining == null ? 'in progress' : c.daysRemaining <= 0 ? 'at deadline' : `~${c.daysRemaining} days left`;
+  };
+  return SCHOOLS.map(s => `${SCHOOL_LABEL[s]} ${status(s)}`).join('; ');
+}
+
+/** "Fall 2026 · live" / "Spring 2026 snapshot" — the cohort a school's channel figures describe. */
+function cohortTag(src: PaidSchoolSource): string {
+  return src.state === 'live' ? `${src.cohort} · live` : `${src.cohort} snapshot`;
+}
+
+/** Why a school's paid figures are not live from its cohort doc, for the page. */
+function SourceNotice({ school, data }: { school: School; data: PaidData }) {
+  const src = data.sources[school];
+  if (src.state === 'live') return null;
+  return (
+    <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-3 text-xs text-amber-200/90 leading-relaxed">
+      <span className="font-semibold">{SCHOOL_LABEL[school]} — showing the {src.cohort} snapshot</span>
+      {' '}(curated {STATIC_PAID_DATA.asOf}), not the current cohort.{' '}
+      {src.note ?? 'The live paid layer is not available for this school.'}
+    </div>
+  );
 }
 
 const CHANNEL_COLOR: Record<PaidChannel, string> = {
@@ -72,7 +94,7 @@ function ChannelScorecard({ school, data }: { school: School; data: PaidData }) 
         <div>
           <h2 className="text-sm font-semibold text-white">{SCHOOL_LABEL[school]} — Channel Scorecard</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            {data.cohortContext[school].cohort} · paid-attributed spend → leads → enrollments. CVR is lead→enroll.
+            {cohortTag(data.sources[school])} · paid-attributed spend → leads → enrollments. CVR is lead→enroll.
           </p>
         </div>
         <span className="text-xs text-gray-500">{fmtDollar(total.spend)} total paid · {fmt(total.enrolls)} paid enrolls</span>
@@ -181,8 +203,8 @@ function ProgramChannelMatrix({ data }: { data: PaidData }) {
 
   return (
     <SectionCard
-      title="Wharton — Program × Channel Efficiency"
-      subtitle="Where each program's paid dollars work hardest. Greener = better. Spend is program-attributed (excludes ~$131K Google brand search)."
+      title={`Wharton — Program × Channel Efficiency (${data.sources.wharton.programsLive ? data.sources.wharton.cohort : `${STATIC_PAID_DATA.cohortContext.wharton.cohort} snapshot`})`}
+      subtitle={`Where each program's paid dollars work hardest. Greener = better. Spend is program-attributed — Google brand/generic search isn't tagged to a program, so Google rows sum to less than the channel total${data.sources.wharton.programsLive ? '' : ' (~$131K in the Spring 2026 snapshot)'}.`}
     >
       <div className="flex gap-1.5 mb-4 flex-wrap">
         {MATRIX_METRICS.map(m => (
@@ -252,16 +274,18 @@ function weeklyValue(p: PaidWeekPoint, metric: WeeklyMetric): number | null {
 function WeeklyTrend({ school, data }: { school: School; data: PaidData }) {
   const [metric, setMetric] = useState<WeeklyMetric>('spend');
   const wk = data.weekly[school];
+  const src = data.sources[school];
 
-  // Per-channel series available for the school.
-  const series: { channel: PaidChannel; points: PaidWeekPoint[] }[] =
-    school === 'wharton'
-      ? [
-          { channel: 'google', points: wk.google },
-          { channel: 'meta', points: wk.meta ?? [] },
-          { channel: 'linkedin', points: wk.linkedin ?? [] },
-        ]
-      : [{ channel: 'google', points: wk.google }];
+  // Whichever per-channel series the school has: live, every platform the doc
+  // tables weekly; snapshot, Google / Meta / LinkedIn (Wharton) or Google (Columbia).
+  const series: { channel: PaidChannel; points: PaidWeekPoint[] }[] = WEEKLY_CHANNELS
+    .map(channel => ({ channel, points: wk[channel] ?? [] }))
+    .filter(s => s.points.length > 0);
+  const channelNames = series.map(s => CHANNEL_LABEL[s.channel]).join(' / ');
+  // The weekly series describe the live cohort only when they were read from
+  // its doc and reconciled; otherwise they are the snapshot's cohort, and the
+  // card says so rather than sitting under a current-cohort heading.
+  const weeklyCohort = src.weeklyLive ? src.cohort : STATIC_PAID_DATA.cohortContext[school].cohort;
 
   // Weeks with any activity (drop trailing all-zero future weeks).
   const allWeeks = wk.all
@@ -282,11 +306,11 @@ function WeeklyTrend({ school, data }: { school: School; data: PaidData }) {
 
   return (
     <SectionCard
-      title={`${SCHOOL_LABEL[school]} — Weekly Trend (current cohort)`}
+      title={`${SCHOOL_LABEL[school]} — Weekly Trend (${src.weeklyLive ? weeklyCohort : `${weeklyCohort} snapshot`})`}
       subtitle={
-        school === 'wharton'
-          ? 'Google / Meta / LinkedIn by week · LinkedIn & Meta launched ~3/17'
-          : 'Columbia is Google-led this cohort; combined paid shown where channels aren’t split weekly'
+        src.weeklyLive
+          ? `${channelNames} by cohort week, from the ${weeklyCohort} cohort doc's per-platform “Overall Performance by Week” tables (each series sums to its channel total) · the latest week is partial`
+          : `${channelNames} by week from the ${weeklyCohort} snapshot (curated ${STATIC_PAID_DATA.asOf}) — not the current cohort${src.state === 'live' ? `; the ${src.cohort} doc's weekly tables did not parse or reconcile` : ''}`
       }
     >
       <div className="flex gap-1.5 mb-4 flex-wrap">
@@ -302,22 +326,26 @@ function WeeklyTrend({ school, data }: { school: School; data: PaidData }) {
           </button>
         ))}
       </div>
-      <ResponsiveContainer width="100%" height={300}>
-        <ComposedChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-          <XAxis dataKey="week" {...AXIS_PROPS} />
-          <YAxis {...AXIS_PROPS} tickFormatter={isCost || isBar ? dollarsK : (v: number) => `${v}`} />
-          <Tooltip content={<ChartTooltip valueFormatter={isCost || isBar ? dollars : (v: number) => v.toLocaleString()} />} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          {series.map(s =>
-            isBar ? (
-              <Bar key={s.channel} dataKey={s.channel} name={CHANNEL_LABEL[s.channel]} stackId="spend" fill={CHANNEL_COLOR[s.channel]} fillOpacity={0.8} />
-            ) : (
-              <Line key={s.channel} dataKey={s.channel} name={CHANNEL_LABEL[s.channel]} type="monotone" stroke={CHANNEL_COLOR[s.channel]} strokeWidth={2} dot={{ r: 2 }} connectNulls />
-            ),
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
+      {chartData.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-12">No weekly paid activity recorded yet.</p>
+      ) : (
+        <ResponsiveContainer width="100%" height={300}>
+          <ComposedChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+            <XAxis dataKey="week" {...AXIS_PROPS} />
+            <YAxis {...AXIS_PROPS} tickFormatter={isCost || isBar ? dollarsK : (v: number) => `${v}`} />
+            <Tooltip content={<ChartTooltip valueFormatter={isCost || isBar ? dollars : (v: number) => v.toLocaleString()} />} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            {series.map(s =>
+              isBar ? (
+                <Bar key={s.channel} dataKey={s.channel} name={CHANNEL_LABEL[s.channel]} stackId="spend" fill={CHANNEL_COLOR[s.channel]} fillOpacity={0.8} />
+              ) : (
+                <Line key={s.channel} dataKey={s.channel} name={CHANNEL_LABEL[s.channel]} type="monotone" stroke={CHANNEL_COLOR[s.channel]} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+              ),
+            )}
+          </ComposedChart>
+        </ResponsiveContainer>
+      )}
     </SectionCard>
   );
 }
@@ -544,7 +572,7 @@ export default function PaidOptimizationDashboard({ data }: { data: PaidData }) 
     <div>
       <PageHeader
         title="Paid Optimization"
-        subtitle={`One view of paid channel performance — by university, program, and channel (Google · Meta · LinkedIn · Bing). Current cohorts: ${SCHOOLS.map(s => `${SCHOOL_LABEL[s]} ${data.cohortContext[s].cohort}`).join(' · ')}.`}
+        subtitle={`One view of paid channel performance — by university, program, and channel (Google · Meta · LinkedIn · Bing). Showing: ${SCHOOLS.map(s => `${SCHOOL_LABEL[s]} ${cohortTag(data.sources[s])}`).join(' · ')}.`}
         school={school as SchoolFilter}
         onSchoolChange={setSchool}
         right={<DataAsOf asOf={data.asOf} live={data.live} />}
@@ -559,12 +587,21 @@ export default function PaidOptimizationDashboard({ data }: { data: PaidData }) 
         <span className="text-amber-300/90">CPM / CTR / CPC live only in the ad-platform consoles — see “Funnel coverage” below.</span>
       </div>
 
+      {/* A school whose paid figures are not live from its cohort doc says so up front */}
+      {activeSchools.some(s => data.sources[s].state !== 'live') && (
+        <div className="mb-6 space-y-3">
+          {activeSchools.map(s => <SourceNotice key={s} school={s} data={data} />)}
+        </div>
+      )}
+
       {/* KPI row */}
       <div className="flex gap-4 flex-wrap mb-6">
         <KpiCard
           label={`Paid Spend${school === 'all' ? ' (both)' : ` · ${SCHOOL_LABEL[activeSchools[0]]}`}`}
           value={fmtDollar(scopeTotal.spend)}
-          sub={`${fmt(scopeTotal.leads)} leads · ${fmt(scopeTotal.enrolls)} paid enrolls`}
+          sub={`${fmt(scopeTotal.leads)} leads · ${fmt(scopeTotal.enrolls)} paid enrolls${
+            activeSchools.filter(s => data.sources[s].state !== 'live').map(s => ` · incl. ${SCHOOL_LABEL[s]} ${data.sources[s].cohort} snapshot`).join('')
+          }`}
         />
         <KpiCard
           label="Blended Paid CPE"

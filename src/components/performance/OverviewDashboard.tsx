@@ -1,8 +1,8 @@
 'use client';
 
-import { PROGRAM_LABELS, PROGRAM_SCHOOL, type CurrentSnapshot } from '@/data/performance/types';
+import { PROGRAM_LABELS, PROGRAM_SCHOOL, type CurrentSnapshot, type School } from '@/data/performance/types';
 import { WHARTON_HISTORY, COLUMBIA_HISTORY, COMBINED_EFFICIENCY } from '@/data/performance/historical';
-import { WHARTON_PAID_OVERALL, CBS_SPRING_GOOGLE } from '@/data/performance/paidChannels';
+import { NET_REV, summarizePaid, shortCohort, type PaidData } from '@/data/performance/paidOptimization';
 import { SELF_STUDY_2026 } from '@/data/performance/selfStudy';
 import { SITEWIDE_YOY } from '@/data/performance/traffic';
 import {
@@ -54,7 +54,9 @@ function ProgressToTarget({
   );
 }
 
-export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnapshot }) {
+const SCHOOL_NAME: Record<School, string> = { wharton: 'Wharton', columbia: 'Columbia' };
+
+export default function OverviewDashboard({ snapshot, paid }: { snapshot: CurrentSnapshot; paid: PaidData }) {
   const [school, setSchool] = usePersistentSchoolFilter();
 
   const programs = snapshot.programs.filter(p =>
@@ -79,21 +81,40 @@ export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnaps
   // Historical context for the latest closed cohorts
   const histLatest = school === 'columbia' ? COLUMBIA_HISTORY.slice(-1)[0] : WHARTON_HISTORY.slice(-1)[0];
 
-  // Current-cohort paid spend to date (Wharton: all paid; Columbia: Google-only so far)
-  const whartonPaidTotal = WHARTON_PAID_OVERALL.find(r => r.program === 'Total');
-  const paidSpendToDate =
-    school === 'wharton' ? (whartonPaidTotal?.spend ?? 0)
-    : school === 'columbia' ? CBS_SPRING_GOOGLE.spend
-    : (whartonPaidTotal?.spend ?? 0) + CBS_SPRING_GOOGLE.spend;
-  const cplToDate = totals.leads > 0 ? Math.round(paidSpendToDate / totals.leads) : null;
-  // To-date PPC ROAS — Wharton from its doc; Columbia computed with the same
-  // convention (enrolls × $4,500 AOV ÷ spend); All = combined.
-  const roasToDate =
-    school === 'wharton' ? whartonPaidTotal?.roas ?? null
-    : school === 'columbia' ? CBS_SPRING_GOOGLE.roas ?? null
-    : paidSpendToDate > 0
-      ? +((((whartonPaidTotal?.enrolls ?? 0) + (CBS_SPRING_GOOGLE.enrolls ?? 0)) * 4500) / paidSpendToDate).toFixed(2)
-      : null;
+  // Current-cohort paid to date, from the paid layer (the cohort docs' "Paid
+  // WoW Performance & Goals" tabs, or the curated snapshot when a doc can't be
+  // read) — per school, and only when it describes the SAME cohort the
+  // enrollment numbers above do (a snapshot of that cohort is shown, tagged).
+  // A school whose paid figures are for another cohort, or whose doc records
+  // no paid actuals yet, is left out of the figure and named in the tile
+  // instead — never filled from another cohort's numbers.
+  const paidParts = (school === 'all' ? (['wharton', 'columbia'] as School[]) : [school]).map(s => {
+    const p = summarizePaid(paid, s);
+    const cohort = snapshot.cohortLabels?.[s];
+    const leads = snapshot.programs
+      .filter(x => PROGRAM_SCHOOL[x.program] === s)
+      .reduce((a, x) => a + x.leads.realTime, 0);
+    const usable = !!cohort && p.cohort === cohort;
+    const gap = usable ? null
+      : p.state === 'unpopulated' ? `${SCHOOL_NAME[s]}: the ${p.docCohort ?? cohort} doc's paid tab shows no actuals yet`
+      : `${SCHOOL_NAME[s]}: paid layer is on ${p.cohort}${p.live ? '' : ' (snapshot)'}, not ${cohort}`;
+    return { school: s, p, cohort: cohort ?? '', leads, usable, gap };
+  });
+  const usablePaid = paidParts.filter(x => x.usable);
+  const paidSpendToDate = usablePaid.length ? usablePaid.reduce((a, x) => a + x.p.spend, 0) : null;
+  const paidLeads = usablePaid.reduce((a, x) => a + x.leads, 0);
+  // CPL to date = paid spend ÷ ALL leads to date, for the schools whose paid is live.
+  const cplToDate = paidSpendToDate != null && paidLeads > 0 ? Math.round(paidSpendToDate / paidLeads) : null;
+  // To-date PPC ROAS = paid-attributed enrolls × net revenue per enroll (NET_REV)
+  // ÷ paid spend — the Paid Optimization page's basis, where 1.0× is breakeven.
+  const roasToDate = paidSpendToDate
+    ? +(usablePaid.reduce((a, x) => a + x.p.paidEnrolls * NET_REV[x.school], 0) / paidSpendToDate).toFixed(2)
+    : null;
+  // Which in-progress cohort(s) the paid tiles describe, e.g. "F'26" or "W'27 / F'26".
+  const paidScope = usablePaid.map(x => shortCohort(x.cohort)).filter((l, i, a) => a.indexOf(l) === i).join(' / ')
+    + (usablePaid.some(x => !x.p.live) ? ', snapshot' : '');
+  const paidGaps = paidParts.map(x => x.gap).filter((g): g is string => !!g);
+  const paidGapText = paidGaps.length ? `No live paid for ${paidGaps.join('; ')}` : '';
 
   // Final-CPL context: per school from that school's last closed cohort;
   // under "All" from the combined rollup (C1'26).
@@ -121,7 +142,12 @@ export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnaps
         subtitle="Current cohort performance vs. forecast vs. target"
         school={school}
         onSchoolChange={setSchool}
-        right={<DataAsOf asOf={snapshot.asOf} live={snapshot.live} />}
+        right={(
+          <span className="inline-flex items-center gap-3">
+            <DataAsOf asOf={snapshot.asOf} live={snapshot.live} />
+            <span className="text-xs text-gray-500">paid: {paid.live ? `live · ${paid.asOf}` : <span className="text-amber-400/80">snapshot</span>}</span>
+          </span>
+        )}
       />
 
       {/* KPI row */}
@@ -130,20 +156,22 @@ export default function OverviewDashboard({ snapshot }: { snapshot: CurrentSnaps
         <KpiCard label="Forecast" value={fmt(totals.forecast)} sub={`${forecastGap >= 0 ? '+' : ''}${fmt(forecastGap)} vs target`} positive={forecastGap >= 0} />
         <KpiCard label="Leads" value={fmt(totals.leads)} sub={`${leadGapPct >= 0 ? '+' : ''}${leadGapPct.toFixed(0)}% vs forecast`} positive={leadGapPct >= 0} />
         <KpiCard
-          label="Paid Spend (to date)"
-          value={fmtDollar(paidSpendToDate)}
-          sub={`CPL to date $${cplToDate} · ${finalCplLabel}`}
-          positive={cplToDate !== null && cplToDate <= (school === 'all' ? combinedFinal.cpl : histLatest.cpl)}
+          label={paidSpendToDate != null ? `Paid Spend (${paidScope} to date)` : 'Paid Spend (to date)'}
+          value={paidSpendToDate != null ? fmtDollar(paidSpendToDate) : '—'}
+          sub={paidSpendToDate != null
+            ? `CPL to date ${cplToDate != null ? `$${cplToDate}` : '—'} · ${finalCplLabel}${paidGapText ? ` · ${paidGapText}` : ''}`
+            : paidGapText}
+          positive={cplToDate != null ? cplToDate <= (school === 'all' ? combinedFinal.cpl : histLatest.cpl) : undefined}
         />
         <KpiCard
-          label="PPC ROAS (to date)"
+          label={roasToDate != null ? `PPC ROAS (${paidScope} to date)` : 'PPC ROAS (to date)'}
           value={roasToDate != null ? `${roasToDate.toFixed(2)}x` : '—'}
-          sub={
-            school === 'all'
-              ? `${combinedFinal.cohort} combined final: ${combinedFinal.ppcRoas.toFixed(1)}x PPC · ${combinedFinal.blendedRoas.toFixed(1)}x blended`
-              : `${histLatest.cohort} final: ${histLatest.ppcRoas.toFixed(1)}x PPC · ${histLatest.blendedRoas.toFixed(1)}x blended`
-          }
-          positive={(roasToDate ?? 0) >= 1.5}
+          sub={roasToDate != null
+            ? `net revenue basis · ${school === 'all'
+                ? `${combinedFinal.cohort} combined final: ${combinedFinal.ppcRoas.toFixed(1)}x PPC · ${combinedFinal.blendedRoas.toFixed(1)}x blended`
+                : `${histLatest.cohort} final: ${histLatest.ppcRoas.toFixed(1)}x PPC · ${histLatest.blendedRoas.toFixed(1)}x blended`}`
+            : paidGapText}
+          positive={roasToDate != null ? roasToDate >= 1 : undefined}
         />
       </div>
 
