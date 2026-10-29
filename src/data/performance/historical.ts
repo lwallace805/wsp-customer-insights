@@ -15,22 +15,24 @@
 // that is the "WSP Professional Certificate Marketing Playbooks and Performance
 // Documents" index, which links to this tracker — not a data sheet.)
 // Snapshot taken 2026-06-10 through Winter 2026; Spring 2026 (both schools) and
-// Wharton Fall 2026 added 2026-10-29. Re-sync by asking Claude to re-read the sheet.
+// Wharton Fall 2026 added 2026-10-29, when every earlier row was re-checked
+// against the sheet (only the ROAS and net-revenue cells noted below had moved).
+// Re-sync by asking Claude to re-read the sheet.
 //
 // Notes from source:
 // - Enrollments are during the cohort marketing cycle, net of refunds.
-// - ROAS is on the sheet's own AOV basis. The tracker applies a $4,660 AOV from
-//   C2'25 (Spring 2025) onward ("AOV Increased from $4,500 to $4,660 starting in
-//   C2'25") and $4,500 before; the Spring/Fall 2026 rows follow it. The S'25 →
-//   W'26 rows below still carry the $4,500-basis values captured in June — on
-//   the sheet today W'26 reads 2.5x PPC / 5.9x blended, not 2.4x / 5.7x — so a
-//   re-sync of those six rows (three per school) is a separate change.
+// - ROAS is on the sheet's own AOV basis: $4,660 from C2'25 (Spring 2025)
+//   onward ("AOV Increased from $4,500 to $4,660 starting in C2'25"), $4,500
+//   before. The June snapshot still had the S'25 → W'26 rows (both schools) on
+//   $4,500; on 2026-10-29 they were re-synced to the sheet's current ROAS cells
+//   (AN Copy Summary rows 24–25 — e.g. Wharton W'26 2.4x / 5.7x → 2.5x / 5.9x,
+//   Columbia W'26 2.8x / 9.4x → 2.9x / 9.7x).
 // - Leads exclude bot traffic in Wharton S'25 and F'25 where noted
 //   ("leadsExBots"); raw lead counts retained in totalLeads.
 // - B2B = enterprise (sales-led, cohort-agnostic) + B2B cohort enrollments.
-// - avgNetRev is the sheet's "Avg. Net Rev" row ($2,796 Wharton, $3,029
-//   Columbia). That row reads $2,700 for Wharton S'23 → W'25, where the June
-//   rows below say 2,796 — left for the same re-sync.
+// - avgNetRev is the sheet's "Avg. Net Rev (Inc. to $4,660 AOV Spring 25)" row
+//   (AN Copy Summary row 32): $2,700 for Wharton S'23 → W'25, $2,796 from S'25
+//   on, $3,029 for Columbia.
 
 import type { CohortHistory } from './types';
 
@@ -41,7 +43,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     b2bEnrolls: 0, totalEnrollsExB2B: 510,
     totalLeads: 5363, leadsExBots: null, leadCvr: 9.5,
     cpl: 39, cpe: 408, ppcRoas: 3.4, blendedRoas: 11.0,
-    ppcSpend: 150930, totalSpend: 208044, avgNetRev: 2796,
+    ppcSpend: 150930, totalSpend: 208044, avgNetRev: 2700,
     channelEnrolls: {
       ppc: 113, email: 184, organicSearch: 0, social: 8, website: 82,
       referrals: 14, sponsored: 14, affiliates: 53, offline: 41,
@@ -54,7 +56,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     b2bEnrolls: 29, totalEnrollsExB2B: 500,
     totalLeads: 5043, leadsExBots: null, leadCvr: 9.9,
     cpl: 41, cpe: 417, ppcRoas: 6.0, blendedRoas: 10.8,
-    ppcSpend: 147108, totalSpend: 208644, avgNetRev: 2796,
+    ppcSpend: 147108, totalSpend: 208644, avgNetRev: 2700,
     channelEnrolls: {
       ppc: 195, email: 83, organicSearch: 0, social: 7, website: 40,
       referrals: 29, sponsored: 18, affiliates: 60, offline: 69,
@@ -66,7 +68,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     b2bEnrolls: 1, totalEnrollsExB2B: 502,
     totalLeads: 5473, leadsExBots: null, leadCvr: 9.2,
     cpl: 37, cpe: 408, ppcRoas: 5.5, blendedRoas: 11.0,
-    ppcSpend: 148382, totalSpend: 204616, avgNetRev: 2796,
+    ppcSpend: 148382, totalSpend: 204616, avgNetRev: 2700,
     channelEnrolls: {
       ppc: 180, email: 101, organicSearch: 6, social: 5, website: 28,
       referrals: 26, sponsored: 23, affiliates: 52, offline: 79,
@@ -78,7 +80,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     b2bEnrolls: 109, totalEnrollsExB2B: 1058,
     totalLeads: 16469, leadsExBots: 16469, leadCvr: 6.4,
     cpl: 47, cpe: 735, ppcRoas: 3.4, blendedRoas: 6.1,
-    ppcSpend: 593629, totalSpend: 777215, avgNetRev: 2796,
+    ppcSpend: 593629, totalSpend: 777215, avgNetRev: 2700,
     channelEnrolls: {
       ppc: 454, email: 124, organicSearch: 74, social: 16, website: 64,
       referrals: 27, sponsored: 38, affiliates: 116, offline: 145,
@@ -91,7 +93,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     b2bEnrolls: 54, totalEnrollsExB2B: 1154,
     totalLeads: 18905, leadsExBots: 18905, leadCvr: 6.1,
     cpl: 41, cpe: 665, ppcRoas: 3.2, blendedRoas: 6.8,
-    ppcSpend: 643048, totalSpend: 767728, avgNetRev: 2796,
+    ppcSpend: 643048, totalSpend: 767728, avgNetRev: 2700,
     channelEnrolls: {
       ppc: 456, email: 119, organicSearch: 87, social: 4, website: 41,
       referrals: 70, sponsored: 28, affiliates: 115, offline: 234,
@@ -103,7 +105,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     b2bEnrolls: 67, totalEnrollsExB2B: 1191,
     totalLeads: 19321, leadsExBots: 19321, leadCvr: 6.2,
     cpl: 39, cpe: 632, ppcRoas: 3.2, blendedRoas: 7.1,
-    ppcSpend: 673832, totalSpend: 752164, avgNetRev: 2796,
+    ppcSpend: 673832, totalSpend: 752164, avgNetRev: 2700,
     channelEnrolls: {
       ppc: 472, email: 144, organicSearch: 127, social: 4, website: 54,
       referrals: 68, sponsored: 21, affiliates: 96, offline: 205,
@@ -115,7 +117,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     paidEnrolls: 406, organicEnrolls: 826, totalEnrolls: 1232,
     b2bEnrolls: 197, totalEnrollsExB2B: 1035,
     totalLeads: 26208, leadsExBots: 18238, leadCvr: 5.7,
-    cpl: 41, cpe: 718, ppcRoas: 2.6, blendedRoas: 6.3,
+    cpl: 41, cpe: 718, ppcRoas: 2.7, blendedRoas: 6.5,
     ppcSpend: 667780, totalSpend: 742820, avgNetRev: 2796,
     channelEnrolls: {
       ppc: 385, email: 123, organicSearch: 105, social: 7, website: 32,
@@ -128,7 +130,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     paidEnrolls: 324, organicEnrolls: 600, totalEnrolls: 924,
     b2bEnrolls: 27, totalEnrollsExB2B: 897,
     totalLeads: 30722, leadsExBots: 16314, leadCvr: 5.5,
-    cpl: 50, cpe: 907, ppcRoas: 1.9, blendedRoas: 5.0,
+    cpl: 50, cpe: 907, ppcRoas: 2.0, blendedRoas: 5.1,
     ppcSpend: 710212, totalSpend: 813444, avgNetRev: 2796,
     channelEnrolls: {
       ppc: 307, email: 109, organicSearch: 124, aiReferral: 10, social: 4,
@@ -144,7 +146,7 @@ export const WHARTON_HISTORY: CohortHistory[] = [
     paidEnrolls: 413, organicEnrolls: 609, totalEnrolls: 1022,
     b2bEnrolls: 1, totalEnrollsExB2B: 1021,
     totalLeads: 19487, leadsExBots: 19487, leadCvr: 5.2,
-    cpl: 42, cpe: 794, ppcRoas: 2.4, blendedRoas: 5.7,
+    cpl: 42, cpe: 794, ppcRoas: 2.5, blendedRoas: 5.9,
     ppcSpend: 737158, totalSpend: 810733, avgNetRev: 2796,
     channelEnrolls: {
       ppc: 401, email: 96, organicSearch: 119, aiReferral: 21, social: 1,
@@ -222,7 +224,7 @@ export const COLUMBIA_HISTORY: CohortHistory[] = [
     paidEnrolls: 109, organicEnrolls: 336, totalEnrolls: 445,
     b2bEnrolls: 30, totalEnrollsExB2B: 415,
     totalLeads: 6749, leadsExBots: 6761, leadCvr: 6.1,
-    cpl: 36, cpe: 591, ppcRoas: 1.9, blendedRoas: 7.6,
+    cpl: 36, cpe: 591, ppcRoas: 2.0, blendedRoas: 7.9,
     ppcSpend: 166466, totalSpend: 245137, avgNetRev: 3029,
     // Channel detail from the CBS Summer 2025 cohort doc
     // (1ZX917V1WmvXJKl4QIzBfv51SovfrWGLbBYveQ1xq64Y)
@@ -237,7 +239,7 @@ export const COLUMBIA_HISTORY: CohortHistory[] = [
     paidEnrolls: 116, organicEnrolls: 374, totalEnrolls: 490,
     b2bEnrolls: 22, totalEnrollsExB2B: 468,
     totalLeads: 5063, leadsExBots: 5063, leadCvr: 9.2,
-    cpl: 44, cpe: 473, ppcRoas: 2.7, blendedRoas: 9.5,
+    cpl: 44, cpe: 473, ppcRoas: 2.8, blendedRoas: 9.9,
     ppcSpend: 168964, totalSpend: 221363, avgNetRev: 3029,
     // Channel detail from the CBS Fall 2025 cohort doc
     // (1R8qzrOg2xuP0dmRNxYS1iizglfnBnU8oi9Yir93fXkE)
@@ -251,7 +253,7 @@ export const COLUMBIA_HISTORY: CohortHistory[] = [
     paidEnrolls: 126, organicEnrolls: 359, totalEnrolls: 485,
     b2bEnrolls: 0, totalEnrollsExB2B: 485,
     totalLeads: 4428, leadsExBots: 4428, leadCvr: 11.0,
-    cpl: 53, cpe: 479, ppcRoas: 2.8, blendedRoas: 9.4,
+    cpl: 53, cpe: 479, ppcRoas: 2.9, blendedRoas: 9.7,
     ppcSpend: 181676, totalSpend: 232551, avgNetRev: 3029,
     channelEnrolls: {
       ppc: 117, email: 110, organicSearch: 59, social: 1, website: 15,
