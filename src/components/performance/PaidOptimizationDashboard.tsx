@@ -11,7 +11,7 @@ import {
   CHANNEL_LABEL, PROGRAMS_BY_SCHOOL, MATRIX_CHANNELS,
   MISSING_PLATFORM_METRICS, NET_REV,
   derive, sumCounts,
-  type PaidChannel, type DerivedMetrics, type PaidWeekPoint, type PaidData,
+  type PaidChannel, type DerivedMetrics, type PaidWeekPoint, type PaidData, type CohortContext,
 } from '@/data/performance/paidOptimization';
 import { COMBINED_EFFICIENCY } from '@/data/performance/historical';
 import {
@@ -21,6 +21,13 @@ import {
 
 const SCHOOL_LABEL: Record<School, string> = { wharton: 'Wharton', columbia: 'Columbia' };
 const SCHOOLS: School[] = ['wharton', 'columbia'];
+
+/** "Wharton at deadline; Columbia ~18 days left" — from each school's cohort context. */
+function cohortStatusLine(data: PaidData): string {
+  const status = (c: CohortContext) =>
+    c.daysRemaining == null ? 'in progress' : c.daysRemaining <= 0 ? 'at deadline' : `~${c.daysRemaining} days left`;
+  return SCHOOLS.map(s => `${SCHOOL_LABEL[s]} ${status(data.cohortContext[s])}`).join('; ');
+}
 
 const CHANNEL_COLOR: Record<PaidChannel, string> = {
   google: CHART_COLORS.blue,
@@ -537,7 +544,7 @@ export default function PaidOptimizationDashboard({ data }: { data: PaidData }) 
     <div>
       <PageHeader
         title="Paid Optimization"
-        subtitle="One view of paid channel performance — by university, program, and channel (Google · Meta · LinkedIn · Bing). Current cohort: Spring 2026."
+        subtitle={`One view of paid channel performance — by university, program, and channel (Google · Meta · LinkedIn · Bing). Current cohorts: ${SCHOOLS.map(s => `${SCHOOL_LABEL[s]} ${data.cohortContext[s].cohort}`).join(' · ')}.`}
         school={school as SchoolFilter}
         onSchoolChange={setSchool}
         right={<DataAsOf asOf={data.asOf} live={data.live} />}
@@ -548,7 +555,7 @@ export default function PaidOptimizationDashboard({ data }: { data: PaidData }) 
         <span className="font-semibold text-gray-300">Source of truth:</span> {data.live ? 'synced daily from' : 'curated snapshot of'} the live{' '}
         <span className="text-gray-300">Wharton</span> & <span className="text-gray-300">Columbia</span> performance dashboards (the same sheets the paid team maintains).{' '}
         Metrics are <span className="text-gray-300">paid-attributed</span> (platform spend → leads → enrollments); CVR is lead→enroll; ROAS is on <span className="text-gray-300">net revenue/enroll</span> (≈$2.8K Wharton / $3.0K Columbia), so <span className="text-gray-300">1.0× = contribution breakeven</span>.{' '}
-        <span className="text-gray-400">Both cohorts are in progress — enrollments lag spend, so CPE/ROAS improve toward each deadline (Wharton ~done; Columbia has ~37 days left).</span>{' '}
+        <span className="text-gray-400">Enrollments lag spend, so CPE/ROAS improve toward each deadline ({cohortStatusLine(data)}).</span>{' '}
         <span className="text-amber-300/90">CPM / CTR / CPC live only in the ad-platform consoles — see “Funnel coverage” below.</span>
       </div>
 

@@ -6,11 +6,10 @@
 // fails, the static snapshot from src/data/performance/currentSnapshot.ts is
 // served — pages always render.
 //
-// Sources:
-//   Wharton  — the active cohort's doc from src/lib/cohortSheets.ts (the same
-//              doc Pulse, /channels and the partner page read);
-//              WHARTON_COHORT_DOC_ID is the fallback when none is wired
-//   Columbia — COLUMBIA_COHORT_DOC_ID
+// Sources: each school reads the active cohort's doc from
+// src/lib/cohortSheets.ts (the same docs Pulse, /channels and the partner page
+// read); WHARTON_COHORT_DOC_ID / COLUMBIA_COHORT_DOC_ID are the fallbacks for
+// a cohort that has no registry entry yet.
 //
 // Parsing strategy: label-driven scan rather than fixed cells. The cohort
 // docs' marketing-dashboard tabs (Wharton: "Marketing Dashboard Data",
@@ -103,11 +102,10 @@ async function readDocPrograms(docId: string): Promise<Partial<Record<ProgramKey
 }
 
 async function fetchLiveSnapshot(): Promise<CurrentSnapshot | null> {
-  // Wharton follows the registry; Columbia stays on its env var because the
-  // CBS Fall '26 doc's dashboard tab hasn't been checked against this parser.
   const whartonActive = getActiveCohortSheet('wharton');
+  const columbiaActive = getActiveCohortSheet('columbia');
   const whartonId = whartonActive?.sheetId ?? process.env.WHARTON_COHORT_DOC_ID;
-  const columbiaId = process.env.COLUMBIA_COHORT_DOC_ID;
+  const columbiaId = columbiaActive?.sheetId ?? process.env.COLUMBIA_COHORT_DOC_ID;
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) return null;
   if (!whartonId && !columbiaId) return null;
 
@@ -118,14 +116,17 @@ async function fetchLiveSnapshot(): Promise<CurrentSnapshot | null> {
   ]);
 
   const merged: Partial<Record<ProgramKey, ProgramRow>> = {};
-  let anySuccess = false;
+  // Per school: did its doc actually yield program rows? A fulfilled read of a
+  // tab with no recognisable rows contributes nothing and must not relabel
+  // the snapshot numbers it leaves in place.
+  const yielded = results.map(r => r.status === 'fulfilled' && Object.values(r.value).some(Boolean));
   for (const r of results) {
     if (r.status !== 'fulfilled') continue;
     for (const [k, v] of Object.entries(r.value)) {
-      if (v) { merged[k as ProgramKey] = v; anySuccess = true; }
+      if (v) merged[k as ProgramKey] = v;
     }
   }
-  if (!anySuccess) return null;
+  if (!yielded.some(Boolean)) return null;
 
   const programs = CURRENT_SNAPSHOT.programs.map(p => {
     const row = merged[p.program];
@@ -142,11 +143,15 @@ async function fetchLiveSnapshot(): Promise<CurrentSnapshot | null> {
   return {
     ...CURRENT_SNAPSHOT,
     programs,
-    // The Wharton label names the cohort whose doc was actually read, not the
-    // static snapshot's.
-    cohortLabels: whartonActive && results[0].status === 'fulfilled'
-      ? { ...CURRENT_SNAPSHOT.cohortLabels, wharton: whartonActive.win.termLabel }
-      : CURRENT_SNAPSHOT.cohortLabels,
+    // Each label names the cohort whose registry doc was actually read and
+    // parsed; a school that fell back to its env var, failed, or yielded no
+    // rows keeps the static snapshot's label alongside the snapshot's numbers.
+    cohortLabels: {
+      wharton: whartonActive && yielded[0]
+        ? whartonActive.win.termLabel : CURRENT_SNAPSHOT.cohortLabels.wharton,
+      columbia: columbiaActive && yielded[1]
+        ? columbiaActive.win.termLabel : CURRENT_SNAPSHOT.cohortLabels.columbia,
+    },
     asOf: new Date().toISOString().slice(0, 10),
     live: true,
   };
@@ -154,10 +159,23 @@ async function fetchLiveSnapshot(): Promise<CurrentSnapshot | null> {
 
 // Bump the cache key whenever the CurrentSnapshot shape changes — cached
 // values persist across deploys and would otherwise serve the old shape.
-const cachedFetch = unstable_cache(fetchLiveSnapshot, ['performance-live-v5'], {
+const cachedFetch = unstable_cache(fetchLiveSnapshot, ['performance-live-v6'], {
   revalidate: 86400, // single daily update
   tags: ['performance'],
 });
+
+/** The cached live read, or null when it is unavailable — for other server
+ *  readers (the paid layer) that need to know which cohort the enrollment
+ *  numbers describe. Demo mode is the page-level caller's concern, not this
+ *  one's: this runs inside other unstable_cache scopes. */
+export async function getLiveSnapshotOrNull(): Promise<CurrentSnapshot | null> {
+  try {
+    return await cachedFetch();
+  } catch (err) {
+    console.error('[performance/live] live read unavailable:', err);
+    return null;
+  }
+}
 
 export async function getCurrentSnapshot(): Promise<CurrentSnapshot> {
   if (isDemo()) {
