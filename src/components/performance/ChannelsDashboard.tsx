@@ -85,13 +85,23 @@ export default function ChannelsDashboard({ snapshot }: { snapshot: CurrentSnaps
         channelEnrolls: sumChannels(WHARTON_CURRENT_CHANNELS.channelEnrolls, COLUMBIA_CURRENT_CHANNELS.channelEnrolls),
       };
   const curPaid = (currentChannels.channelEnrolls.ppc ?? 0) + (currentChannels.channelEnrolls.sponsored ?? 0);
-  cohortSeries.push({
-    shortLabel: currentChannels.shortLabel,
-    total: currentChannels.total,
-    channelEnrolls: currentChannels.channelEnrolls,
-    paid: curPaid,
-    organic: currentChannels.total - curPaid,
-  });
+  // Once that cohort has closed into history, its final row already carries
+  // the channel split — appending the mid-cohort snapshot too would draw the
+  // same cohort twice (and out of order). The comparison and detail sections
+  // below still show the snapshot, labelled as closed, until they have a
+  // live source.
+  const currentClosed =
+    (school !== 'columbia' && WHARTON_HISTORY.some(c => c.cohort === WHARTON_CURRENT_CHANNELS.cohort)) ||
+    (school !== 'wharton' && COLUMBIA_HISTORY.some(c => c.cohort === COLUMBIA_CURRENT_CHANNELS.cohort));
+  if (!currentClosed) {
+    cohortSeries.push({
+      shortLabel: currentChannels.shortLabel,
+      total: currentChannels.total,
+      channelEnrolls: currentChannels.channelEnrolls,
+      paid: curPaid,
+      organic: currentChannels.total - curPaid,
+    });
+  }
 
   const mixData = cohortSeries.map(c => {
     const row: Record<string, string | number> = { cohort: c.shortLabel };
@@ -143,7 +153,9 @@ export default function ChannelsDashboard({ snapshot }: { snapshot: CurrentSnaps
   // Channel detail table — current cohort, sorted largest → smallest.
   const detail = {
     title: `${currentChannels.cohort} (${schoolLabel})`,
-    subtitle: 'Current cohort, in progress — channel-attributed enrollments',
+    subtitle: currentClosed
+      ? 'Cohort closed — channel-attributed snapshot from 2026-06-10; finals are on Historical Trends'
+      : 'Current cohort, in progress — channel-attributed enrollments',
     channelEnrolls: currentChannels.channelEnrolls,
     total: currentChannels.total,
   };

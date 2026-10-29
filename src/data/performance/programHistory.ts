@@ -1,8 +1,12 @@
 // Per-program lead volume, lead→enrollment CVR, and enrollments by cohort.
 //
 // Sources:
-// - Spring 2024 → Winter 2025: "Wharton + Columbia Historical Performance"
-//   rollup sheet (1R5XiIsJ_rjcwjc9VBkftGs6WglEvnCR_VaYybgNRiJM)
+// - Spring 2024 → Winter 2025: the "Professional Certificates Channel
+//   Performance" tracker (16Me7guESIVYQsIUsVk2y9bWYYtMu9RbBm8X-dWtpZFk),
+//   "Summary" tab, "Wharton Programs" block (columns W–AD). The June header
+//   cited 1R5XiIsJ_rjcwjc9VBkftGs6WglEvnCR_VaYybgNRiJM, which is the
+//   "Playbooks and Performance Documents" index that links to the tracker,
+//   not a data sheet.
 // - Spring 2025 → Spring 2026 (current): Wharton Spring 2026 cohort doc,
 //   "Channel Tables" tab (1o5lfRmA1nAe0BDnYtZ1OJOnU9eB8y4WeJdGNL0_BE_Y)
 // Snapshot taken 2026-06-10.
