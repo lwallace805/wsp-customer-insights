@@ -11,15 +11,15 @@ import {
   CHANNEL_LABEL, PROGRAMS_BY_SCHOOL, MATRIX_CHANNELS, WEEKLY_CHANNELS,
   MISSING_PLATFORM_METRICS, NET_REV, STATIC_PAID_DATA,
   derive, sumCounts,
-  type PaidChannel, type DerivedMetrics, type PaidWeekPoint, type PaidData, type PaidSchoolSource,
+  type PaidChannel, type DerivedMetrics, type PaidWeekPoint, type PaidData,
 } from '@/data/performance/paidOptimization';
 import { COMBINED_EFFICIENCY } from '@/data/performance/historical';
+import { SCHOOL_LABEL, CHANNEL_COLOR, cohortTag, SourceNotice } from './paidSource';
 import {
   usePersistentSchoolFilter, PageHeader, SectionCard, KpiCard, DataAsOf, ChartTooltip,
   CHART_COLORS, AXIS_PROPS, fmt, fmtDollar, fmtPct,
 } from './shared';
 
-const SCHOOL_LABEL: Record<School, string> = { wharton: 'Wharton', columbia: 'Columbia' };
 const SCHOOLS: School[] = ['wharton', 'columbia'];
 
 /** "Wharton Spring 2026 snapshot; Columbia ~18 days left" — from each school's
@@ -32,32 +32,6 @@ function cohortStatusLine(data: PaidData): string {
   };
   return SCHOOLS.map(s => `${SCHOOL_LABEL[s]} ${status(s)}`).join('; ');
 }
-
-/** "Fall 2026 · live" / "Spring 2026 snapshot" — the cohort a school's channel figures describe. */
-function cohortTag(src: PaidSchoolSource): string {
-  return src.state === 'live' ? `${src.cohort} · live` : `${src.cohort} snapshot`;
-}
-
-/** Why a school's paid figures are not live from its cohort doc, for the page. */
-function SourceNotice({ school, data }: { school: School; data: PaidData }) {
-  const src = data.sources[school];
-  if (src.state === 'live') return null;
-  return (
-    <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-5 py-3 text-xs text-amber-200/90 leading-relaxed">
-      <span className="font-semibold">{SCHOOL_LABEL[school]} — showing the {src.cohort} snapshot</span>
-      {' '}(curated {STATIC_PAID_DATA.asOf}), not the current cohort.{' '}
-      {src.note ?? 'The live paid layer is not available for this school.'}
-    </div>
-  );
-}
-
-const CHANNEL_COLOR: Record<PaidChannel, string> = {
-  google: CHART_COLORS.blue,
-  meta: CHART_COLORS.violet,
-  linkedin: CHART_COLORS.cyan,
-  bing: CHART_COLORS.amber,
-  affiliates: CHART_COLORS.gray,
-};
 
 const dollarsK = (v: number) => (v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v.toFixed(0)}`);
 const dollars = (v: number) => `$${Math.round(v).toLocaleString()}`;
