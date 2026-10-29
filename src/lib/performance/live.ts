@@ -6,9 +6,11 @@
 // fails, the static snapshot from src/data/performance/currentSnapshot.ts is
 // served — pages always render.
 //
-// Env vars:
-//   WHARTON_COHORT_DOC_ID   — current Wharton cohort performance tracker
-//   COLUMBIA_COHORT_DOC_ID  — current Columbia/CBS cohort performance tracker
+// Sources:
+//   Wharton  — the active cohort's doc from src/lib/cohortSheets.ts (the same
+//              doc Pulse, /channels and the partner page read);
+//              WHARTON_COHORT_DOC_ID is the fallback when none is wired
+//   Columbia — COLUMBIA_COHORT_DOC_ID
 //
 // Parsing strategy: label-driven scan rather than fixed cells. The cohort
 // docs' marketing-dashboard tabs (Wharton: "Marketing Dashboard Data",
@@ -23,6 +25,7 @@ import { unstable_cache } from 'next/cache';
 import { CURRENT_SNAPSHOT } from '@/data/performance/currentSnapshot';
 import type { CurrentSnapshot, ProgramKey } from '@/data/performance/types';
 import { isDemo } from '@/lib/demo/flag';
+import { getActiveCohortSheet } from '@/lib/cohortSheets';
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -100,7 +103,10 @@ async function readDocPrograms(docId: string): Promise<Partial<Record<ProgramKey
 }
 
 async function fetchLiveSnapshot(): Promise<CurrentSnapshot | null> {
-  const whartonId = process.env.WHARTON_COHORT_DOC_ID;
+  // Wharton follows the registry; Columbia stays on its env var because the
+  // CBS Fall '26 doc's dashboard tab hasn't been checked against this parser.
+  const whartonActive = getActiveCohortSheet('wharton');
+  const whartonId = whartonActive?.sheetId ?? process.env.WHARTON_COHORT_DOC_ID;
   const columbiaId = process.env.COLUMBIA_COHORT_DOC_ID;
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) return null;
   if (!whartonId && !columbiaId) return null;
@@ -136,6 +142,11 @@ async function fetchLiveSnapshot(): Promise<CurrentSnapshot | null> {
   return {
     ...CURRENT_SNAPSHOT,
     programs,
+    // The Wharton label names the cohort whose doc was actually read, not the
+    // static snapshot's.
+    cohortLabels: whartonActive && results[0].status === 'fulfilled'
+      ? { ...CURRENT_SNAPSHOT.cohortLabels, wharton: whartonActive.win.termLabel }
+      : CURRENT_SNAPSHOT.cohortLabels,
     asOf: new Date().toISOString().slice(0, 10),
     live: true,
   };
@@ -143,7 +154,7 @@ async function fetchLiveSnapshot(): Promise<CurrentSnapshot | null> {
 
 // Bump the cache key whenever the CurrentSnapshot shape changes — cached
 // values persist across deploys and would otherwise serve the old shape.
-const cachedFetch = unstable_cache(fetchLiveSnapshot, ['performance-live-v4'], {
+const cachedFetch = unstable_cache(fetchLiveSnapshot, ['performance-live-v5'], {
   revalidate: 86400, // single daily update
   tags: ['performance'],
 });

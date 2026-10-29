@@ -71,7 +71,7 @@ export async function getEnrollmentView(view: EnrollmentView, asOf: AsOf) {
   const cWin = getActiveCohort('columbia', at);
   const wSheet = getCohortSheet(wWin?.key);
   const cSheet = getCohortSheet(cWin?.key);
-  const whartonDocId = wSheet?.sheetId() ?? process.env.FALL26_PACING_SHEET_ID;
+  const whartonDocId = wSheet?.sheetId();
   if (!whartonDocId) throw new Error('No active Wharton cohort doc wired — see src/lib/cohortSheets.ts');
 
   return getPacingDataCurrent(whartonDocId, {

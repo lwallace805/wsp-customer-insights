@@ -1,12 +1,11 @@
 // ─── Pulse (L0) live data readers ─────────────────────────────────────────────
 //
 // The Pulse page always shows the CURRENT active cohort for each family, as
-// resolved by the cohort calendar (src/lib/cohortCalendar.ts). Today that is
-// Wharton Fall '26 (opened Jun 16) and CBS Spring '26 (term begins Jul 13,
-// extension through Jul 20 — the true cutover).
+// resolved by the cohort calendar (src/lib/cohortCalendar.ts), reading the doc
+// registered for it in src/lib/cohortSheets.ts.
 //
 // Sources (Jon's intake tabs — manual-first, every reader fails soft):
-//  - Wharton active cohort: the Fall '26 cohort doc (FALL26_PACING_SHEET_ID):
+//  - Wharton active cohort: its cohort performance doc:
 //    Deadline Pacing Table V2 (enrollments, daily goals) + Overall WoW (leads)
 //  - Columbia active cohort: the pacing sheet (enrollment summary) + the
 //    Columbia cohort doc (deadline table daily goals + Overall WoW leads)

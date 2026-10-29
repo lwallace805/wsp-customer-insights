@@ -32,6 +32,8 @@ Two external data sources power the app:
 - **Airtable** (`src/lib/airtable.ts`) — NPS survey responses and SurveyMonkey survey metadata. The base/table/field names are all driven by env vars (e.g. `AIRTABLE_BASE_ID`, `NPS_TABLE_NAME`, `NPS_SCORE_FIELD`) so the defaults in each API route can be overridden without code changes.
 - **Google Sheets** (`src/lib/sheets.ts`) — Enrollment pacing data read from a specific tab (`Overall Cohort - AN Summary`) using a service account. Column indices are hardcoded in the `COL` constant. Requires `GOOGLE_SERVICE_ACCOUNT_KEY` (JSON string) and `GOOGLE_PACING_SHEET_ID`.
 
+- **Cohort performance docs** (one Google Sheet per cohort, Jon's intake tabs) — registered in `src/lib/cohortSheets.ts`, keyed by the cohort calendar's cohort key. The doc id lives in code with an env var as an override (`WINTER27_PACING_SHEET_ID`, `FALL26_PACING_SHEET_ID`, `CBS_FALL26_COHORT_DOC_ID`, …), so a rotation is one code change that reaches every environment. Every surface resolves the active cohort's doc through `getActiveCohortSheet()` — Pulse, Cohort Command, `/enrollment`, `/wharton`, `/channels` and the performance dashboards — so a new cohort is wired once. New docs must be shared with the service account (`wsp-dashboard@onyx-philosophy-496115-b5.iam.gserviceaccount.com`) or every reader degrades to "unavailable".
+
 A third static data source lives in `src/data/historicalNPS.json` — pre-Airtable NPS scores that are merged into live data in the `/api/certificates` and homepage stats.
 
 ### Auth
@@ -71,6 +73,11 @@ outside the internal Google gate, and it is deliberately narrow:
   banner, "final enrollment" wording and a Closed badge. It never reaches back
   more than one cohort; two cohorts stale shows the "not connected" message
   instead. Wiring the new cohort's doc into `COHORT_SHEETS` flips the page over.
+  The AN Summary history sheet lags a rotation too: its newest "- actual" column
+  stays Fall '26 until Andrew adds a Winter '27 column, so `fetchHistoricalWhartonMap()`
+  treats that column as closed once the calendar says the cohort has ended — otherwise the
+  cohort that just finished would be the one missing from the flat goal and every
+  "last 3 cohorts" comparison.
   A held cohort's **headline is the reconciled final** from the tracker's
   "Summary" tab (`readTrackerCohortFinals()`, "Total Enrollments" row, B2B
   included — 957 for Fall 2026), because the doc's deadline table stops at its
@@ -100,7 +107,11 @@ outside the internal Google gate, and it is deliberately narrow:
   its own total row. Its basis is the cohort doc's Grand Total (Spring 2026 ends
   at 1,002, vs 997 on the AN Summary and 993 on the tracker), so it is only ever
   drawn program-against-same-program; the all-programs view keeps the AN Summary
-  curve, and the two are never summed or shown together.
+  curve, and the two are never summed or shown together. The tab's day-0 total must
+  also land within 5% of the cohort's AN Summary final or the per-program comparisons
+  are withheld — the Winter 2027 doc's "Fall 2026 Data" tab ends at 686 against
+  Fall 2026's 953, a narrower enrollment basis that would have drawn every program
+  ~28% under where it really closed.
 - **Cross-cohort program history** (the Programs' Performance stack) is the one
   figure NOT from the cohort doc: `readProgramMixByCohort()` reads the tracker's
   "Program ROAS Analysis" tab, enrollment block only. Two traps live there — it
@@ -135,7 +146,7 @@ Pages are a mix of Server Components (homepage) and client components that fetch
 
 ### Deployment
 
-Deployed on Vercel. Pushes to the `dev` branch auto-deploy to `dev.wsp-customer-insights.vercel.app` via `.github/workflows/preview-dev.yml`. Production deploys from `main`.
+Deployed on Vercel. Pushes to the `dev` branch auto-deploy to `wsp-analytics-dev.vercel.app` via `.github/workflows/preview-dev.yml`. Production deploys from `main`.
 
 ### Airtable Field Name Conventions
 

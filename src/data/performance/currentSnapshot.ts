@@ -13,8 +13,9 @@ import type { CurrentSnapshot } from './types';
 export const CURRENT_SNAPSHOT: CurrentSnapshot = {
   asOf: '2026-06-09',
   live: false,
-  // Which cohort each school's "current" numbers describe. Update when the
-  // COHORT_DOC_ID env vars are pointed at new cohort docs.
+  // Which cohort each school's "current" numbers describe. The live layer
+  // replaces Wharton's with the cohort calendar's active term; Columbia's
+  // follows COLUMBIA_COHORT_DOC_ID and has to be updated with it.
   cohortLabels: { wharton: 'Fall 2026', columbia: 'Spring 2026' },
   forecastNote:
     'Wharton forecast: 60/40 weighted model on Winter 2026 + Spring 2025. CBS forecast: 60/40 weighted on Winter 2026 + Fall 2025.',
