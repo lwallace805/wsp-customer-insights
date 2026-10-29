@@ -8,8 +8,10 @@
 // or validation fails, STATIC_PAID_DATA is served — the page always renders
 // correct numbers.
 //
-// Env vars (shared with live.ts — these are the same Wharton/Columbia docs):
-//   WHARTON_COHORT_DOC_ID, COLUMBIA_COHORT_DOC_ID, GOOGLE_SERVICE_ACCOUNT_KEY
+// Sources (shared with live.ts — the same Wharton/Columbia docs): Wharton is
+// the active cohort's doc from src/lib/cohortSheets.ts (WHARTON_COHORT_DOC_ID
+// as the fallback), Columbia is COLUMBIA_COHORT_DOC_ID;
+// GOOGLE_SERVICE_ACCOUNT_KEY authenticates both.
 //
 // LABEL-DRIVEN, NO GUESSING. In the "Paid WoW Performance & Goals" tab the four
 // platform tables are laid out SIDE-BY-SIDE (Google in the left columns, then
@@ -29,6 +31,7 @@ import {
 } from '@/data/performance/paidOptimization';
 import type { School } from '@/data/performance/types';
 import { isDemo } from '@/lib/demo/flag';
+import { getActiveCohortSheet } from '@/lib/cohortSheets';
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -48,10 +51,17 @@ function N(v: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
-const DOC_ENV: Record<School, string | undefined> = {
-  wharton: process.env.WHARTON_COHORT_DOC_ID,
-  columbia: process.env.COLUMBIA_COHORT_DOC_ID,
-};
+/** Which doc each school's paid tables come from. Wharton follows the active
+ *  cohort's registry entry (the doc Pulse, /channels and the partner page
+ *  read), with the env var as the fallback; Columbia stays on its env var
+ *  because the CBS Fall '26 doc's paid tabs haven't been checked against this
+ *  parser. Resolved per call so a rotation needs no restart. */
+function docIdFor(school: School): string | undefined {
+  if (school === 'wharton') {
+    return getActiveCohortSheet('wharton')?.sheetId ?? process.env.WHARTON_COHORT_DOC_ID;
+  }
+  return process.env.COLUMBIA_COHORT_DOC_ID;
+}
 
 type Grid = string[][];
 
@@ -158,7 +168,7 @@ async function fetchLivePaid(): Promise<PaidData | null> {
   let anyLive = false;
 
   for (const school of ['wharton', 'columbia'] as School[]) {
-    const docId = DOC_ENV[school];
+    const docId = docIdFor(school);
     if (!docId) continue;
     try {
       const grid = await readAllTabs(sheets, docId);
@@ -188,7 +198,7 @@ async function fetchLivePaid(): Promise<PaidData | null> {
 }
 
 // Bump the key when the parse/shape changes so stale cache doesn't persist.
-const cachedFetch = unstable_cache(fetchLivePaid, ['paid-perf-v3'], {
+const cachedFetch = unstable_cache(fetchLivePaid, ['paid-perf-v4'], {
   revalidate: 86400,
   tags: ['performance'],
 });

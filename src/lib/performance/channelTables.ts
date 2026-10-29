@@ -36,7 +36,7 @@ import {
 } from '@/lib/sheets';
 import { readWoWLeads } from '@/lib/pulseLive';
 import { COHORT_WINDOWS, getActiveCohort, daysOutAt, nowET } from '@/lib/cohortCalendar';
-import { COHORT_SHEETS } from '@/lib/cohortSheets';
+import { COHORT_SHEETS, getActiveCohortSheet } from '@/lib/cohortSheets';
 import type {
   ChannelTablesData, ProgramForecast, ForecastSide, ProgramKey, ProgramChannelBlock,
   AlignmentCheck,
@@ -53,17 +53,24 @@ export type {
   ProgramEconBlock, ChannelEconRow,
 } from './channelTablesTypes';
 
-export const CHANNEL_TABLES_DOC_ID =
-  process.env.FALL26_PACING_SHEET_ID ??
-  process.env.WHARTON_COHORT_DOC_ID ??
-  '1pUVvHARYuZaOLwUqkAtRbOdTkDvt4WRinWX2cd--5Kw';
+/** The Wharton doc /channels reads: the cohort open for enrollment, as wired
+ *  in src/lib/cohortSheets.ts — so a rotation there repoints this page together
+ *  with Pulse, /enrollment and the partner page. WHARTON_COHORT_DOC_ID only
+ *  covers a cohort with no registry entry yet. */
+export function whartonChannelDocId(): string {
+  return getActiveCohortSheet('wharton')?.sheetId
+    ?? process.env.WHARTON_COHORT_DOC_ID
+    ?? '1pUVvHARYuZaOLwUqkAtRbOdTkDvt4WRinWX2cd--5Kw';
+}
 
 /** The CBS AI certificate's own cohort performance doc — same tab names and
- *  same row grammar as Wharton's, one program instead of seven. Kept in sync
- *  with the 'c-fall-26' entry in src/lib/cohortSheets.ts. */
-export const CBS_CHANNEL_TABLES_DOC_ID =
-  process.env.CBS_FALL26_COHORT_DOC_ID ??
-  '1qHj4jZauhseusZIYrzVa_byhtkqR7GnZgUZetyo32cE';
+ *  same row grammar as Wharton's, one program instead of seven. Resolved the
+ *  same way, from the active Columbia cohort's registry entry. */
+export function cbsChannelDocId(): string {
+  return getActiveCohortSheet('columbia')?.sheetId
+    ?? process.env.CBS_FALL26_COHORT_DOC_ID
+    ?? '1qHj4jZauhseusZIYrzVa_byhtkqR7GnZgUZetyo32cE';
+}
 
 interface PartnerSource {
   docId: () => string;
@@ -84,13 +91,13 @@ interface PartnerSource {
 
 export const PARTNER_SOURCES: Record<PartnerKey, PartnerSource> = {
   wharton: {
-    docId: () => CHANNEL_TABLES_DOC_ID,
+    docId: whartonChannelDocId,
     forecastKeys: ['overall', 'overall-no-rdi', 'pe', 're', 'fpa', 'avi', 'rdi'],
     totalsKey: 'overall',
     hasNoRdiRollup: true,
   },
   cbs: {
-    docId: () => CBS_CHANNEL_TABLES_DOC_ID,
+    docId: cbsChannelDocId,
     // The economics table is bannered "Overall Performance"; it describes the
     // one program the unbannered matrix block covers.
     programAliases: { ai: 'ai', overall: 'ai' },

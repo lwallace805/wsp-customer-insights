@@ -61,7 +61,8 @@ export interface WhartonProgramRow {
   /** The SAME program in the prior cohort, re-dated onto this cohort's calendar
    *  by days-to-close — so selecting a program compares like with like instead
    *  of putting one program against the whole prior cohort. Null when the prior
-   *  cohort's data tab can't be read or doesn't carry this program.
+   *  cohort's data tab can't be read, doesn't carry this program, or isn't on
+   *  the cohort's own basis (its day-0 total more than 5% from the final).
    *
    *  Read from the prior cohort's own data tab, whose totals are on the cohort
    *  doc's Grand Total basis. That is a different basis from the cohort-level
@@ -297,9 +298,15 @@ function buildProgramMix(
  *  flagged `closed` so the UI can say so. Never any further back — a page two
  *  cohorts stale would look current in a way a reader couldn't tell from the
  *  figures, and that is worse than the "not connected" message. */
-function resolveShownCohort(asOf: Date):
-  | { win: CohortWindow; wiring: CohortSheet; sheetId: string; closed: boolean; next: CohortWindow | null }
-  | { unavailable: string } {
+interface ShownCohort {
+  win: CohortWindow;
+  wiring: CohortSheet;
+  sheetId: string;
+  closed: boolean;
+  next: CohortWindow | null;
+}
+
+function resolveShownCohort(asOf: Date): ShownCohort | { unavailable: string } {
   const wired = (w: CohortWindow | null) => {
     const wiring = w ? COHORT_SHEETS[w.key] : undefined;
     const sheetId = wiring?.sheetId();
@@ -320,9 +327,31 @@ function resolveShownCohort(asOf: Date):
   };
 }
 
+/** The cohort that just closed, as the page holds on it when the live cohort's
+ *  doc isn't wired: flagged closed, with `live` named as the cohort whose
+ *  tracker isn't connected. Null when the closed cohort isn't wired either. */
+function resolveHeldCohort(asOf: Date, live: CohortWindow): ShownCohort | null {
+  const w = getPreviousCohort('wharton', asOf);
+  const wiring = w ? COHORT_SHEETS[w.key] : undefined;
+  const sheetId = wiring?.sheetId();
+  return w && wiring && sheetId ? { win: w, wiring, sheetId, closed: true, next: live } : null;
+}
+
 export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<WhartonPartnerResult> {
   const shown = resolveShownCohort(asOf);
   if ('unavailable' in shown) return { ok: false, reason: shown.unavailable };
+  const result = await buildPartnerData(shown, asOf);
+  if (result.ok || shown.closed) return result;
+  // The live cohort is wired but its doc couldn't be read — not shared with the
+  // service account yet, a renamed tab, an outage. Hold on the cohort that just
+  // closed exactly as if the new doc weren't wired, rather than blanking the
+  // partner's page; the closed banner then names the cohort whose tracker is
+  // missing, which is the true state. Internal surfaces still fail loudly.
+  const held = resolveHeldCohort(asOf, shown.win);
+  return held ? buildPartnerData(held, asOf) : result;
+}
+
+async function buildPartnerData(shown: ShownCohort, asOf: Date): Promise<WhartonPartnerResult> {
   const { win, wiring, sheetId, closed, next } = shown;
 
   // A closed cohort is read as of its close date, not today: that is the day-0
@@ -400,8 +429,24 @@ export async function getWhartonPartnerData(asOf: Date = nowET()): Promise<Whart
   // one is: a point at N days-to-close is drawn on the date this cohort has N
   // days left. Same helper shape, so the two curves can never drift onto
   // different day math.
+  // The prior cohort's per-program tab has to be on the same footing as the
+  // cohort total it is drawn against. Fall 2026's tab in the Winter 2027 doc
+  // ends at 686 against the cohort's 953 final (it counts a narrower set of
+  // enrollments), so its program curves would sit ~28% under the whole-cohort
+  // figures on this page and read as a collapse that never happened. When the
+  // tab's own day-0 total is more than 5% from the prior final, every
+  // per-program comparison is withheld rather than drawn against the wrong
+  // baseline. (Spring 2026's tab ended at 1,002 against 997 — within the band.)
+  const priorTabFinal = priorPrograms
+    ? [...priorPrograms.finals.values()].reduce((s, v) => s + v, 0)
+    : null;
+  const priorBasisAgrees =
+    priorCurve !== null && priorTabFinal !== null && priorTabFinal > 0 && priorCurve.final > 0
+      ? Math.abs(priorTabFinal - priorCurve.final) / priorCurve.final <= 0.05
+      : false;
+
   const priorProgramSeries = new Map<string, Array<{ date: string; total: number }>>();
-  if (priorPrograms) {
+  if (priorPrograms && priorBasisAgrees) {
     const spanDays = Math.round((closeMs - utcOf(win.opens)) / DAY_MS);
     for (const [program, curve] of priorPrograms.byProgram) {
       const points = [...curve.entries()]

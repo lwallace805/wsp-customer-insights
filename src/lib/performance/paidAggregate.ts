@@ -32,7 +32,7 @@
 import { google } from 'googleapis';
 import { readPaidWoW, PAID_WOW_BASE_TAB, resolveVersionedTab } from '@/lib/sheets';
 import type { PaidRow } from '@/lib/sheets';
-import { CBS_CHANNEL_TABLES_DOC_ID } from './channelTables';
+import { cbsChannelDocId } from './channelTables';
 import { getActiveCohort, getCohortWeek } from '@/lib/cohortCalendar';
 import { readCbsPaidDaily, reconcile } from './cbsPaidDaily';
 import type { CohortSlice, DailyTotals } from './cbsPaidDaily';
@@ -45,7 +45,7 @@ const TAB = 'Paid Marketing Aggregate';
 /** Which doc backs each partner's paid view. CBS has no funnel doc and no
  *  "Paid Marketing Aggregate" tab — see buildCbsPaidAggregate below. */
 export function paidAggregateDocId(partner: PartnerKey): string {
-  return partner === 'cbs' ? CBS_CHANNEL_TABLES_DOC_ID : PAID_AGGREGATE_SHEET_ID;
+  return partner === 'cbs' ? cbsChannelDocId() : PAID_AGGREGATE_SHEET_ID;
 }
 
 export type {
@@ -382,7 +382,7 @@ function sumOf(rows: PaidRow[], pick: (r: PaidRow) => number | null): number | n
 }
 
 async function getCbsPaidAggregate(): Promise<AggregateResult> {
-  const docId = CBS_CHANNEL_TABLES_DOC_ID;
+  const docId = cbsChannelDocId();
   try {
     const auth = getAuth();
     const sheets = google.sheets({ version: 'v4', auth });

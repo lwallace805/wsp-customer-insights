@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { isDemo } from '@/lib/demo/flag';
 import { getDemoPacing } from '@/lib/demo/enrollment';
-import { nowET, getActiveCohort } from '@/lib/cohortCalendar';
+import { nowET, getActiveCohort, COHORT_WINDOWS, dateOf } from '@/lib/cohortCalendar';
 import { parseEconV2, platformFiguresFromPaidWoW } from '@/lib/performance/channelV2';
 import { econMetrics, type ChannelEconFigures } from '@/lib/performance/channelTablesTypes';
 
@@ -28,6 +28,9 @@ function N(v: string | undefined | null): number | null {
 export const W_GOALS: Record<string, number> = {
   "Spring '24": 1058, "Fall '24": 1154, "Winter '25": 1191,
   "Spring '25": 1035, "Fall '25": 897,  "Winter '26": 1021, "Spring '26": 1225,
+  // Fall '26 — "Overall Goals"!B2 of its cohort doc as it stood at the Oct 13
+  // 2026 close (the target was cut from 1,225 to 1,100 and then 1,030 in-cycle).
+  "Fall '26": 1030,
 };
 export const C_GOALS: Record<string, number> = {
   "Summer '25": 415, "Fall '25": 468, "Winter '26": 485, "Summer '26": 468,
@@ -1530,7 +1533,22 @@ async function fetchHistoricalWhartonMap(
     // "last 3 cohorts" set rolls forward on its own when a cohort closes and the
     // sheet owner adds a column. (This used to be a hardcoded index list that had
     // to be hand-edited on every rotation, and was one column stale.)
-    const { hist } = resolveSummaryBlocks(rows, hIdx).wharton;
+    const block = resolveSummaryBlocks(rows, hIdx).wharton;
+    const hist = [...block.hist];
+    // The newest "- actual" column stays the sheet's "active" one until its
+    // owner adds the next cohort's column, which can lag the close by weeks
+    // (Fall '26 closed Oct 13 2026; on Oct 29 the sheet still had no Winter '27
+    // column). A cohort the calendar says has closed is history regardless of
+    // where its column sits — otherwise the cohort that just finished is the one
+    // missing from every "last 3 cohorts" comparison, and the partner page has
+    // no prior-cohort final to hold its goal flat to.
+    if (block.activeCol !== null && block.activeLabel) {
+      const label = normLabel(block.activeLabel);
+      const win = COHORT_WINDOWS.find(w => w.family === 'wharton' && w.label === label);
+      if (win && dateOf(win.extEnds).getTime() < nowET().setHours(0, 0, 0, 0)) {
+        hist.push({ col: block.activeCol, label: block.activeLabel });
+      }
+    }
     const histCols = hist.map(h => h.col);
     const labels = hist.map(h => h.label);
 
@@ -1615,8 +1633,12 @@ function ymdOf(raw: string): string | undefined {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// Column indices (0-based) in each data row of the V2 table
-const V2 = {
+// Column indices (0-based) in each data row of the V2 table. These are the
+// positions verified in the Fall '26 and Winter '27 docs; every read resolves
+// each column from the header row first (resolveV2Cols) and only falls back to
+// the position here when that header text is missing, so an inserted column
+// moves the read instead of silently repointing it.
+const V2_DEFAULTS = {
   date:             0,  // "Current Date" — "M/D/YYYY"
   daysBeforeDeadline: 1, // "Day before Deadline"
   dailyActual:      4,  // "Total Daily Enrollments Actuals" (0 = pre-filled, not keyed)
@@ -1637,6 +1659,30 @@ const V2 = {
   plus10:           30, // "Plus 10%"  (still on the retired 1,225 basis)
   minus10:          31, // "Minus 10%" (still on the retired 1,225 basis)
 } as const;
+
+type V2Cols = Record<keyof typeof V2_DEFAULTS, number>;
+
+/** Resolve the V2 table's columns from its "Current Date" header row. The
+ *  secondary charting block at the far right repeats "Day before Deadline",
+ *  "Daily Goals" and "Total Daily Enrollments Actuals", so the FIRST match is
+ *  always the operative one. */
+function resolveV2Cols(header: string[]): V2Cols {
+  const h = header.map(c => String(c ?? '').replace(/\s+/g, ' ').trim().toLowerCase());
+  const first = (pred: (x: string) => boolean, fallback: number) => {
+    const i = h.findIndex(x => x !== '' && pred(x));
+    return i >= 0 ? i : fallback;
+  };
+  return {
+    date: first(x => x === 'current date', V2_DEFAULTS.date),
+    daysBeforeDeadline: first(x => x === 'day before deadline', V2_DEFAULTS.daysBeforeDeadline),
+    dailyActual: first(x => x === 'total daily enrollments actuals', V2_DEFAULTS.dailyActual),
+    totalEnrollments: first(x => /^total enrollments?$/.test(x), V2_DEFAULTS.totalEnrollments),
+    forecastEnrollments: first(x => x === 'forecast enrollments', V2_DEFAULTS.forecastEnrollments),
+    goalCumulative: first(x => x === 'forecast enrollments', V2_DEFAULTS.goalCumulative),
+    plus10: first(x => x === 'plus 10%', V2_DEFAULTS.plus10),
+    minus10: first(x => x === 'minus 10%', V2_DEFAULTS.minus10),
+  };
+}
 
 export async function getPacingDataV2(
   sheetId: string,
@@ -1659,8 +1705,9 @@ export async function getPacingDataV2(
   const rows = res.data.values ?? [];
 
   // --- Find header + data rows ---
-  const hIdx = rows.findIndex(r => r[V2.daysBeforeDeadline] === 'Day before Deadline');
-  if (hIdx < 0) throw new Error(`"Day before Deadline" header not found in "${V2_TAB}"`);
+  const hIdx = rows.findIndex(r => String(r[0] ?? '').trim() === 'Current Date');
+  if (hIdx < 0) throw new Error(`"Current Date" header row not found in "${V2_TAB}"`);
+  const V2 = resolveV2Cols((rows[hIdx] ?? []).map(c => String(c ?? '')));
 
   const dataRows = rows
     .slice(hIdx + 1)
@@ -1675,6 +1722,11 @@ export async function getPacingDataV2(
   const activeWharton = getActiveCohort('wharton', opts.asOf ?? nowET());
   const goalLabels = opts.cohortLabels
     ?? (activeWharton ? [activeWharton.termLabel, activeWharton.label] : ["Fall '26", 'Fall 2026']);
+  // The label every figure below is published under ("Winter '27"), from the
+  // calendar for the day being rendered — the summary card, key takeaway and
+  // comparison panel used to hardcode "Fall '26" and would have kept naming
+  // the previous cohort after the rotation.
+  const cohortLabel = activeWharton?.label ?? goalLabels.find(l => /'\d\d$/.test(l)) ?? goalLabels[0] ?? 'Wharton';
   const docGoal = await readDocGoal(sheetId, opts.goalsTab ?? 'Overall Goals', goalLabels);
   const finalGoal = docGoal?.goal ?? goalPlanTotal ?? 1225;
   const goalSource = docGoal
@@ -1792,14 +1844,14 @@ export async function getPacingDataV2(
   // --- Summary ---
   const pctDone = finalGoal > 0 ? (currentEnrolled / finalGoal * 100).toFixed(1) : '0.0';
   const vsGoal = currentEnrolled - currentGoalAtDay;
-  const keyTakeaway = `Wharton Fall '26 has enrolled ${currentEnrolled.toLocaleString()} of ${finalGoal.toLocaleString()} students (${pctDone}%) with ${daysRemaining} days remaining.${
+  const keyTakeaway = `Wharton ${cohortLabel} has enrolled ${currentEnrolled.toLocaleString()} of ${finalGoal.toLocaleString()} students (${pctDone}%) with ${daysRemaining} days remaining.${
     currentGoalAtDay > 0
       ? ` Goal pace: ${currentGoalAtDay.toLocaleString()} expected by this point (${vsGoal >= 0 ? '+' : ''}${vsGoal} vs pace). Last 3-cohort avg at this point: ${last3AvgEnrolled.toLocaleString()}.`
       : ''
   }`;
 
   const summary: CohortSummary[] = [{
-    cohort: "Fall '26",
+    cohort: cohortLabel,
     program: 'Wharton',
     goal: finalGoal,
     enrolled: currentEnrolled,
@@ -1882,11 +1934,11 @@ export async function getPacingDataV2(
     // on both sides of the comparison are keyed to.
     daysRemaining: comparisonDay,
     activeRow: {
-      label: "Fall '26",
+      label: cohortLabel,
       enrolled: currentEnrolled,
       goal: finalGoal,
       pctOfGoal: +(currentEnrolled / finalGoal * 100).toFixed(1),
-      // Fall '26 is still in progress — its own eventual final isn't known yet.
+      // The active cohort is still in progress — its eventual final isn't known yet.
       pctComplete: daysRemaining === 0 ? 100 : null,
       finalTotal: daysRemaining === 0 ? currentEnrolled : null,
       isActive: true,
@@ -2276,7 +2328,9 @@ export async function readPriorCohortProgramCurves(
     if (rows.length < 2) return null;
 
     const header = rows[0].map(c => String(c ?? ''));
-    const cDays = header.findIndex(h => /^days\s*out$/i.test(h.trim()));
+    // The day column is "Days Out" in the older tabs and plain "Day" from the
+    // Fall 2026 tab on; both count down to 0 on the extended close.
+    const cDays = header.findIndex(h => /^days?(\s*out)?$/i.test(h.trim()));
     // The cumulative block is anchored on PE's column; everything belonging to
     // the block sits within a few columns of it.
     const anchor = header.findIndex(h => /^pe\b/i.test(h.trim()) && /overall\s*enroll/i.test(h) && !/daily/i.test(h));
