@@ -6,7 +6,7 @@ import {
   Home, BarChart2, MessageSquare, Lightbulb,
   GraduationCap, TrendingUp, ChevronDown, Layers,
   Phone, Mic, Gauge, GitBranch, Globe, ShoppingCart, Target, Megaphone, Mail,
-  ExternalLink,
+  ExternalLink, Wallet,
 } from 'lucide-react';
 
 const CUSTOMER_INSIGHTS = [
@@ -26,6 +26,7 @@ const DASHBOARDS = [
   { href: '/weekly',                      label: 'Weekly Report',             icon: Mail },
   { href: '/enrollment',                  label: 'Enrollment Pacing',         icon: TrendingUp },
   { href: '/paid-aggregate',              label: 'Paid Marketing Aggregate',  icon: Megaphone },
+  { href: '/budget-pacing',               label: 'Budget Pacing — Wharton',   icon: Wallet },
   { href: '/channels',                    label: 'Channels — Paid vs Non-paid', icon: GitBranch },
   // The external Wharton view. Opens in a new tab and is marked `external` so it
   // never highlights as the active internal page — it's a different audience's
