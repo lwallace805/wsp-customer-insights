@@ -27,7 +27,8 @@
         "GOOGLE_CLIENT_ID": "local-dev-only",
         "GOOGLE_CLIENT_SECRET": "local-dev-only",
         "WHARTON_ACCESS_PASSWORD": "local-dev-only-partner",
-        "ALLOWED_EXTERNAL_EMAILS": "guest@example.com, Second.Guest@gmail.com"
+        "ALLOWED_EXTERNAL_EMAILS": "guest@example.com, Second.Guest@gmail.com",
+        "ALLOWED_EXTERNAL_DOMAINS": "partner.example"
       }
     }
   ]
