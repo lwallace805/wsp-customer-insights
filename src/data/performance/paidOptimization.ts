@@ -359,6 +359,69 @@ export interface WeeklySeries {
   google: PaidWeekPoint[];
   meta?: PaidWeekPoint[];
   linkedin?: PaidWeekPoint[];
+  bing?: PaidWeekPoint[];
+}
+
+/** The weekly series keys a platform table can feed. */
+export type WeeklyChannel = Exclude<PaidChannel, 'affiliates'>;
+export const WEEKLY_CHANNELS: WeeklyChannel[] = ['google', 'meta', 'linkedin', 'bing'];
+
+// ── Where each school's paid figures came from ────────────────────────────────
+// The live layer serves a cohort doc's numbers when they parse and validate and
+// this snapshot's otherwise, so a page that puts paid figures beside the live
+// enrollment numbers has to know WHICH cohort the paid figures describe.
+//   'live'        channel totals were read from the active cohort's registry doc
+//                 this run.
+//   'unpopulated' the doc parsed, but every platform's Total row reads $0 spend /
+//                 0 leads / 0 enrollments — the tab's actual columns aren't
+//                 feeding yet. The snapshot is served (as for 'snapshot'); pages
+//                 withhold the figures rather than show $0 as spend to date.
+//   'snapshot'    the doc could not be read or parsed; this file's figures.
+export type PaidSourceState = 'live' | 'unpopulated' | 'snapshot';
+
+export interface PaidSchoolSource {
+  state: PaidSourceState;
+  /** Cohort the served channel totals (and weekly series, when live) describe. */
+  cohort: string;
+  /** Cohort whose doc the registry resolved, when it did — names the doc in notes. */
+  docCohort: string | null;
+  /** Weekly series were read from the same doc and sum to its channel totals. */
+  weeklyLive: boolean;
+  /** Program × channel leaves were read from the same doc (Wharton only). */
+  programsLive: boolean;
+  /** Why the figures are not live, for the page to show. */
+  note: string | null;
+}
+
+/** "Fall 2026" → "F'26" — the cohort tag the dashboards print beside a figure. */
+export function shortCohort(cohort: string): string {
+  return cohort.replace(/^(\w)\w*\s+20(\d\d)$/, "$1'$2");
+}
+
+/** The to-date paid totals a page shows beside its enrollment numbers, with the
+ *  provenance it needs to label them. ROAS is on net revenue per enrollment
+ *  (NET_REV), the same basis as every ROAS on the Paid Optimization page. */
+export interface PaidSummary extends PaidSchoolSource {
+  school: School;
+  live: boolean;
+  spend: number;
+  paidLeads: number;
+  paidEnrolls: number;
+  roas: number | null;
+}
+
+export function summarizePaid(data: PaidData, school: School): PaidSummary {
+  const source = data.sources[school];
+  const m = derive(sumCounts(data.channelsBySchool[school]), school);
+  return {
+    ...source,
+    school,
+    live: source.state === 'live',
+    spend: m.spend,
+    paidLeads: m.leads,
+    paidEnrolls: m.enrolls,
+    roas: m.roas,
+  };
 }
 
 export interface PaidData {
@@ -368,7 +431,17 @@ export interface PaidData {
   whartonProgramChannel: ProgramChannelLeaf[];
   weekly: Record<School, WeeklySeries>;
   cohortContext: Record<School, CohortContext>;
+  sources: Record<School, PaidSchoolSource>;
 }
+
+const SNAPSHOT_SOURCE = (school: School): PaidSchoolSource => ({
+  state: 'snapshot',
+  cohort: COHORT_CONTEXT[school].cohort,
+  docCohort: null,
+  weeklyLive: false,
+  programsLive: false,
+  note: null,
+});
 
 // The curated snapshot, assembled from the constants above. Sourced 2026-06-13.
 export const STATIC_PAID_DATA: PaidData = {
@@ -378,4 +451,5 @@ export const STATIC_PAID_DATA: PaidData = {
   whartonProgramChannel: WHARTON_PROGRAM_CHANNEL,
   weekly: { wharton: WHARTON_WEEKLY, columbia: COLUMBIA_WEEKLY },
   cohortContext: COHORT_CONTEXT,
+  sources: { wharton: SNAPSHOT_SOURCE('wharton'), columbia: SNAPSHOT_SOURCE('columbia') },
 };
