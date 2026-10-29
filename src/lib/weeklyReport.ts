@@ -34,9 +34,15 @@ function weekEnded(range: string, asOf: Date): boolean {
   const m = range.match(/-\s*(\d{1,2})\/(\d{1,2})/);
   if (!m) return true;
   const end = new Date(asOf.getFullYear(), parseInt(m[1]) - 1, parseInt(m[2]));
-  // Cohorts straddle New Year, so a range parsed into the wrong year lands
-  // ~6 months out; pull it back a year when it does.
-  if (end.getTime() - asOf.getTime() > 182 * 86400000) end.setFullYear(end.getFullYear() - 1);
+  // The ranges carry no year and cohorts straddle New Year, so a range parsed
+  // into the as-of year can land ~6 months out in EITHER direction: viewed from
+  // January, an October week reads as next October (pull it back a year);
+  // viewed from October, a February week reads as last February (push it
+  // forward). The Winter '27 doc's "2/9-2/16" counted as a completed week on
+  // Oct 29 2026 and every week of the cohort with it.
+  const diff = end.getTime() - asOf.getTime();
+  if (diff > 182 * 86400000) end.setFullYear(end.getFullYear() - 1);
+  else if (diff < -182 * 86400000) end.setFullYear(end.getFullYear() + 1);
   return end.getTime() < new Date(asOf).setHours(0, 0, 0, 0);
 }
 
