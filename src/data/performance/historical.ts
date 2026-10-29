@@ -1,16 +1,36 @@
-// Historical cohort performance — Wharton (Spring 2023 → Winter 2026) and
-// Columbia/CBS (Summer 2025 → Winter 2026).
+// Historical cohort performance — Wharton (Spring 2023 → Fall 2026) and
+// Columbia/CBS (Summer 2025 → Spring 2026).
 //
-// Source: "Wharton + Columbia Historical Performance" Google Sheet
-//   https://docs.google.com/spreadsheets/d/1R5XiIsJ_rjcwjc9VBkftGs6WglEvnCR_VaYybgNRiJM
-// Snapshot taken 2026-06-10. Re-sync by asking Claude to re-read the sheet.
+// Source: the "Professional Certificates Channel Performance" tracker (the
+// Summary Cohort Tracker), Google Sheet id 16Me7guESIVYQsIUsVk2y9bWYYtMu9RbBm8X-dWtpZFk
+//   · "AN Copy Summary" tab — one column per cohort: the paid/organic/total/
+//     B2B enrollment rows, leads and bot-adjusted leads, CVR, CPL, CPE, PPC and
+//     blended ROAS, PPC and total spend, and avg. net revenue. Its "C2'26"-style
+//     codes (row 4) are COMBINED_EFFICIENCY's labels; the combined "Cohort
+//     Performance" / "Marketing Efficiency" block starts at row 82.
+//   · "<School> <Term> Cohort" tabs — per-channel enrollments and direct spend.
+//   · "Program ROAS Analysis" tab — per-program B2C enrollments by cohort and
+//     the combined Cohort Total ROAS rows.
+// (The June 2026 header cited sheet 1R5XiIsJ_rjcwjc9VBkftGs6WglEvnCR_VaYybgNRiJM;
+// that is the "WSP Professional Certificate Marketing Playbooks and Performance
+// Documents" index, which links to this tracker — not a data sheet.)
+// Snapshot taken 2026-06-10 through Winter 2026; Spring 2026 (both schools) and
+// Wharton Fall 2026 added 2026-10-29. Re-sync by asking Claude to re-read the sheet.
 //
 // Notes from source:
 // - Enrollments are during the cohort marketing cycle, net of refunds.
-// - ROAS assumes $4,500 AOV (Wharton) / per-sheet AOV (Columbia).
+// - ROAS is on the sheet's own AOV basis. The tracker applies a $4,660 AOV from
+//   C2'25 (Spring 2025) onward ("AOV Increased from $4,500 to $4,660 starting in
+//   C2'25") and $4,500 before; the Spring/Fall 2026 rows follow it. The S'25 →
+//   W'26 rows below still carry the $4,500-basis values captured in June — on
+//   the sheet today W'26 reads 2.5x PPC / 5.9x blended, not 2.4x / 5.7x — so a
+//   re-sync of those six rows (three per school) is a separate change.
 // - Leads exclude bot traffic in Wharton S'25 and F'25 where noted
 //   ("leadsExBots"); raw lead counts retained in totalLeads.
 // - B2B = enterprise (sales-led, cohort-agnostic) + B2B cohort enrollments.
+// - avgNetRev is the sheet's "Avg. Net Rev" row ($2,796 Wharton, $3,029
+//   Columbia). That row reads $2,700 for Wharton S'23 → W'25, where the June
+//   rows below say 2,796 — left for the same re-sync.
 
 import type { CohortHistory } from './types';
 
@@ -131,10 +151,71 @@ export const WHARTON_HISTORY: CohortHistory[] = [
       website: 18, referrals: 31, sponsored: 12, affiliates: 99, offline: 223,
     },
   },
+  // Spring 2026 (closed 2026-06-15). AN Copy Summary column L: L6 paid 401,
+  // L7 organic 601, L8 total 1,002, L9 B2B 9, L11 ex-B2B 993, L17/L18 leads
+  // 17,145 (no bot filter), L19 CVR 5.79%, L21 CPL 61.91, L22 CPE 1,068.85,
+  // L24 PPC ROAS 1.871, L25 blended 4.360 ($4,660 AOV), L27 PPC spend
+  // 958,669.82, L30 total spend 1,061,369.82, L32 avg net rev 2,796. Channels
+  // from the "Wharton Spring 2026 Cohort" tab rows 8–20 (sum to the 993).
+  {
+    cohort: 'Spring 2026', shortLabel: "S'26", school: 'wharton', certCount: 5,
+    paidEnrolls: 401, organicEnrolls: 601, totalEnrolls: 1002,
+    b2bEnrolls: 9, totalEnrollsExB2B: 993,
+    totalLeads: 17145, leadsExBots: 17145, leadCvr: 5.8,
+    cpl: 62, cpe: 1069, ppcRoas: 1.9, blendedRoas: 4.4,
+    ppcSpend: 958670, totalSpend: 1061370, avgNetRev: 2796,
+    // That tab's "Organic Search" (B10) and "Ai Referral" (B11) ENROLLS are
+    // transposed: 21 and 102 against 1,514 and 146 leads (a 70% AI-referral
+    // CVR), while the cohort doc's frozen Channel Tables read 94 / 20 and W'26
+    // read 119 / 21. Recorded un-swapped; the sheet itself still needs fixing.
+    channelEnrolls: {
+      ppc: 385, email: 105, organicSearch: 102, aiReferral: 21, social: 6,
+      website: 26, referrals: 29, sponsored: 16, affiliates: 100, offline: 203,
+    },
+    callout: 'RDI launch — expansion to 5 certificates (PE, RE, FP&A, AVI, RDI)',
+  },
+  // Fall 2026 (closed 2026-10-13) is the first cohort the tracker reports on
+  // its V2 attribution model (Paid / Non-Paid → Channel → Sub-Channel). The
+  // "AN Copy Summary" tab has no Fall 2026 column yet, so these come from the
+  // "Summary" tab column M — M9 paid 496, M10 organic 461, M11 total 957, M12
+  // B2B 4, M14 ex-B2B 953, M20/M21 leads 15,325, M22 CVR 6.24%, M24 CPL 68.68,
+  // M25 CPE 1,099.74, M27 PPC ROAS 2.22, M28 blended 4.27 — and the "Wharton
+  // Fall 2026 Cohort" tab: PPC spend = Paid Search H10 659,477 + Paid Social
+  // H13 294,541 + Paid Other H16 14,204; total spend H41 1,052,448.43; channel
+  // rows 10–40 mapped onto the legacy keys per the Fall 2026 doc's "Channel
+  // Definitions" tab. Three breaks from the earlier rows, flagged in the callout:
+  //   · "paid" is the V2 Paid tier (PPC + Paid Other + Paid Affiliate +
+  //     Sponsored Content), so it counts the 53 affiliate enrollments the
+  //     earlier rows leave in "organic"; on the old PPC + sponsored definition
+  //     paid = 443 and organic = 514. ppcRoas is that tier's ROAS too; the PPC
+  //     slice alone (Paid Search + Paid Social: 427 enrolls on $954K) is ≈2.1x.
+  //   · CPE and CVR divide by 957 incl. B2B where earlier rows use the ex-B2B
+  //     count; on 953, CPE is $1,104 and CVR 6.22%.
+  //   · The tab's ROAS cells reconcile to a $4,700 AOV on every platform row,
+  //     not the $4,660 the Spring 2026 tabs use.
+  // avgNetRev carried from Spring 2026 (no Fall 2026 column on the net-rev row).
+  {
+    cohort: 'Fall 2026', shortLabel: "F'26", school: 'wharton', certCount: 5,
+    paidEnrolls: 496, organicEnrolls: 461, totalEnrolls: 957,
+    b2bEnrolls: 4, totalEnrollsExB2B: 953,
+    totalLeads: 15325, leadsExBots: 15325, leadCvr: 6.2,
+    cpl: 69, cpe: 1100, ppcRoas: 2.2, blendedRoas: 4.3,
+    ppcSpend: 968222, totalSpend: 1052448, avgNetRev: 2796,
+    // V2 → legacy keys: ppc = Paid Search 278 + Paid Social 149 + Paid Other
+    // (Employer Test) 3; email = Lifecycle 13 + Wall Street Prep Leads 57 +
+    // Purchasers 13; website = Wall Street Prep Banner 24 (EML / Financial
+    // Edge 0); offline = Direct 85 + Enrollment (consultation, inbound) 29 +
+    // Offline (SamCart) 50; social = Organic Social 3. Sums to the 953.
+    channelEnrolls: {
+      ppc: 430, email: 83, organicSearch: 110, aiReferral: 12, social: 3,
+      website: 24, referrals: 61, sponsored: 13, affiliates: 53, offline: 164,
+    },
+    callout: 'V2 attribution model — "paid" now includes affiliates (496; 443 on the prior PPC + sponsored definition) and CPE/CVR divide by the total incl. B2B',
+  },
 ];
 
 // Columbia / CBS — AI for Business & Finance. Source table is ordered
-// Summer 2025 → Fall 2025 → Winter 2026.
+// Summer 2025 → Fall 2025 → Winter 2026 → Spring 2026.
 export const COLUMBIA_HISTORY: CohortHistory[] = [
   {
     cohort: 'Summer 2025', shortLabel: "Su'25", school: 'columbia', certCount: 1,
@@ -177,18 +258,45 @@ export const COLUMBIA_HISTORY: CohortHistory[] = [
       referrals: 37, sponsored: 6, affiliates: 6, offline: 129,
     },
   },
+  // Spring 2026 (closed 2026-07-20) — the marketing name used by the tracker
+  // tab "CBS Spring 2026 Cohort", the cohort doc and every in-app label; the AN
+  // Copy Summary heads the same column "Summer 2026" / C2'26 (academic term).
+  // AN Copy Summary column Q: Q6 paid 129, Q7 organic 407, Q8 total 536, Q9 B2B
+  // 1, Q11 ex-B2B 535, Q17/Q18 leads 4,871 (no bot filter), Q19 CVR 10.98%,
+  // Q21 CPL 50.82, Q22 CPE 462.68, Q24 PPC ROAS 2.810, Q25 blended 10.072
+  // ($4,660 AOV), Q27 PPC spend 203,960.51, Q30 total spend 247,535.51, Q32
+  // avg net rev 3,029. Channels from the "CBS Spring 2026 Cohort" tab rows
+  // 8–20 (sum to the 535). The cohort doc's own Channel Tables split the same
+  // 535 differently after its affiliate reconciliation (affiliates 44, offline
+  // 122, email 97); the tracker's split is kept for consistency with the
+  // Wharton rows.
+  {
+    cohort: 'Spring 2026', shortLabel: "S'26", school: 'columbia', certCount: 1,
+    paidEnrolls: 129, organicEnrolls: 407, totalEnrolls: 536,
+    b2bEnrolls: 1, totalEnrollsExB2B: 535,
+    totalLeads: 4871, leadsExBots: 4871, leadCvr: 11.0,
+    cpl: 51, cpe: 463, ppcRoas: 2.8, blendedRoas: 10.1,
+    ppcSpend: 203961, totalSpend: 247536, avgNetRev: 3029,
+    channelEnrolls: {
+      ppc: 123, email: 82, organicSearch: 64, aiReferral: 13, social: 3,
+      website: 14, referrals: 54, sponsored: 6, affiliates: 23, offline: 153,
+    },
+  },
 ];
 
 export const ALL_HISTORY: CohortHistory[] = [...WHARTON_HISTORY, ...COLUMBIA_HISTORY];
 
-// Current Wharton cohort (Spring 2026, in progress) — channel-attributed
-// enrollments from the cohort doc "Channel Tables" tab, Current Cohort column.
-// Snapshot 2026-06-10. Total (847) differs slightly from the dashboard
-// real-time figure (961) because only channel-attributed enrollments appear here.
+// Wharton Spring 2026 channel-attributed enrollments from the cohort doc's
+// "Channel Tables" tab, Current Cohort column, snapshot 2026-06-10 (mid-cohort:
+// 847 of a real-time 961 — only channel-attributed enrollments appear here).
+// The cohort has since CLOSED; its finals are the Spring 2026 row in
+// WHARTON_HISTORY. This snapshot only still feeds the Channels page's
+// current-cohort comparison and detail table (which have no live source yet);
+// ChannelsDashboard no longer draws it as a chart point.
 export const WHARTON_CURRENT_CHANNELS = {
   cohort: 'Spring 2026',
   shortLabel: "S'26*",
-  inProgress: true,
+  inProgress: false,
   total: 847,
   channelEnrolls: {
     ppc: 356, aiReferral: 20, organicSearch: 97, email: 64, referrals: 26,
@@ -196,15 +304,16 @@ export const WHARTON_CURRENT_CHANNELS = {
   } as Partial<Record<import('./types').ChannelKey, number>>,
 };
 
-// Current Columbia cohort (Spring 2026, in progress) — channel-attributed
-// enrollments from the CBS Spring 2026 doc "Channel Tables" tab, Current
-// Cohort column (1EfNBwZYYObVU3XSiW1VPC_Fi13ZLaQdq_tZZyPxZy14).
-// Snapshot 2026-06-10. Mapping follows the Wharton convention:
-// "WSP Customer" → email, "SEO" → website.
+// Columbia Spring 2026 channel-attributed enrollments from the CBS Spring 2026
+// doc "Channel Tables" tab, Current Cohort column
+// (1EfNBwZYYObVU3XSiW1VPC_Fi13ZLaQdq_tZZyPxZy14), snapshot 2026-06-10.
+// Mapping follows the Wharton convention: "WSP Customer" → email, "SEO" → website.
+// Closed since; finals are the Spring 2026 row in COLUMBIA_HISTORY (see the
+// Wharton note above for what this snapshot still feeds).
 export const COLUMBIA_CURRENT_CHANNELS = {
   cohort: 'Spring 2026',
   shortLabel: "S'26*",
-  inProgress: true,
+  inProgress: false,
   total: 208,
   channelEnrolls: {
     ppc: 35, aiReferral: 6, organicSearch: 26, email: 54, referrals: 22,
@@ -212,11 +321,19 @@ export const COLUMBIA_CURRENT_CHANNELS = {
   } as Partial<Record<import('./types').ChannelKey, number>>,
 };
 
-// Combined (Wharton + Columbia) marketing efficiency by calendar cohort —
-// from the "Cohort Performance" summary block in the source sheet.
+// Combined (Wharton + Columbia) marketing efficiency by calendar cohort — the
+// "Cohort Performance" / "Marketing Efficiency" block of the AN Copy Summary
+// tab (rows 82–92; its ROAS rows equal the "Program ROAS Analysis" Cohort
+// Total rows). Callouts are the block's own "Call outs" row (row 94), which is
+// blank for C2'26 — that callout is the RDI row first populated in C2'26 on
+// the Program ROAS Analysis tab. C2'26 cells: G83 leads 22,016, G84 B2C
+// enrolls 1,528 (993 Wharton + 535 Columbia), G85 CVR 6.94%, G89 CPL 59.45,
+// G90 CPE 856.61, G91 PPC ROAS 2.036, G92 blended 5.440. C3'26 waits on
+// Columbia Fall 2026, which is still enrolling.
 export const COMBINED_EFFICIENCY = [
   { cohort: "C1'25", totalLeads: 19321, b2cEnrolls: 1191, leadCvr: 6.2, cpl: 39, cpe: 632, ppcRoas: 3.2, blendedRoas: 7.1, callout: 'Riverside investment' },
   { cohort: "C2'25", totalLeads: 24999, b2cEnrolls: 1450, leadCvr: 5.8, cpl: 40, cpe: 681, ppcRoas: 2.5, blendedRoas: 6.8, callout: 'AI launch + start of bot issue' },
   { cohort: "C3'25", totalLeads: 21377, b2cEnrolls: 1365, leadCvr: 6.4, cpl: 48, cpe: 758, ppcRoas: 2.2, blendedRoas: 6.1, callout: 'Bot issue' },
   { cohort: "C1'26", totalLeads: 23915, b2cEnrolls: 1506, leadCvr: 6.3, cpl: 44, cpe: 693, ppcRoas: 2.6, blendedRoas: 6.7 },
+  { cohort: "C2'26", totalLeads: 22016, b2cEnrolls: 1528, leadCvr: 6.9, cpl: 59, cpe: 857, ppcRoas: 2.0, blendedRoas: 5.4, callout: 'RDI launch' },
 ] as const;
