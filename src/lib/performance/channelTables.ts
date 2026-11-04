@@ -41,7 +41,7 @@ import type {
   ChannelTablesData, ProgramForecast, ForecastSide, ProgramKey, ProgramChannelBlock,
   AlignmentCheck,
 } from './channelTablesTypes';
-import { resolveProgramKey } from './channelTablesTypes';
+import { resolveProgramKey, platformKey } from './channelTablesTypes';
 import {
   parseMatrixV2, parseEconV2, reconcileCurrent, channelSubtotalNotes, attachInCohortV2,
   platformFiguresFromPaidWoW,
@@ -201,12 +201,40 @@ async function readForecasts(sheetId: string, src: PartnerSource): Promise<{
       paidByKey.set('overall-no-rdi', minus(side(paid?.totals), paidByKey.get('rdi') ?? null));
     }
 
+    // Per-platform forecasts, program by program. Each platform block carries
+    // its own grand total (→ the totals key) and, in a multi-program doc, one
+    // row per program. "Total (No RDI)" is skipped by the reader, so No-RDI is
+    // total − RDI, the same derivation as above (it matches the sheet's own
+    // restatement: Google 448 − 22 = 426 leads on 11/4/26).
+    const platformsByKey = new Map<ProgramKey, Record<string, ForecastSide>>();
+    const putPlatform = (k: ProgramKey, platform: string, s: ForecastSide | null) => {
+      if (!s) return;
+      const m = platformsByKey.get(k) ?? {};
+      m[platformKey(platform)] = s;
+      platformsByKey.set(k, m);
+    };
+    for (const ch of paid?.channels ?? []) {
+      const total = side(ch);
+      putPlatform(src.totalsKey, ch.label, total);
+      let rdi: ForecastSide | null = null;
+      for (const row of paid?.channelPrograms[ch.label] ?? []) {
+        const k = resolveProgramKey(row.label, src.programAliases);
+        if (!k || k === src.totalsKey) continue;
+        putPlatform(k, ch.label, side(row));
+        if (k === 'rdi') rdi = side(row);
+      }
+      if (src.hasNoRdiRollup) putPlatform('overall-no-rdi', ch.label, minus(total, rdi));
+    }
+
     const forecasts: ProgramForecast[] = src.forecastKeys
       .map(program => {
         const o = overallByKey.get(program) ?? null;
         const p = paidByKey.get(program) ?? null;
         if (!o && !p) return null;
-        return { program, overall: o, ppc: p, nonPpc: minus(o, p) };
+        return {
+          program, overall: o, ppc: p, nonPpc: minus(o, p),
+          platforms: platformsByKey.get(program) ?? {},
+        };
       })
       .filter((f): f is ProgramForecast => f !== null);
 

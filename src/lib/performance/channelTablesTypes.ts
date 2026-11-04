@@ -144,6 +144,18 @@ export interface ProgramForecast {
    *  Non-Paid tier — it also holds Paid Other, Paid Affiliate and Sponsored
    *  Content — so it is labelled "everything except PPC" wherever shown. */
   nonPpc: ForecastSide | null;
+  /** Per ad platform, from the Paid WoW tab's platform blocks (Google, Bing,
+   *  Meta, LinkedIn; Open AI at CBS), keyed by `platformKey()` of the block's
+   *  banner. These are the finest grain the doc forecasts at, and they line up
+   *  with the matrix's paid sub-channels of the same name. Empty when the tab
+   *  has no platform blocks. */
+  platforms: Record<string, ForecastSide>;
+}
+
+/** Join key between a Paid WoW platform banner and a matrix sub-channel name:
+ *  "Open AI" and "OpenAI", "LinkedIn" and "Linkedin" meet on one key. */
+export function platformKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 export interface ChannelTablesData {

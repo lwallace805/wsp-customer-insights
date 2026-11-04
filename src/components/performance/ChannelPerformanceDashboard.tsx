@@ -20,7 +20,7 @@ import type {
   ChannelEconFigures, ChannelTier,
 } from '@/lib/performance/channelTablesTypes';
 import {
-  CHANNEL_METRIC_KEYS, PROGRAM_DISPLAY, PROGRAM_ORDER, econMetrics, sumEcon,
+  CHANNEL_METRIC_KEYS, PROGRAM_DISPLAY, PROGRAM_ORDER, econMetrics, sumEcon, platformKey,
 } from '@/lib/performance/channelTablesTypes';
 import type { PartnerKey } from '@/lib/performance/partners';
 import { PARTNER_DISPLAY, PARTNER_ORDER } from '@/lib/performance/partners';
@@ -178,8 +178,52 @@ interface MatrixRow {
   label: string;
   kind: 'tier' | 'channel' | 'sub' | 'memo' | 'total';
   values: Array<number | null>;
+  /** Current-column leads and enrollments, whatever the metric — the basis
+   *  check against the forecast tab's own actual needs both. */
+  curLeads: number | null;
+  curEnrolls: number | null;
+  /** The WoW tabs' to-date actual + forecast for exactly this row, or null
+   *  when the doc forecasts nothing at this grain (see rowForecasts). */
+  forecast: ForecastSide | null;
   channel?: string;
   canExpand?: boolean;
+}
+
+/** Field-by-field sum. Null as soon as any part is missing, so a row is never
+ *  compared against a forecast that covers only some of it (CBS's Paid Other
+ *  holds Open AI, which has a forecast, and Employer Test, which doesn't). */
+function sumSides(parts: Array<ForecastSide | null>): ForecastSide | null {
+  if (!parts.length || parts.some(p => p === null)) return null;
+  const add = (k: keyof ForecastSide): number | null => {
+    let t = 0;
+    for (const p of parts) {
+      const v = p![k];
+      if (v === null) return null;
+      t += v;
+    }
+    return t;
+  };
+  return { leads: add('leads'), leadsF: add('leadsF'), enrolls: add('enrolls'), enrollsF: add('enrollsF') };
+}
+
+/** Which matrix rows the doc has a forecast for. The WoW tabs forecast three
+ *  grains: every ad platform (Paid WoW's platform blocks — the matrix's paid
+ *  sub-channels of the same name), the PPC slice, and all channels. So:
+ *  a paid sub-channel gets its platform's; a paid channel gets the sum of its
+ *  subs' when every sub is a forecast platform (Paid Search, Paid Social); the
+ *  PPC memo line the sum of those; the all-channels Total the Overall WoW
+ *  figure. The V2 Paid and Non-paid tiers, and every non-paid channel, have no
+ *  forecast of their own, and none is invented for them. */
+function rowForecasts(fc: ProgramForecast | undefined) {
+  const platform = (name: string) => fc?.platforms[platformKey(name)] ?? null;
+  const channel = (r: ChannelSeriesRow) =>
+    r.tier === 'paid' && r.subs.length ? sumSides(r.subs.map(s => platform(s.name))) : null;
+  return {
+    sub: (r: ChannelSeriesRow, name: string) => (r.tier === 'paid' ? platform(name) : null),
+    channel,
+    ppc: (rows: ChannelSeriesRow[]) => sumSides(rows.map(channel)),
+    total: (scope: ChannelScope) => (scope === 'all' ? fc?.overall ?? null : null),
+  };
 }
 
 /** Display rows for one metric. Tier rows head their group, as in the sheet;
@@ -187,16 +231,21 @@ interface MatrixRow {
  *  Paid Marketing Aggregate page and the Paid WoW tab report. */
 function buildMatrixRows(
   block: ProgramChannelBlock, scope: ChannelScope, metric: ChannelMetricKey, open: Set<string>,
+  fc: ProgramForecast | undefined,
 ): MatrixRow[] {
   const n = block.cohorts.length;
-  const seriesOf = (rows: Array<Pick<ChannelSeriesRow, 'leads' | 'enrollments'>>): Array<number | null> => {
+  const f = rowForecasts(fc);
+  const line = (
+    rows: Array<Pick<ChannelSeriesRow, 'leads' | 'enrollments'>>, forecast: ForecastSide | null,
+  ): Pick<MatrixRow, 'values' | 'curLeads' | 'curEnrolls' | 'forecast'> => {
     const leads = sumSeries(rows, 'leads', n);
     const enrolls = sumSeries(rows, 'enrollments', n);
-    if (metric === 'leads') return leads;
-    if (metric === 'enrollments') return enrolls;
-    return leads.map((l, i) => ratio(enrolls[i], l));
+    const values =
+      metric === 'leads' ? leads :
+      metric === 'enrollments' ? enrolls :
+      leads.map((l, i) => ratio(enrolls[i], l));
+    return { values, curLeads: leads[n - 1] ?? null, curEnrolls: enrolls[n - 1] ?? null, forecast };
   };
-  const one = (r: Pick<ChannelSeriesRow, 'leads' | 'enrollments'>) => seriesOf([r]);
 
   const out: MatrixRow[] = [];
   const tiers: ChannelTier[] = scope === 'all' ? ['paid', 'nonpaid'] : [scope];
@@ -204,16 +253,18 @@ function buildMatrixRows(
     const rows = block.rows.filter(r => r.tier === tier);
     if (!rows.length) continue;
     if (scope === 'all') {
-      out.push({ key: `tier-${tier}`, label: TIER_LABEL[tier], kind: 'tier', values: seriesOf(rows) });
+      out.push({ key: `tier-${tier}`, label: TIER_LABEL[tier], kind: 'tier', ...line(rows, null) });
     }
     for (const r of rows) {
       out.push({
         key: `ch-${r.channel}`, label: channelLabel(r.channel, r.subs), kind: 'channel',
-        values: one(r), channel: r.channel, canExpand: expandable(r.subs),
+        ...line([r], f.channel(r)), channel: r.channel, canExpand: expandable(r.subs),
       });
       if (expandable(r.subs) && open.has(r.channel)) {
         for (const s of r.subs) {
-          out.push({ key: `sub-${r.channel}-${s.name}`, label: s.name, kind: 'sub', values: one(s) });
+          out.push({
+            key: `sub-${r.channel}-${s.name}`, label: s.name, kind: 'sub', ...line([s], f.sub(r, s.name)),
+          });
         }
       }
     }
@@ -222,7 +273,7 @@ function buildMatrixRows(
       if (ppc.length && ppc.length < rows.length) {
         out.push({
           key: 'memo-ppc', label: `of which PPC (${ppc.map(r => r.channel).join(' + ')})`,
-          kind: 'memo', values: seriesOf(ppc),
+          kind: 'memo', ...line(ppc, f.ppc(ppc)),
         });
       }
     }
@@ -232,9 +283,119 @@ function buildMatrixRows(
     key: 'total',
     label: scope === 'all' ? 'Total' : `${TIER_LABEL[scope]} total`,
     kind: 'total',
-    values: seriesOf(scoped),
+    ...line(scoped, f.total(scope)),
   });
   return out;
+}
+
+// ─── Row-level forecast comparison ────────────────────────────────────────────
+//
+// "vs forecast" uses the same formula as "vs <prior>" — (actual − forecast) ÷
+// forecast — and, as everywhere on this page, the actual is the WoW tab's own,
+// never the matrix's: the forecast was built on that tab's keying. The two
+// keyings usually agree on a platform row and drift by a few percent on the
+// all-channels total (828 vs 803 leads on 11/4/26), so:
+//   • equal → the comparison is plain;
+//   • close (within 5%, or 2 units on a small row) → shown, marked *, with the
+//     WoW actual in the tooltip;
+//   • further apart → withheld. That is what a forecast tab whose actuals
+//     aren't wired yet looks like (the Winter '27 Paid WoW read 0 for every
+//     platform on 10/29/26), and comparing would print a −100% that is the
+//     sheet's gap, not the channel's.
+
+type ForecastCellState = 'ok' | 'rekeyed' | 'withheld';
+
+interface ForecastCellData {
+  forecast: number | null;
+  vs: number | null;
+  /** The WoW tab's actual for the metric — what `vs` is measured on. */
+  wowActual: number | null;
+  state: ForecastCellState;
+}
+
+const BASIS_ABS = 2;
+const BASIS_REL = 0.05;
+
+function sameBasis(matrix: number | null, wow: number | null): boolean {
+  if (matrix === null || wow === null) return false;
+  return Math.abs(matrix - wow) <= Math.max(BASIS_ABS, BASIS_REL * Math.max(Math.abs(matrix), Math.abs(wow)));
+}
+
+function forecastCell(r: MatrixRow, metric: ChannelMetricKey): ForecastCellData | null {
+  const s = r.forecast;
+  if (!s) return null;
+  const forecast =
+    metric === 'leads' ? s.leadsF :
+    metric === 'enrollments' ? s.enrollsF :
+    ratio(s.enrollsF, s.leadsF);
+  const wowActual =
+    metric === 'leads' ? s.leads :
+    metric === 'enrollments' ? s.enrolls :
+    ratio(s.enrolls, s.leads);
+  const pairs: Array<[number | null, number | null]> =
+    metric === 'leads' ? [[r.curLeads, s.leads]] :
+    metric === 'enrollments' ? [[r.curEnrolls, s.enrolls]] :
+    [[r.curLeads, s.leads], [r.curEnrolls, s.enrolls]];
+  if (!pairs.every(([m, w]) => sameBasis(m, w))) {
+    return { forecast, vs: null, wowActual, state: 'withheld' };
+  }
+  const exact = pairs.every(([m, w]) => Math.round(m!) === Math.round(w!));
+  return { forecast, vs: coc(wowActual, forecast), wowActual, state: exact ? 'ok' : 'rekeyed' };
+}
+
+/** Counts forecast to date are fractional; below 100 the decimal is kept so a
+ *  "4 vs 3.9" row doesn't read as "4 vs 4" beside a +3.6%. */
+function fmtForecast(metric: ChannelMetricKey, v: number | null): string {
+  if (v === null) return '—';
+  if (metric === 'cvr') return METRIC_META.cvr.fmt(v);
+  return v < 100 ? v.toFixed(1) : Math.round(v).toLocaleString();
+}
+
+function ForecastCells({ row, metric, currentLabel }: {
+  row: MatrixRow; metric: ChannelMetricKey; currentLabel: string;
+}) {
+  const c = forecastCell(row, metric);
+  const sep = 'border-l border-white/10';
+  if (!c) {
+    const why = 'The doc has no forecast at this grain — only the ad platforms, the PPC slice and all channels are forecast.';
+    return (
+      <>
+        <td className={`px-4 py-2.5 text-right text-gray-600 ${sep}`} title={why}>·</td>
+        <td className="px-4 py-2.5 text-right text-gray-600" title={why}>·</td>
+      </>
+    );
+  }
+  const m = METRIC_META[metric];
+  const matrixValue = row.values[row.values.length - 1] ?? null;
+  return (
+    <>
+      <td className={`px-4 py-2.5 text-right tabular-nums text-gray-400 ${sep}`}>
+        {fmtForecast(metric, c.forecast)}
+      </td>
+      {c.state === 'withheld' ? (
+        <td
+          className="px-4 py-2.5 text-right tabular-nums text-amber-400/80"
+          title={`The forecast tab counts ${m.fmt(c.wowActual)} to date for this row against ` +
+            `${m.fmt(matrixValue)} here — too far apart to compare like for like. Usually the ` +
+            `forecast tab's actuals aren't wired up for this cohort yet.`}
+        >
+          withheld
+        </td>
+      ) : (
+        <td className={`px-4 py-2.5 text-right tabular-nums ${deltaClass(c.vs)}`}>
+          {pctStr(c.vs)}
+          {c.state === 'rekeyed' && (
+            <span
+              className="text-sky-400/80 ml-0.5"
+              title={`Measured on the forecast tab's own actual, ${m.fmt(c.wowActual)}, which keys this ` +
+                `row slightly differently from the ${m.fmt(matrixValue)} under ${currentLabel}. ` +
+                `Forecast and actual always come from the same tab.`}
+            >*</span>
+          )}
+        </td>
+      )}
+    </>
+  );
 }
 
 // ─── Enrollment origin (the doc's "In Cohort" tab) ────────────────────────────
@@ -405,15 +566,18 @@ function ChannelKpiTile({
 
 // ─── Actual vs forecast (to date) ─────────────────────────────────────────────
 
-function ForecastCard({ forecast, programKey, source }: {
+function ForecastCard({ forecast, programKey, source, isCbs }: {
   forecast: ProgramForecast | undefined;
   programKey: ProgramKey;
   source: string | null;
+  isCbs: boolean;
 }) {
   if (!forecast) return null;
   const slices: { label: string; side: ForecastSide | null }[] = [
-    { label: 'PPC (Paid Search + Paid Social)', side: forecast.ppc },
-    { label: 'Everything except PPC', side: forecast.nonPpc },
+    // CBS's Paid WoW total also counts its Open AI block, so it runs above the
+    // matrix's PPC line (Paid Search + Paid Social) by Open AI's figures.
+    { label: isCbs ? 'Ad platforms (PPC + Open AI)' : 'PPC (Paid Search + Paid Social)', side: forecast.ppc },
+    { label: isCbs ? 'Everything except ad platforms' : 'Everything except PPC', side: forecast.nonPpc },
     { label: 'All channels', side: forecast.overall },
   ];
   if (slices.every(s => s.side === null)) return null;
@@ -509,15 +673,22 @@ function LabelCell({ row, open, onToggle }: {
 }
 
 function MatrixTable({
-  block, scope, metric, open, onToggle,
+  block, scope, metric, open, onToggle, forecast, showForecast,
 }: {
   block: ProgramChannelBlock; scope: ChannelScope; metric: ChannelMetricKey;
   open: Set<string>; onToggle: (ch: string) => void;
+  forecast: ProgramForecast | undefined;
+  /** False when the enrollments shown aren't all enrollments (the "Enrollments
+   *  from" split) — the forecast covers all of them. */
+  showForecast: boolean;
 }) {
   const m = METRIC_META[metric];
   const n = block.cohorts.length;
-  const rows = buildMatrixRows(block, scope, metric, open);
+  const rows = buildMatrixRows(block, scope, metric, open, forecast);
   const priorIdx = n - 2;
+  // Non-paid scope has no forecast at any grain; the columns go rather than
+  // filling a table with dots.
+  const withForecast = showForecast && rows.some(r => r.forecast !== null);
 
   return (
     <div className="overflow-x-auto">
@@ -529,6 +700,8 @@ function MatrixTable({
               <th key={c} className={`${TH} ${i === n - 1 ? 'text-white' : ''}`}>{c}</th>
             ))}
             {priorIdx >= 0 && <th className={TH}>vs {block.cohorts[priorIdx]}</th>}
+            {withForecast && <th className={`${TH} border-l border-white/10`}>Forecast to date</th>}
+            {withForecast && <th className={TH}>vs forecast</th>}
           </tr>
         </thead>
         <tbody>
@@ -551,6 +724,9 @@ function MatrixTable({
                   <td className={`px-4 py-2.5 text-right tabular-nums ${deltaClass(vsPrior)}`}>
                     {pctStr(vsPrior)}
                   </td>
+                )}
+                {withForecast && (
+                  <ForecastCells row={r} metric={metric} currentLabel={block.cohorts[n - 1]} />
                 )}
               </tr>
             );
@@ -828,6 +1004,7 @@ export function ChannelMatrixSection({
   // same cohort, quoted live rather than as a figure that will drift.
   const wowLeads = forecast?.overall?.leads ?? null;
   const matrixLeads = block.totals.leads[block.cohorts.length - 1] ?? null;
+  const hasForecast = !!forecast && (forecast.overall !== null || Object.keys(forecast.platforms).length > 0);
 
   return (
     <div className="space-y-5">
@@ -847,7 +1024,9 @@ export function ChannelMatrixSection({
         ))}
       </div>
 
-      <ForecastCard forecast={forecast} programKey={block.program} source={data.forecastSource} />
+      <ForecastCard
+        forecast={forecast} programKey={block.program} source={data.forecastSource} isCbs={isCbs}
+      />
 
       <Card>
         <div className="px-5 py-4 border-b border-white/10 flex items-start justify-between gap-4">
@@ -858,6 +1037,13 @@ export function ChannelMatrixSection({
             <p className="text-[11px] text-gray-500 mt-0.5">
               Click a tile above to change the metric, a channel to show its sub-channels. Prior
               cohorts are cumulative through the same point of those cohorts.
+              {hasForecast && scope !== 'nonpaid' && (
+                origin === 'all'
+                  ? <>{' '}Forecast to date is the doc&apos;s own, on the rows it forecasts: each ad
+                    platform, Paid Search and Paid Social, the PPC line and the Total.</>
+                  : <>{' '}Forecast columns cover all enrollments, so they show under &ldquo;All
+                    leads&rdquo; only.</>
+              )}
             </p>
             {block.hasInCohort && metric !== 'leads' && (
               <div className="mt-2.5">
@@ -875,7 +1061,10 @@ export function ChannelMatrixSection({
             </button>
           )}
         </div>
-        <MatrixTable block={viewBlock} scope={scope} metric={metric} open={open} onToggle={toggle} />
+        <MatrixTable
+          block={viewBlock} scope={scope} metric={metric} open={open} onToggle={toggle}
+          forecast={forecast} showForecast={origin === 'all'}
+        />
       </Card>
 
       <MatrixChart block={viewBlock} scope={scope} metric={metric} />
@@ -942,12 +1131,21 @@ export function ChannelMatrixSection({
           </li>
           <li>
             <span className="text-gray-400">Forecasts come from the doc&apos;s WoW tabs</span>{' '}
-            and exist only for all channels and for the PPC slice, so &ldquo;% of forecast&rdquo;
-            under Paid is the PPC slice&apos;s and under Non-paid is &ldquo;everything except
-            PPC&rdquo;. It is always WoW-actual ÷ WoW-forecast, never a mix
+            and exist for all channels, the PPC slice and each ad platform
+            ({isCbs ? 'Google, Bing, Meta, LinkedIn, Open AI' : 'Google, Bing, Meta, LinkedIn'}) —
+            not for the V2 Paid tier, any non-paid channel, affiliates, sponsored content or
+            Employer Test. So the tiles&apos; &ldquo;% of forecast&rdquo; under Paid is the PPC
+            slice&apos;s and under Non-paid is &ldquo;everything except PPC&rdquo;, and the
+            table&apos;s forecast columns fill only the rows the doc forecasts (a dot marks the
+            rest). &ldquo;vs forecast&rdquo; is (actual − forecast) ÷ forecast, the same formula as
+            &ldquo;vs&rdquo; a prior cohort. It is always WoW-actual against WoW-forecast, never a
+            mix
             {wowLeads !== null && matrixLeads !== null &&
               ` — the WoW tab keys ${Math.round(wowLeads).toLocaleString()} leads to date ` +
-              `against this matrix’s ${Math.round(matrixLeads).toLocaleString()}`}.
+              `against this matrix’s ${Math.round(matrixLeads).toLocaleString()}`}
+            ; <span className="text-sky-400/80">*</span> marks a row where the two keyings differ
+            slightly (hover for the WoW figure), and &ldquo;withheld&rdquo; one where they differ by
+            more than 5%.
           </li>
         </ul>
       </Card>
