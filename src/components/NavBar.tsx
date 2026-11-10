@@ -25,6 +25,7 @@ const DASHBOARDS = [
   { href: '/pulse',                       label: 'Pulse',                     icon: Gauge },
   { href: '/weekly',                      label: 'Weekly Report',             icon: Mail },
   { href: '/enrollment',                  label: 'Enrollment Pacing',         icon: TrendingUp },
+  { href: '/cohort-dashboard',            label: 'Cohort Dashboard',          icon: Layers },
   { href: '/paid-aggregate',              label: 'Paid Marketing Aggregate',  icon: Megaphone },
   { href: '/budget-pacing',               label: 'Budget Pacing — Wharton',   icon: Wallet },
   { href: '/channels',                    label: 'Channels — Paid vs Non-paid', icon: GitBranch },
