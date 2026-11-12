@@ -37,9 +37,13 @@ export interface ProgramBlock {
 
 export interface PaidAggregateData {
   partner: PartnerKey;
-  cohortLabel: string;           // "Fall 2026" — derived from the doc title
-  week: number | null;           // B1
-  priorLabels: [string, string]; // ["Winter 2026", "Spring 2026"]
+  cohortLabel: string;           // "Winter 2027"
+  /** Wharton: the last week the current cohort has completed — every column
+   *  runs through it. CBS: the calendar's week of the active cohort. */
+  week: number | null;
+  /** That week's dates as the doc writes them ("11/3–11/9"), when known. */
+  weekRange?: string | null;
+  priorLabels: [string, string]; // ["Winter 2026", "Fall 2026"] — oldest first
   /** False when the source doc carries no prior-cohort paid columns (CBS). The
    *  page hides the prior columns and the cohort-over-cohort deltas rather than
    *  filling them from a second source on a different basis — the paid CoC

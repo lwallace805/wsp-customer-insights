@@ -1,51 +1,51 @@
 // ─── Paid Marketing Aggregate — live reader ───────────────────────────────────
 //
-// Reads the "Paid Marketing Aggregate" tab of the Wharton funnel-analysis doc
-// (WHARTON_FUNNEL_DOC_ID). One tab, one very regular layout — parsed by LABEL,
-// never by fixed cell, so an inserted row/column doesn't silently repoint us.
+// Six metrics (leads, spend, enrollments, CPL, CPE, CVR) × ad platform × program,
+// actual vs forecast for the cohort open now, beside two prior cohorts at the
+// same point. One payload shape, two partners, each built from its own docs:
 //
-// Layout (verified 8/18/26):
-//   A1 = "Week", B1 = current cohort week (drives the sheet's own SUMIFS)
-//   Row 3 carries the program banners on a 6-column stride:
-//     A "Overall" | G "Overall (No RDI)" | M "PE" | S "RE" | Y "FP&A"
-//     AE "AVI" | AK "RDI"
-//   Six metric blocks stack down column A, each 9 rows tall:
-//     r+0  metric name           (+3 "Actuals", +4 "Forecasted")
-//     r+1  "Paid Channel" | <prior cohort A> | <prior cohort B> | Current | Current
-//     r+2… Google / Bing / Meta / LinkedIn
-//     r+6  Total
-//     r+7  "% Diff vs. Forecast"  value at +3
-//     r+8  "% Diff CoC"           value at +3
-//   Every program block repeats those rows at its own column offset.
+//   Wharton — summed from the WEEKLY program rows of the active cohort doc's
+//             "Paid WoW Performance & Goals V2" tab, and from the same tab's
+//             copies for prior cohorts. See getWhartonPaidAggregate below and
+//             whartonPaidWeekly.ts for the layout.
+//   CBS AI  — assembled from the CBS cohort doc's Paid WoW channel blocks, with
+//             priors from its daily per-cohort tabs. See getCbsPaidAggregate.
 //
-// IMPORTANT semantics, carried through to the UI:
-//   • The prior-cohort columns are WEEK-ALIGNED, not full-cohort: the sheet
-//     sums those cohorts with `week <= B1`, so week 9 compares to week 9.
-//   • "% Diff vs. Forecast" in the sheet is (Actual − Forecast) / ACTUAL, not
-//     / Forecast. We read the sheet's own value so the page matches the doc,
-//     and label it as the doc labels it.
-//   • These figures are PROGRAM-ATTRIBUTED paid only — the Overall column is
-//     the sum of the five program columns, so brand/generic spend that isn't
-//     tagged to a program is excluded. Total paid spend in the source tab is
-//     higher. Surfaced as a footnote on the page.
+// Until Nov 2026 the Wharton side read the "Paid Marketing Aggregate" tab of the
+// "Wharton Fall 2026 Funnel Analysis" doc. That tab is pinned to Fall 2026 (its
+// Current Cohort column SUMIFs the Fall doc), there is no Winter 2027 funnel
+// doc, and its prior columns hung off a hand-typed week cell (B1) that went
+// stale. Reading the cohort doc through the registry rotates with the cohort,
+// and the weekly rows let every column cover the same completed weeks.
 
 import { google } from 'googleapis';
 import { readPaidWoW, PAID_WOW_BASE_TAB, resolveVersionedTab } from '@/lib/sheets';
 import type { PaidRow } from '@/lib/sheets';
 import { cbsChannelDocId } from './channelTables';
-import { getActiveCohort, getCohortWeek } from '@/lib/cohortCalendar';
+import {
+  COHORT_WINDOWS, getActiveCohort, getCohortBefore, getCohortWeek, nowET,
+  type CohortWindow,
+} from '@/lib/cohortCalendar';
+import { COHORT_SHEETS, getActiveCohortSheet } from '@/lib/cohortSheets';
 import { readCbsPaidDaily, reconcile } from './cbsPaidDaily';
 import type { CohortSlice, DailyTotals } from './cbsPaidDaily';
+import {
+  parseWeeklyPaidTab, reconcileWeekly, sumWeeks, weekStatus, WHARTON_PAID_CHANNELS,
+  ZERO, addVol, type Vol, type WeeklyPaidTab,
+} from './whartonPaidWeekly';
 import type { PartnerKey } from './partners';
 
-export const PAID_AGGREGATE_SHEET_ID =
+/** The Wharton funnel-analysis doc. No longer read for the current cohort —
+ *  only for its "Paid Data_<cohort>" tabs, copies of each closed cohort's Paid
+ *  WoW tab, which is where Winter 2026's weekly paid rows still live. */
+export const WHARTON_PAID_HISTORY_DOC_ID =
   process.env.WHARTON_FUNNEL_DOC_ID ?? '148mFYadfpPLFRVvo6hm4WHZhanUMmK18T2r9c5MlnVc';
-const TAB = 'Paid Marketing Aggregate';
 
-/** Which doc backs each partner's paid view. CBS has no funnel doc and no
- *  "Paid Marketing Aggregate" tab — see buildCbsPaidAggregate below. */
+/** Which doc backs each partner's paid view — the one a "share it with the
+ *  service account" prompt should name. */
 export function paidAggregateDocId(partner: PartnerKey): string {
-  return partner === 'cbs' ? cbsChannelDocId() : PAID_AGGREGATE_SHEET_ID;
+  if (partner === 'cbs') return cbsChannelDocId();
+  return getActiveCohortSheet('wharton')?.sheetId ?? WHARTON_PAID_HISTORY_DOC_ID;
 }
 
 export type {
@@ -80,124 +80,6 @@ export function getServiceAccountEmail(): string | null {
   }
 }
 
-/** Unformatted cells arrive as numbers already; `#DIV/0!`, "-" and blanks → null. */
-function N(v: unknown): number | null {
-  if (v === null || v === undefined) return null;
-  if (typeof v === 'number') return isFinite(v) ? v : null;
-  const s = String(v).trim();
-  if (s === '' || s === '-' || s.startsWith('#')) return null;
-  const n = parseFloat(s.replace(/[$,%]/g, '').replace(/,/g, ''));
-  return isNaN(n) ? null : n;
-}
-
-function S(v: unknown): string {
-  return String(v ?? '').trim();
-}
-
-// Map the sheet's metric-block heading to our key. Matched loosely on the
-// leading word so "CVR (L2E)" and a future "CVR (Lead→Enroll)" both land.
-function metricKeyFor(label: string): MetricKey | null {
-  const t = label.toLowerCase();
-  if (t.startsWith('leads')) return 'leads';
-  if (t.startsWith('spend')) return 'spend';
-  if (t.startsWith('enrollment')) return 'enrollments';
-  if (t.startsWith('cpl')) return 'cpl';
-  if (t.startsWith('cpe')) return 'cpe';
-  if (t.startsWith('cvr')) return 'cvr';
-  return null;
-}
-
-function channelFor(label: string): ChannelName | 'Total' | null {
-  const t = label.toLowerCase();
-  if (t === 'google') return 'Google';
-  if (t === 'bing' || t === 'microsoft' || t === 'microsoft ads') return 'Bing';
-  if (t === 'meta' || t === 'facebook') return 'Meta';
-  if (t === 'linkedin' || t === 'linked in') return 'LinkedIn';
-  if (t === 'total') return 'Total';
-  return null;
-}
-
-type Grid = unknown[][];
-
-function cell(grid: Grid, r: number, c: number): unknown {
-  return grid[r]?.[c];
-}
-
-/** Find the program banners on the banner row: any non-empty label that also
- *  has "Paid Channel" directly under a metric header at the same column. */
-function findPrograms(grid: Grid): { name: string; col: number }[] {
-  // The banner row is the row containing "Overall" in column A.
-  let bannerRow = -1;
-  for (let r = 0; r < Math.min(grid.length, 12); r++) {
-    if (S(cell(grid, r, 0)).toLowerCase() === 'overall') { bannerRow = r; break; }
-  }
-  if (bannerRow < 0) return [];
-  const row = grid[bannerRow] ?? [];
-  const out: { name: string; col: number }[] = [];
-  for (let c = 0; c < row.length; c++) {
-    const name = S(row[c]);
-    if (!name) continue;
-    // Confirm it heads a real block: a "Paid Channel" label appears in this
-    // column somewhere in the next few rows.
-    let confirmed = false;
-    for (let r = bannerRow + 1; r < Math.min(bannerRow + 8, grid.length); r++) {
-      if (S(cell(grid, r, c)).toLowerCase() === 'paid channel') { confirmed = true; break; }
-    }
-    if (confirmed) out.push({ name, col: c });
-  }
-  return out;
-}
-
-/** Row indices where a metric block starts, keyed off column A of the Overall
- *  block (every program repeats the same rows). */
-function findMetricBlocks(grid: Grid): { key: MetricKey; label: string; row: number }[] {
-  const out: { key: MetricKey; label: string; row: number }[] = [];
-  for (let r = 0; r < grid.length; r++) {
-    const label = S(cell(grid, r, 0));
-    if (!label) continue;
-    const key = metricKeyFor(label);
-    if (!key || out.some(o => o.key === key)) continue;
-    // A metric heading is followed on the next row by "Paid Channel".
-    if (S(cell(grid, r + 1, 0)).toLowerCase() !== 'paid channel') continue;
-    out.push({ key, label, row: r });
-  }
-  return out;
-}
-
-function parseBlock(
-  grid: Grid,
-  col: number,
-  block: { key: MetricKey; label: string; row: number },
-): MetricBlock | null {
-  const r = block.row;
-  const rows: MetricRow[] = [];
-  let diffVsForecast: number | null = null;
-  let diffCoC: number | null = null;
-
-  // Channel rows + Total live within the 8 rows below the header row.
-  for (let j = r + 2; j < Math.min(r + 10, grid.length); j++) {
-    const label = S(cell(grid, j, col));
-    if (!label) continue;
-    const ch = channelFor(label);
-    if (ch) {
-      rows.push({
-        channel: ch,
-        priorA: N(cell(grid, j, col + 1)),
-        priorB: N(cell(grid, j, col + 2)),
-        actual: N(cell(grid, j, col + 3)),
-        forecast: N(cell(grid, j, col + 4)),
-      });
-      continue;
-    }
-    const t = label.toLowerCase();
-    if (t.includes('forecast')) diffVsForecast = N(cell(grid, j, col + 3));
-    else if (t.includes('coc')) diffCoC = N(cell(grid, j, col + 3));
-  }
-
-  if (!rows.some(x => x.channel === 'Total')) return null;
-  return { key: block.key, label: block.label, rows, diffVsForecast, diffCoC };
-}
-
 function cohortFromTitle(title: string): string {
   const m = title.match(/(Fall|Spring|Winter|Summer)\s*(20\d\d)/i);
   return m ? `${m[1]} ${m[2]}` : 'Current cohort';
@@ -209,62 +91,316 @@ export async function getPaidAggregate(
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
     return { ok: false, needsAccess: false, error: 'GOOGLE_SERVICE_ACCOUNT_KEY is not set' };
   }
-  if (partner === 'cbs') return getCbsPaidAggregate();
+  return partner === 'cbs' ? getCbsPaidAggregate() : getWhartonPaidAggregate();
+}
+
+const METRIC_LABELS: Record<MetricKey, string> = {
+  leads: 'Leads', spend: 'Spend', enrollments: 'Enrollments',
+  cpl: 'CPL', cpe: 'CPE', cvr: 'CVR (L2E)',
+};
+
+// ─── Wharton — summed from the cohort docs' weekly program rows ──────────────
+//
+// Current cohort: the doc the registry maps the open Wharton cohort to
+// (getActiveCohortSheet), at the newest version of its "Paid WoW Performance &
+// Goals" tab. Priors: the same season a year earlier (Winter 2026 beside
+// Winter 2027 — its weeks cross the holidays the way this cohort's will) and
+// the immediately prior cohort (Fall 2026), oldest first, so the immediately
+// prior one drives the page's cohort-over-cohort delta. A prior's tab is the
+// funnel doc's "Paid Data_<cohort>" copy when one exists, else the Paid WoW tab
+// of that cohort's own doc from the registry — so Spring 2027 will find Winter
+// 2027 in its cohort doc with no code change.
+//
+// Every column — actual, forecast and both priors — is the sum of weeks 1..N,
+// N being the last week the CURRENT cohort has completed by the tab's own date
+// ranges. The tab's to-date block also counts the week in progress; putting
+// that part-week beside whole prior weeks is the mismatch that skewed the old
+// view's deltas, so the in-progress week is stated in a note instead.
+//
+// Verified 11/12/26 against the Winter 2027 doc: summed over every week, the
+// weekly rows reproduce the tab's to-date block exactly (Paid Total $114,240 /
+// 1,132 leads / 12 enrollments). reconcileWeekly() reruns that check per
+// platform × program on every read, for the current cohort and each prior.
+
+const RDI = /^rdi$/i;
+
+function metricOf(v: Vol | null, key: MetricKey, side: 'actual' | 'forecast'): number | null {
+  if (!v) return null;
+  const spend = side === 'actual' ? v.spend : v.spendF;
+  const leads = side === 'actual' ? v.leads : v.leadsF;
+  const enrolls = side === 'actual' ? v.enrolls : v.enrollsF;
+  switch (key) {
+    case 'leads':       return leads;
+    case 'spend':       return spend;
+    case 'enrollments': return enrolls;
+    case 'cpl':         return gated(ratio(spend, leads), leads);
+    case 'cpe':         return gated(ratio(spend, enrolls), enrolls);
+    case 'cvr':         return gated(ratio(enrolls, leads), leads);
+  }
+}
+
+/** Each platform's sum over `members`, weeks 1..`through`, plus their total.
+ *  A platform the tab lists none of those programs on stays null. */
+function volsFor(tab: WeeklyPaidTab, members: string[], through: number) {
+  const byChannel = new Map<ChannelName, Vol | null>();
+  let total: Vol | null = null;
+  for (const ch of WHARTON_PAID_CHANNELS) {
+    const v = sumWeeks(tab, ch, members, through);
+    byChannel.set(ch, v);
+    if (v) total = addVol(total ?? ZERO, v);
+  }
+  return { byChannel, total };
+}
+
+/** The same season one year before `w` — "Winter 2026" for Winter 2027. */
+function sameSeasonLastYear(w: CohortWindow): CohortWindow | null {
+  const m = w.termLabel.match(/^(\w+)\s+(\d{4})$/);
+  if (!m) return null;
+  const want = `${m[1]} ${Number(m[2]) - 1}`;
+  return COHORT_WINDOWS.find(x => x.family === w.family && x.termLabel === want) ?? null;
+}
+
+const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
+const count = (n: number) => Math.round(n).toLocaleString();
+const dashed = (range: string) => range.replace(/\s*-\s*/, '–');
+
+interface LoadedPrior { label: string; tab: WeeklyPaidTab; source: string }
+
+/** Find, read, parse and verify each prior cohort's weekly tab. A prior that
+ *  can't be found, parsed, reconciled, or doesn't reach week `through` is left
+ *  out and described in `problems` — never shown on a basis we couldn't check. */
+async function loadWhartonPriors(
+  sheets: ReturnType<typeof google.sheets>,
+  wins: CohortWindow[],
+  through: number,
+): Promise<{ loaded: LoadedPrior[]; problems: string[] }> {
+  let historyTabs: string[] = [];
+  let historyTitle = 'the Wharton funnel-analysis doc';
+  try {
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: WHARTON_PAID_HISTORY_DOC_ID,
+      fields: 'properties.title,sheets.properties.title',
+    });
+    historyTitle = meta.data.properties?.title?.trim() || historyTitle;
+    historyTabs = (meta.data.sheets ?? [])
+      .map(s => s.properties?.title ?? '')
+      .filter(Boolean);
+  } catch {
+    // Unreadable history doc → each prior falls through to its own cohort doc.
+  }
+
+  const results = await Promise.all(wins.map(async (w): Promise<LoadedPrior | string> => {
+    const label = w.termLabel;
+    const copy = historyTabs.find(t =>
+      t.trim().toLowerCase().startsWith(`paid data_${label.toLowerCase()}`));
+    let docId: string;
+    let tab: string;
+    let source: string;
+    if (copy) {
+      docId = WHARTON_PAID_HISTORY_DOC_ID;
+      tab = copy;
+      source = `“${copy}” in ${historyTitle}`;
+    } else {
+      const own = COHORT_SHEETS[w.key]?.sheetId();
+      if (!own) return `${label}: no weekly paid tab found (no “Paid Data_${label}” tab and no cohort doc registered)`;
+      docId = own;
+      tab = await resolveVersionedTab(own, PAID_WOW_BASE_TAB);
+      source = `“${tab}” in the ${label} cohort doc`;
+    }
+    try {
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId: docId,
+        range: `'${tab}'!A1:CZ220`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+      const parsed = parseWeeklyPaidTab((res.data.values ?? []) as unknown[][]);
+      if (typeof parsed === 'string') return `${label}: ${source} not recognised (${parsed})`;
+      const off = reconcileWeekly(parsed);
+      if (off.length > 0) {
+        return `${label} is withheld: summed over every week, ${source} no longer reproduces ` +
+          `its own to-date block (${off.slice(0, 3).join('; ')}${off.length > 3 ? '; …' : ''})`;
+      }
+      const lastWeek = Math.max(...parsed.ranges.keys());
+      if (lastWeek < through) return `${label} is withheld: ${source} records only ${lastWeek} weeks`;
+      return { label, tab: parsed, source };
+    } catch (err: unknown) {
+      return `${label}: ${source} could not be read (${(err as Error)?.message ?? String(err)})`;
+    }
+  }));
+
+  return {
+    loaded: results.filter((r): r is LoadedPrior => typeof r !== 'string'),
+    problems: results.filter((r): r is string => typeof r === 'string'),
+  };
+}
+
+async function getWhartonPaidAggregate(): Promise<AggregateResult> {
+  const active = getActiveCohortSheet('wharton');
+  if (!active) {
+    return {
+      ok: false,
+      needsAccess: false,
+      error: 'No cohort performance doc is registered for the Wharton cohort open now ' +
+        '(src/lib/cohortSheets.ts).',
+    };
+  }
+  const { sheetId: docId, win } = active;
   try {
     const sheets = google.sheets({ version: 'v4', auth: getAuth() });
-    const [meta, values] = await Promise.all([
-      sheets.spreadsheets.get({ spreadsheetId: PAID_AGGREGATE_SHEET_ID, fields: 'properties.title' }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: PAID_AGGREGATE_SHEET_ID,
-        range: `'${TAB}'!A1:BZ120`,
-        valueRenderOption: 'UNFORMATTED_VALUE',
-      }),
+    // The metadata call is what surfaces a 403/404 as needsAccess.
+    const [meta, tab] = await Promise.all([
+      sheets.spreadsheets.get({ spreadsheetId: docId, fields: 'properties.title' }),
+      resolveVersionedTab(docId, PAID_WOW_BASE_TAB),
     ]);
-
-    const grid = (values.data.values ?? []) as Grid;
-    if (!grid.length) return { ok: false, needsAccess: false, error: `"${TAB}" tab is empty` };
-
-    const programCols = findPrograms(grid);
-    const blocks = findMetricBlocks(grid);
-    if (!programCols.length || !blocks.length) {
-      return { ok: false, needsAccess: false, error: `"${TAB}" tab layout not recognised` };
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: docId,
+      range: `'${tab}'!A1:CZ220`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const cur = parseWeeklyPaidTab((res.data.values ?? []) as unknown[][]);
+    if (typeof cur === 'string') {
+      return { ok: false, needsAccess: false, error: `“${tab}” layout not recognised: ${cur}` };
     }
 
-    const programs: ProgramBlock[] = programCols.map(({ name, col }) => {
+    const { complete, inProgress } = weekStatus(cur.ranges, win.opens, nowET());
+    // In a cohort's first days no week has closed: show week 1 to date, alone.
+    const through = complete >= 1 ? complete : (inProgress?.week ?? 1);
+    const programs = cur.programs;
+    const notes: string[] = [];
+
+    // ── Priors, oldest first ──
+    const priorWins = [sameSeasonLastYear(win), getCohortBefore(win)]
+      .filter((w): w is CohortWindow => w !== null)
+      .filter((w, i, all) => all.findIndex(x => x.key === w.key) === i)
+      .sort((a, b) => a.opens.localeCompare(b.opens));
+    let priors: LoadedPrior[] = [];
+    if (complete >= 1 && priorWins.length > 0) {
+      const { loaded, problems } = await loadWhartonPriors(sheets, priorWins, through);
+      priors = loaded;
+      if (problems.length > 0) notes.push(`Not shown for comparison: ${problems.join('; ')}.`);
+    }
+    const priorA = priors.length > 1 ? priors[0] : null;
+    const priorB = priors.length > 0 ? priors[priors.length - 1] : null;
+
+    // ── Program blocks ──
+    const groups: { name: string; members: string[] }[] = [
+      { name: 'Overall', members: programs },
+      ...(programs.some(p => RDI.test(p))
+        ? [{ name: 'Overall (No RDI)', members: programs.filter(p => !RDI.test(p)) }]
+        : []),
+      ...programs.map(p => ({ name: p, members: [p] })),
+    ];
+    const blocks: ProgramBlock[] = groups.map(({ name, members }) => {
+      const now = volsFor(cur, members, through);
+      const a = priorA ? volsFor(priorA.tab, members, through) : null;
+      const b = priorB ? volsFor(priorB.tab, members, through) : null;
       const metrics = {} as Record<MetricKey, MetricBlock | null>;
-      for (const k of METRIC_KEYS) metrics[k] = null;
-      for (const b of blocks) metrics[b.key] = parseBlock(grid, col, b);
+      for (const key of METRIC_KEYS) {
+        const rows: MetricRow[] = WHARTON_PAID_CHANNELS.map(ch => ({
+          channel: ch,
+          priorA: metricOf(a?.byChannel.get(ch) ?? null, key, 'actual'),
+          priorB: metricOf(b?.byChannel.get(ch) ?? null, key, 'actual'),
+          actual: metricOf(now.byChannel.get(ch) ?? null, key, 'actual'),
+          forecast: metricOf(now.byChannel.get(ch) ?? null, key, 'forecast'),
+        }));
+        rows.push({
+          channel: 'Total',
+          priorA: metricOf(a?.total ?? null, key, 'actual'),
+          priorB: metricOf(b?.total ?? null, key, 'actual'),
+          actual: metricOf(now.total, key, 'actual'),
+          forecast: metricOf(now.total, key, 'forecast'),
+        });
+        // The cohort doc has no "% Diff" rows; the page derives attainment
+        // and the CoC delta from the columns themselves.
+        metrics[key] = { key, label: METRIC_LABELS[key], rows, diffVsForecast: null, diffCoC: null };
+      }
       return { name, metrics };
     });
 
-    // Prior-cohort labels sit on the "Paid Channel" header row of any block.
-    const hdrRow = blocks[0].row + 1;
-    const priorLabels: [string, string] = [
-      S(cell(grid, hdrRow, 1)) || 'Prior cohort',
-      S(cell(grid, hdrRow, 2)) || 'Prior cohort',
-    ];
-
-    // Week lives beside the "Week" label in row 1.
-    let week: number | null = null;
-    for (let r = 0; r < Math.min(grid.length, 5); r++) {
-      if (S(cell(grid, r, 0)).toLowerCase() === 'week') { week = N(cell(grid, r, 1)); break; }
+    // ── Notes: the basis, stated with this read's own numbers ──
+    const range = cur.ranges.get(through);
+    notes.unshift(
+      complete >= 1
+        ? `Every column is summed from the weekly program rows of “${tab}” in the ` +
+          `${win.termLabel} cohort doc: weeks 1–${through} of each cohort` +
+          `${range ? ` (this cohort’s week ${through} is ${dashed(range)})` : ''}, the last week ` +
+          'this cohort has completed. Actual, forecast and each prior cohort cover the same ' +
+          'weeks, so every comparison is like-for-like.'
+        : `No week of this cohort has closed yet, so these are week 1 to date from “${tab}”, ` +
+          'against the whole week’s forecast. Prior cohorts appear once week 1 closes.',
+    );
+    if (complete >= 1 && inProgress) {
+      const upTo = volsFor(cur, programs, inProgress.week).total ?? ZERO;
+      const before = volsFor(cur, programs, inProgress.week - 1).total ?? ZERO;
+      notes.push(
+        `Week ${inProgress.week} (${dashed(inProgress.range)}) is in progress and is left out ` +
+        `until it closes — so far ${money(upTo.spend - before.spend)} spend, ` +
+        `${count(upTo.leads - before.leads)} leads and ${count(upTo.enrolls - before.enrolls)} ` +
+        'enrollments across the programs. The to-date figures at the top of the tab include it.',
+      );
     }
-
-    const docTitle = meta.data.properties?.title ?? 'Funnel Analysis';
+    if (priors.length > 0) {
+      const names = priors.map(p => p.label);
+      const same = sameSeasonLastYear(win)?.termLabel;
+      notes.push(
+        `${names.join(' and ')} ${names.length > 1 ? 'are' : 'is'} summed the same way through ` +
+        `week ${through}, from ${priors.map(p => p.source).join(' and ')}. ` +
+        (same && names.includes(same)
+          ? `${same} is the same season a year earlier (its weeks run through the same holidays); `
+          : '') +
+        `${priorB!.label} is the immediately prior cohort, so “vs ${priorB!.label}” compares against it.`,
+      );
+      for (const p of priors) {
+        const absent = programs.filter(prog =>
+          WHARTON_PAID_CHANNELS.every(ch => !p.tab.weekly.get(ch)?.has(prog)));
+        if (absent.length > 0) {
+          notes.push(
+            `${p.label} ran no ${absent.join(' / ')} program, so its column is blank there and its ` +
+            `Overall covers ${programs.length - absent.length} programs` +
+            (absent.every(x => RDI.test(x)) ? ' — “Overall (No RDI)” compares like-for-like.' : '.'),
+          );
+        }
+      }
+    }
+    let tabAll = 0;
+    let tabPrograms = 0;
+    cur.topTotals.forEach(t => { tabAll += t.spend ?? 0; });
+    cur.top.forEach(rows => rows.forEach(t => { tabPrograms += t.spend ?? 0; }));
+    notes.push(
+      `Program-attributed paid only: figures are the sum of the ${programs.join(', ')} rows, so ` +
+      'brand campaigns tagged to no program are excluded' +
+      (tabAll > tabPrograms
+        ? ` — to date the tab’s “Total (All)” spend is ${money(tabAll)} against ` +
+          `${money(tabPrograms)} across the program rows.`
+        : '.'),
+    );
+    const off = reconcileWeekly(cur);
+    if (off.length > 0) {
+      notes.push(
+        'Heads up: summed over every week, the weekly rows no longer reproduce the tab’s to-date ' +
+        `block for ${off.slice(0, 4).join('; ')}${off.length > 4 ? `; and ${off.length - 4} more` : ''}. ` +
+        'The figures here follow the weekly rows.',
+      );
+    }
+    notes.push(
+      'CPL, CPE and CVR are computed from the summed volumes and shown only where the ' +
+      'denominator exists, so a platform with no enrollments yet reads “—”, not $0.',
+    );
 
     return {
       ok: true,
       data: {
         partner: 'wharton',
-        cohortLabel: cohortFromTitle(docTitle),
-        week,
-        priorLabels,
-        hasPriors: true,
-        programs,
-        notes: [],
-        docTitle,
-        sheetId: PAID_AGGREGATE_SHEET_ID,
-        tab: TAB,
+        cohortLabel: win.termLabel,
+        week: through,
+        weekRange: range ? dashed(range) : null,
+        priorLabels: [priorA?.label ?? '', priorB?.label ?? ''],
+        hasPriors: priors.length > 0,
+        programs: blocks,
+        notes,
+        docTitle: meta.data.properties?.title?.trim() ?? `${win.termLabel} Cohort Performance Doc`,
+        sheetId: docId,
+        tab,
         fetchedAt: new Date().toISOString(),
       },
     };
@@ -275,6 +411,7 @@ export async function getPaidAggregate(
     return { ok: false, needsAccess, error: e?.message ?? String(err) };
   }
 }
+
 
 // ─── CBS AI — assembled, not read from an aggregate tab ───────────────────────
 //
@@ -361,11 +498,6 @@ function pairFor(row: PaidRow, key: MetricKey): { actual: number | null; forecas
     };
   }
 }
-
-const CBS_METRIC_LABELS: Record<MetricKey, string> = {
-  leads: 'Leads', spend: 'Spend', enrollments: 'Enrollments',
-  cpl: 'CPL', cpe: 'CPE', cvr: 'CVR (L2E)',
-};
 
 /** Sum a volume across the platform blocks, for the reconciliation check.
  *  Returns null when no block reports the field at all. */
@@ -475,7 +607,7 @@ async function getCbsPaidAggregate(): Promise<AggregateResult> {
       }
       metrics[key] = {
         key,
-        label: CBS_METRIC_LABELS[key],
+        label: METRIC_LABELS[key],
         rows,
         // The doc states no "% Diff" rows for this tab; the page derives
         // attainment from the actual/forecast columns instead.
