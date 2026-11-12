@@ -55,6 +55,14 @@ export const COHORT_SHEETS: Record<string, CohortSheet | undefined> = {
     deadlineTab: 'Deadline Pacing Table',
     goalsTab: 'Overall Goals',
   },
+  // CBS Certificate — Winter 2027 Cohort Performance Doc (opens Nov 17 2026,
+  // extended close Mar 22 2027). A copy of the Fall '26 doc, so the tab names
+  // carry over; it lives in a shared drive rather than My Drive.
+  'c-winter-27': {
+    sheetId: () => process.env.CBS_WINTER27_COHORT_DOC_ID ?? '15cNfFeag9IWuOfjlzdRkBt31VaghbuX35LcFWD2qqzc',
+    deadlineTab: 'Deadline Pacing Table',
+    goalsTab: 'Overall Goals',
+  },
 };
 
 export function getCohortSheet(key: string | undefined): CohortSheet | undefined {
