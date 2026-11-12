@@ -10,9 +10,10 @@ import { partnerKeyFor } from '@/lib/performance/partners';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  // ?partner=wharton (default) | cbs. Wharton's paid figures come from the
-  // funnel doc's "Paid Marketing Aggregate" tab; CBS AI has no such tab and is
-  // assembled from its cohort doc's Paid WoW blocks.
+  // ?partner=wharton (default) | cbs. Wharton's paid figures are summed from the
+  // active cohort doc's weekly Paid WoW rows (priors from the same tab's copies
+  // for earlier cohorts); CBS AI is assembled from its cohort doc's Paid WoW
+  // blocks with priors from its daily tabs.
   const partner = partnerKeyFor(req.nextUrl.searchParams.get('partner'));
   const result = await getPaidAggregate(partner);
 

@@ -5,9 +5,9 @@
 // switching partner re-fetches, it doesn't re-slice.
 //
 //   wharton — Wharton Online certificates (PE / RE / FP&A / AVI / RDI).
-//             Paid figures come from the Wharton funnel doc's
-//             "Paid Marketing Aggregate" tab; channels from the Wharton
-//             cohort performance doc.
+//             Paid figures and channels both come from the Wharton cohort
+//             performance doc (paid: its weekly "Paid WoW Performance &
+//             Goals V2" rows — see getWhartonPaidAggregate).
 //   cbs     — the CBS (Columbia Business School) AI certificate, a single
 //             program tracked in its own cohort performance doc. That doc has
 //             no "Paid Marketing Aggregate" tab, so its paid view is built

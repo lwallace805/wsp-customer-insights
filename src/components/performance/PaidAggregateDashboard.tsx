@@ -16,7 +16,7 @@ import {
 } from './ChannelPerformanceDashboard';
 import type { PartnerKey } from '@/lib/performance/partners';
 
-/** This page's scopes: the funnel doc's per-platform PPC view, plus the
+/** This page's scopes: the per-platform PPC view from the cohort docs' paid tabs, plus the
  *  Channel Tables V2 tiers shared with /channels. */
 type AggScope = 'ppc' | ChannelScope;
 const AGG_SCOPE_LABELS: Record<AggScope, string> = {
@@ -323,7 +323,7 @@ export default function PaidAggregateDashboard() {
   const [fetched, setFetched] = useState<{ partner: PartnerKey; res: ApiResponse } | null>(null);
   const [programKey, setProgramKey] = useState<ProgramKey | null>(null);
   const [metric, setMetric] = useState<MetricKey>('leads');
-  // Scope. "ppc" is this page's original funnel-doc view (per platform, with
+  // Scope. "ppc" is the per-platform paid view (from the cohort docs' weekly paid rows, with
   // forecast); the others render the Channel Tables V2 view (same data as
   // /channels) sliced by the attribution model's tiers. Under V2 the Paid tier
   // is broader than PPC — it adds Paid Other, Paid Affiliate and Sponsored
@@ -436,11 +436,6 @@ export default function PaidAggregateDashboard() {
 
   // The immediately prior cohort — the one the CoC deltas are measured against.
   const cocLabel = priorCols.length > 0 ? priorCols[priorCols.length - 1].label : null;
-  // Several notes describe the Wharton funnel doc's own "Paid Marketing
-  // Aggregate" tab — its program columns and its "% Diff" rows. The CBS view is
-  // assembled from a different doc and states its own basis in `data.notes`,
-  // so these must key off the partner, never off whether priors exist.
-  const isFunnelDoc = data.partner === 'wharton';
   // Platform names as the loaded partner actually reports them — CBS runs an
   // Open AI line the Wharton doc has no column for.
   const channelNames = (program?.metrics[metric]?.rows ?? [])
@@ -471,7 +466,9 @@ export default function PaidAggregateDashboard() {
             {paidView ? (
               <>
                 {data.docTitle} · {data.cohortLabel}
-                {data.week !== null && <> · through week {data.week}</>}
+                {data.week !== null && (
+                  <> · through week {data.week}{data.weekRange && <> ({data.weekRange})</>}</>
+                )}
                 {data.hasPriors
                   ? (data.partner === 'wharton'
                       ? <> · prior cohorts week-aligned to the same point</>
@@ -533,7 +530,7 @@ export default function PaidAggregateDashboard() {
                 </button>
               ))}
         </div>
-        {/* "PPC by platform" is the funnel-doc view (per-platform, with
+        {/* "PPC by platform" is the cohort docs' per-platform paid view (with
             forecast); the rest slice the cohort doc's Channel Tables V2. */}
         <ScopePills<AggScope>
           scope={scope}
@@ -667,40 +664,15 @@ export default function PaidAggregateDashboard() {
           How to read this
         </h3>
         <ul className="text-[12px] text-gray-500 space-y-1.5 list-disc pl-4">
-          {/* Reader notes the API attaches for this partner's basis. */}
+          {/* Reader notes the API attaches for this partner's basis — each
+              partner's alignment, attribution and any withheld column. */}
           {data.notes.map(n => (
             <li key={n}>{n}</li>
           ))}
-          {isFunnelDoc && (
-            <li>
-              <span className="text-gray-400">Program-attributed spend only.</span> Every figure is
-              the sum of the five program columns, so paid activity not tagged to a program (brand
-              and generic campaigns) is excluded. Total paid spend in the source doc is higher.
-            </li>
-          )}
-          {/* The CBS view states its own, more precise alignment in `notes`. */}
-          {isFunnelDoc && priorCols.length > 0 && (
-            <li>
-              <span className="text-gray-400">Week-aligned comparisons.</span>{' '}
-              {priorCols.map(c => c.label).join(' and ')}{' '}
-              {priorCols.length > 1 ? 'are' : 'is'} cumulative through week{' '}
-              {data.week ?? '—'} of{' '}
-              {priorCols.length > 1 ? 'those cohorts' : 'that cohort'}, not full-cohort totals —
-              the current cohort is still in flight.
-            </li>
-          )}
           <li>
             <span className="text-gray-400">&ldquo;% of forecast&rdquo; is actual ÷ forecast</span>{' '}
-            — 100% is on plan.
-            {isFunnelDoc && (
-              <>
-                {' '}This will <em>not</em>{' '}match the doc&apos;s &ldquo;% Diff vs.
-                Forecast&rdquo; row, which divides the gap by <em>actual</em>{' '}rather than by
-                forecast and so can exceed 100% (LinkedIn leads read −107% there).
-              </>
-            )}{' '}
-            The actual and forecast columns are straight from the sheet, so either version is
-            derivable from what&apos;s shown.
+            — 100% is on plan. Both columns are shown, so a signed gap is derivable from what&apos;s
+            shown too.
           </li>
           {cocLabel && (
             <li>
