@@ -2220,6 +2220,15 @@ export async function readProgramMixByCohort(
 // Each column is checked against the sheet's own identity — total − B2B must
 // equal the excl.-B2B row — and dropped if it doesn't hold, so a row moving
 // under us produces a missing cohort rather than a confident wrong final.
+//
+// Only the Wharton block counts: the unbroken run of term columns directly
+// right of the "Term" label (Spring 2023 … Fall 2026 on 2026-11-10). The same
+// "Term" row continues, after a blank column, into a CBS block (Summer 2025 …
+// Spring 2026) and then "Wharton Programs" blocks whose "Total" cells sit on
+// the "Total Enrollments" row. Scanning the whole row let those later columns
+// overwrite the Wharton ones — on 2026-11-10 Winter 2026 and Spring 2026 both
+// came back as 0 — and the identity check can't catch it, because the
+// excl.-B2B row is blank or text in those columns, which skips the check.
 
 export interface TrackerCohortFinal {
   /** Every enrollment during the cohort, corporate (B2B) included. */
@@ -2247,10 +2256,11 @@ export async function readTrackerCohortFinals(
     if (!termRow) return null;
     const labelCol = termRow.findIndex(c => /^term$/i.test(text(c)));
     const cohortCols: Array<{ col: number; term: string }> = [];
-    termRow.forEach((c, col) => {
-      const t = text(c);
-      if (col > labelCol && /^(Winter|Spring|Summer|Fall) 20\d\d$/.test(t)) cohortCols.push({ col, term: t });
-    });
+    for (let col = labelCol + 1; col < termRow.length; col++) {
+      const t = text(termRow[col]);
+      if (!/^(Winter|Spring|Summer|Fall) 20\d\d$/.test(t)) break; // end of the Wharton block
+      cohortCols.push({ col, term: t });
+    }
     if (cohortCols.length === 0) return null;
 
     // Row labels carry footnote markers ("Total Enrollments*", "B2B Enrollments**").
