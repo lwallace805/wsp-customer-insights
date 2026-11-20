@@ -158,7 +158,49 @@ export function platformKey(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+// ─── Lead pacing at an exact day (Wharton) ───────────────────────────────────
+
+export type PacingRowKey = 'total' | 'ppc' | 'google' | 'bing' | 'meta' | 'linkedin' | 'other';
+
+export interface PacingRow {
+  key: PacingRowKey;
+  label: string;
+  current: number | null;
+  /** The doc's own forecast to date (WoW tabs), as the matrix uses. */
+  forecast: number | null;
+  /** Aligned to LeadPacing.priors. */
+  priors: Array<number | null>;
+}
+
+export interface PriorCut {
+  label: string;
+  /** The day this prior is cut at (ISO): the same days-to-close as `through`. */
+  date: string | null;
+  /** Why this prior's platform rows are blank, when they are. */
+  note: string | null;
+  /** Days-to-close at which this prior's running lead total comes closest to
+   *  the matrix's snapshot column for it — where that snapshot is really cut. */
+  matrixDaysOut: number | null;
+}
+
+/** Leads per program, current cohort vs forecast vs each prior cohort, all
+ *  cut at exactly the same days-to-close. Prior figures come from each prior
+ *  cohort's daily tab (totals) and weekly + daily paid rows (platforms), not
+ *  from the matrix's hand-refreshed snapshot columns. */
+export interface LeadPacing {
+  /** Last keyed day of the current cohort (ISO), never today. */
+  through: string;
+  /** Days from `through` to the cohort's extended close. */
+  daysOut: number;
+  priors: PriorCut[];
+  programs: Partial<Record<ProgramKey, PacingRow[]>>;
+  notes: string[];
+}
+
 export interface ChannelTablesData {
+  /** Wharton only: lead pacing at the exact keyed day. Null when it couldn't
+   *  be built (reason in `notes`) or for a partner without daily tabs. */
+  pacing?: LeadPacing | null;
   /** Which partner's docs this payload was read from. Echoed back so the page
    *  can't render one partner's numbers under another's pill. */
   partner: PartnerKey;

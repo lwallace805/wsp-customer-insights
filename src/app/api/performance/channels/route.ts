@@ -6,6 +6,7 @@ import {
   channelTablesDocId,
 } from '@/lib/performance/channelTables';
 import { partnerKeyFor } from '@/lib/performance/partners';
+import { getLeadPacing } from '@/lib/performance/channelPacing';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,15 @@ export async function GET(req: NextRequest) {
       },
       { status: 200, headers: { 'Cache-Control': 'no-store' } },
     );
+  }
+
+  // ?pacing=1 (the /channels page): Wharton lead pacing cut at the exact keyed
+  // day. Opt-in, because /paid-aggregate also reads this route and has no use
+  // for the extra Sheets reads.
+  if (partner === 'wharton' && req.nextUrl.searchParams.get('pacing') === '1') {
+    const { pacing, note } = await getLeadPacing(result.data.forecasts, result.data.programs);
+    result.data.pacing = pacing;
+    if (note) result.data.notes.push(note);
   }
 
   return NextResponse.json(
