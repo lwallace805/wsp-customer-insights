@@ -391,6 +391,70 @@ function parseWow(grid: Grid, win: { opens: string; closes: string }): WowTab | 
   return { weeks, summary };
 }
 
+// ─── Daily lead totals (Pulse week-to-date pacing) ────────────────────────────
+//
+// Pulse's leads card reports whole weeks from the WoW tab; its "this week"
+// line needs to know which day the current week's partial row is keyed
+// through, which only this tab says. Same parsers as the dashboard, so a
+// layout change breaks both surfaces the same way.
+
+export interface DailyLeadTotals {
+  tab: string;
+  /** Leads per day on the WoW weekly rows' basis — for CBS that is the
+   *  "Non-Test" basis (the employer line is excluded), as the weekly rows are. */
+  days: Array<{ date: string; leads: number; enrolls: number }>;
+  /** Last day with any lead or enrollment keyed (later rows carry zeros). */
+  lastKeyed: string | null;
+}
+
+export async function readDailyLeadTotals(
+  sheetId: string,
+  win: CohortWindow,
+): Promise<DailyLeadTotals | null> {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: getAuth() });
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId, fields: 'sheets.properties.title' });
+    const titles = (meta.data.sheets ?? []).map(s => s.properties?.title ?? '');
+    const expanded = win.label.replace(/'(\d\d)/, '20$1');
+    const tab = [`${expanded} Data`, `${win.termLabel} Data`].find(t => titles.includes(t));
+    if (!tab) return null;
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${tab}'!A1:FZ260`,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const grid = (res.data.values ?? []) as Grid;
+    const parsed = win.family === 'columbia' ? parseCbsDaily(grid, tab) : parseWhartonDaily(grid, tab);
+    if (typeof parsed === 'string') return null;
+    const inWindow = parsed.days
+      .filter(d => d.date >= win.opens && d.date <= win.extEnds)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const active = (d: ParsedDay) =>
+      parsed.programs.some(p => (d.leads[p] ?? 0) !== 0 || (d.enrolls[p] ?? 0) !== 0) || d.employerLeads !== 0;
+    const lastKeyed = [...inWindow].reverse().find(active)?.date ?? null;
+    return {
+      tab,
+      days: inWindow.map(d => ({
+        date: d.date,
+        leads: parsed.programs.reduce((s, p) => s + (d.leads[p] ?? 0), 0),
+        enrolls: parsed.programs.reduce((s, p) => s + (d.enrolls[p] ?? 0), 0),
+      })),
+      lastKeyed,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** "11/17-11/23" → ISO bounds inside the cohort window. */
+export function resolveWeekRange(range: string, win: { opens: string; closes: string }): { start: string; end: string } | null {
+  const m = range.match(/(\d{1,2}\/\d{1,2})\s*-\s*(\d{1,2}\/\d{1,2})/);
+  if (!m) return null;
+  const start = resolveMonthDay(m[1], win);
+  const end = resolveMonthDay(m[2], win);
+  return start && end ? { start, end } : null;
+}
+
 // ─── Assembly ─────────────────────────────────────────────────────────────────
 
 function sumDays(days: ParsedDay[], from: string, to: string, f: (d: ParsedDay) => number): number {
