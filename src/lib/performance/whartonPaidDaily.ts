@@ -39,6 +39,11 @@ export interface DailyPaidTab {
   lastKeyed: string | null;
   /** Programs the tab has platform columns for, in the weekly tab's labels. */
   programs: string[];
+  /** date → running ALL-CHANNEL lead totals from the tab's cumulative columns:
+   *  "Total Overall Leads" under `total`, and "<P> Overall Leads" (RDI's is
+   *  headed "RDI Overall") under the weekly tab's program label. These carry
+   *  forward on unkeyed days, so a value at a date is "as of" that date. */
+  cumLeads: Map<string, Record<string, number>>;
 }
 
 function num(v: Cell): number {
@@ -99,11 +104,31 @@ export function parseDailyPaidTab(grid: Grid, tab: string, programs: string[]): 
     .map((h, i) => (/overall daily (leads|enrollments)$/i.test(h) ? i : -1))
     .filter(i => i >= 0);
 
+  // Running all-channel lead totals. First match wins: these names are unique
+  // in every layout seen, but "Daily Overall Leads" (not matched) repeats.
+  const cumCols: Array<{ key: string; col: number }> = [];
+  header.forEach((h, i) => {
+    let key: string | null = null;
+    if (/^total overall leads$/i.test(h)) key = 'total';
+    else if (/^rdi overall$/i.test(h)) key = byNorm.get('rdi') ?? null;
+    else {
+      const m = h.match(/^(\S+) overall leads$/i);
+      if (m) key = byNorm.get(norm(m[1])) ?? null;
+    }
+    if (key && !cumCols.some(c => c.key === key)) cumCols.push({ key, col: i });
+  });
+
+  const cumLeads = new Map<string, Record<string, number>>();
   const days = new Map<string, Map<ChannelName, Map<string, Vol>>>();
   let lastKeyed: string | null = null;
   for (const r of grid.slice(1)) {
     const date = cellDate(r?.[cDate]);
     if (!date) continue;
+    if (cumCols.length) {
+      const rec: Record<string, number> = {};
+      for (const c of cumCols) rec[c.key] = num(r[c.col]);
+      cumLeads.set(date, rec);
+    }
     const day = new Map<ChannelName, Map<string, Vol>>();
     let active = activity.some(i => num(r[i]) !== 0);
     for (const c of cols) {
@@ -123,7 +148,7 @@ export function parseDailyPaidTab(grid: Grid, tab: string, programs: string[]): 
     if (active && (!lastKeyed || date > lastKeyed)) lastKeyed = date;
   }
   const present = [...new Set(cols.map(c => c.program))];
-  return { tab, days, lastKeyed, programs: programs.filter(p => present.includes(p)) };
+  return { tab, days, lastKeyed, programs: programs.filter(p => present.includes(p)), cumLeads };
 }
 
 export function isoAddDays(iso: string, n: number): string {
@@ -296,9 +321,12 @@ export function sumWeeksThenDays(
 export function materialGaps(
   daily: DailyPaidTab, weekly: WeeklyPaidTab, dates: Map<number, { start: string; end: string }>,
   channels: ChannelName[], upTo: string,
+  /** Which figures must agree — a leads-only view needn't fail on spend. */
+  metrics: Array<'spend' | 'leads' | 'enrolls'> = ['spend', 'leads', 'enrolls'],
 ): string[] {
   const out: string[] = [];
   const far = (a: number, b: number, floor: number) => Math.abs(a - b) > Math.max(floor, Math.abs(b) * 0.01);
+  const want = new Set(metrics);
   for (const ch of channels) {
     const byProgram = weekly.weekly.get(ch);
     if (!byProgram) continue;
@@ -312,9 +340,9 @@ export function materialGaps(
         d = addVol(d, sumDaily(daily, ch, [prog], r.start, r.end) ?? ZERO);
       });
     });
-    if (far(d.spend, w.spend, 25)) out.push(`${ch} spend $${Math.round(d.spend).toLocaleString()} vs $${Math.round(w.spend).toLocaleString()}`);
-    if (far(d.leads, w.leads, 1)) out.push(`${ch} leads ${d.leads} vs ${w.leads}`);
-    if (far(d.enrolls, w.enrolls, 1)) out.push(`${ch} enrollments ${d.enrolls} vs ${w.enrolls}`);
+    if (want.has('spend') && far(d.spend, w.spend, 25)) out.push(`${ch} spend $${Math.round(d.spend).toLocaleString()} vs $${Math.round(w.spend).toLocaleString()}`);
+    if (want.has('leads') && far(d.leads, w.leads, 1)) out.push(`${ch} leads ${d.leads} vs ${w.leads}`);
+    if (want.has('enrolls') && far(d.enrolls, w.enrolls, 1)) out.push(`${ch} enrollments ${d.enrolls} vs ${w.enrolls}`);
   }
   return out;
 }

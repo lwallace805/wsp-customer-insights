@@ -171,12 +171,12 @@ const money = (n: number) => `$${Math.round(n).toLocaleString()}`;
 const count = (n: number) => Math.round(n).toLocaleString();
 const dashed = (range: string) => range.replace(/\s*-\s*/, '–');
 
-interface LoadedPrior { label: string; win: CohortWindow; tab: WeeklyPaidTab; source: string }
+export interface LoadedPrior { label: string; win: CohortWindow; tab: WeeklyPaidTab; source: string }
 
 /** Find, read, parse and verify each prior cohort's weekly tab. A prior that
  *  can't be found, parsed, reconciled, or doesn't reach week `through` is left
  *  out and described in `problems` — never shown on a basis we couldn't check. */
-async function loadWhartonPriors(
+export async function loadWhartonPriors(
   sheets: ReturnType<typeof google.sheets>,
   wins: CohortWindow[],
   through: number,

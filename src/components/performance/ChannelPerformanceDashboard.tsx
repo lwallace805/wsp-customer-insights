@@ -17,7 +17,7 @@ import { ExternalLink, AlertTriangle, ChevronRight, ChevronDown } from 'lucide-r
 import type {
   ChannelTablesData, ChannelMetricKey, ChannelScope, ProgramKey,
   ProgramChannelBlock, ChannelSeriesRow, ForecastSide, ProgramForecast,
-  ChannelEconFigures, ChannelTier,
+  ChannelEconFigures, ChannelTier, LeadPacing,
 } from '@/lib/performance/channelTablesTypes';
 import {
   CHANNEL_METRIC_KEYS, PROGRAM_DISPLAY, PROGRAM_ORDER, econMetrics, sumEcon, platformKey,
@@ -1217,6 +1217,102 @@ export function ScopePills<S extends string = ChannelScope>({
   );
 }
 
+// ─── Lead pacing at the exact keyed day ───────────────────────────────────────
+
+function shortDate(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: undefined });
+}
+function shortDateYear(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+/** Current vs forecast vs every prior cohort, all cut at the same days to
+ *  close. Priors here are recomputed from each cohort's daily tab — unlike the
+ *  matrix below, whose prior columns are hand-refreshed snapshots. */
+function LeadPacingPanel({ pacing, programKey }: { pacing: LeadPacing; programKey: ProgramKey }) {
+  const rows = pacing.programs[programKey];
+  if (!rows) return null;
+  const last = pacing.priors.length - 1;
+  const lastLabel = last >= 0 ? pacing.priors[last].label : null;
+  const offsets = pacing.priors.filter(p => p.matrixDaysOut !== null && p.matrixDaysOut !== pacing.daysOut);
+  const fmt = (n: number | null) => (n === null ? '—' : Math.round(n).toLocaleString());
+  return (
+    <Card>
+      <div className="px-5 py-4 border-b border-white/10">
+        <h2 className="text-sm font-semibold text-white">
+          Lead pacing — through {shortDate(pacing.through)}, {pacing.daysOut} days to close
+        </h2>
+        <p className="text-[11px] text-gray-500 mt-0.5">
+          Every prior cohort cut at the same {pacing.daysOut} days before its own close, from its daily tab
+          {pacing.priors.some(p => p.date) && (
+            <> ({pacing.priors.filter(p => p.date).map(p => `${p.label} ${shortDateYear(p.date!)}`).join(' · ')})</>
+          )}
+          . Forecast is the doc&apos;s own forecast to date.
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-gray-500 border-b border-white/10">
+              <th className="text-left font-medium px-5 py-2.5">Leads</th>
+              <th className="text-right font-medium px-4 py-2.5">Current</th>
+              <th className="text-right font-medium px-4 py-2.5">Forecast</th>
+              <th className="text-right font-medium px-4 py-2.5">% of forecast</th>
+              {pacing.priors.map(p => (
+                <th key={p.label} className="text-right font-medium px-4 py-2.5">{p.label}</th>
+              ))}
+              {lastLabel && <th className="text-right font-medium px-4 py-2.5">vs {lastLabel}</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => {
+              const att = attainment(r.current, r.forecast);
+              const vs = last >= 0 ? coc(r.current, r.priors[last]) : null;
+              const strong = r.key === 'total' || r.key === 'ppc' || r.key === 'other';
+              const sub = r.key !== 'total' && r.key !== 'ppc' && r.key !== 'other';
+              return (
+                <tr key={r.key} className={`border-b border-white/5 ${r.key === 'total' ? 'bg-white/[0.03]' : ''}`}>
+                  <td className={`px-5 py-2 ${strong ? 'text-white font-medium' : 'text-gray-300'} ${sub ? 'pl-9' : ''}`}>
+                    {r.label}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums text-white">{fmt(r.current)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-gray-400">{fmt(r.forecast)}</td>
+                  <td className={`px-4 py-2 text-right tabular-nums ${attainClass(att)}`}>{attainStr(att)}</td>
+                  {r.priors.map((v, i) => (
+                    <td key={i} className="px-4 py-2 text-right tabular-nums text-gray-400">{fmt(v)}</td>
+                  ))}
+                  {lastLabel && <td className={`px-4 py-2 text-right tabular-nums ${deltaClass(vs)}`}>{pctStr(vs)}</td>}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-5 py-3 text-[11px] text-gray-500 space-y-1 border-t border-white/10">
+        <p>
+          Totals are each cohort&apos;s running all-channel leads (the WoW basis, which can differ by a few
+          percent from the matrix&apos;s V2 attribution totals below). Platform rows are ad-platform leads:
+          whole weeks from each cohort&apos;s weekly paid rows, the rest from its daily tab.
+        </p>
+        {pacing.priors.filter(p => p.note).map(p => (
+          <p key={p.label} className="text-amber-400/90">{p.label} platform rows blank: {p.note}.</p>
+        ))}
+        {offsets.length > 0 && (
+          <p className="text-amber-400/90">
+            The matrix below compares against snapshots cut at a different point:{' '}
+            {offsets.map(p => `${p.label} ≈ ${p.matrixDaysOut} days out`).join(', ')}, against the current
+            column&apos;s {pacing.daysOut}. At this stage of a cohort a day is worth several percent of leads, so
+            use this panel for lead pacing.
+          </p>
+        )}
+        {pacing.notes.map(n => <p key={n}>{n}</p>)}
+      </div>
+    </Card>
+  );
+}
+
 // ─── Standalone page ──────────────────────────────────────────────────────────
 
 export default function ChannelPerformanceDashboard() {
@@ -1231,7 +1327,7 @@ export default function ChannelPerformanceDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/performance/channels?partner=${partner}`)
+    fetch(`/api/performance/channels?partner=${partner}&pacing=1`)
       .then(r => r.json())
       .then((j: ChannelsApiResponse) => { if (!cancelled) setFetched({ partner, res: j }); })
       .catch((e: unknown) => {
@@ -1335,6 +1431,8 @@ export default function ChannelPerformanceDashboard() {
         </div>
         <ScopePills scope={scope} onChange={setScope} />
       </div>
+
+      {data.pacing && <LeadPacingPanel pacing={data.pacing} programKey={activeProgram} />}
 
       <ChannelMatrixSection data={data} programKey={activeProgram} scope={scope} />
     </div>
