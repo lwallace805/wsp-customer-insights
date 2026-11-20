@@ -15,12 +15,18 @@ interface TodayCardLive {
   updatedThrough: string | null;
 }
 interface LeadsWeekLive { week: number; dateRange: string; leads: number; leadsForecast: number | null; }
+interface LeadsWeekToDateLive {
+  week: number; dateRange: string; keyedThrough: string;
+  daysElapsed: number; daysInWeek: number;
+  leads: number; weekForecast: number; expected: number; note: string | null;
+}
 interface LeadsLive {
   cohortLabel: string;
   weeks: LeadsWeekLive[];
   cohortLeads: number | null;
   cohortLeadsForecast: number | null;
   updatedThrough: string | null;
+  weekToDate?: LeadsWeekToDateLive | null;
 }
 interface PulseFamilyLive {
   family: 'wharton' | 'columbia';
@@ -41,6 +47,37 @@ interface PulseLive {
 }
 
 function fmt(n: number) { return n.toLocaleString(); }
+function shortDate(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// This week so far vs a flat daily share of the week's forecast. Sits under
+// the completed-week view; the pill stays on cohort-to-date pacing.
+function WeekToDateLine({ wtd }: { wtd: LeadsWeekToDateLive }) {
+  if (wtd.daysElapsed === 0) {
+    return (
+      <p className="text-xs text-gray-500 mt-1">
+        This wk (wk {wtd.week}): no days keyed yet
+        <span className="font-normal"> · wk forecast {fmt(wtd.weekForecast)}</span>
+      </p>
+    );
+  }
+  const expected = Math.round(wtd.expected);
+  const d = wtd.expected > 0 ? ((wtd.leads - wtd.expected) / wtd.expected) * 100 : null;
+  const good = d !== null && d >= -3;
+  return (
+    <>
+      <p className={`text-xs font-medium mt-1 ${good ? 'text-emerald-400' : 'text-red-400'}`}>
+        This wk: {d !== null ? `${d >= 0 ? '+' : ''}${d.toFixed(0)}% vs pace` : 'no forecast'}
+        <span className="text-gray-500 font-normal">
+          {' '}· {fmt(wtd.leads)} vs {fmt(expected)} expected · {wtd.daysElapsed} of {wtd.daysInWeek} days thru {shortDate(wtd.keyedThrough)}
+        </span>
+      </p>
+      {wtd.note && <p className="text-[10px] text-yellow-500/80 mt-1">{wtd.note}</p>}
+    </>
+  );
+}
 
 function StatusPill({ kind, label }: { kind: 'good' | 'bad' | 'warn' | 'muted'; label: string }) {
   const styles = {
@@ -97,6 +134,7 @@ function FamilyRow({ f }: { f: PulseFamilyLive }) {
   }
   const ctdDelta = ctdForecast > 0 ? ((ctdActual - ctdForecast) / ctdForecast) * 100 : null;
   const pillDelta = ctdDelta ?? leadsDelta;
+  const wtd = f.leads?.weekToDate ?? null;
   // ±3% is treated as on pace — weekly keying noise shouldn't flip the flag.
   const pillGood = pillDelta !== null && pillDelta >= -3;
 
@@ -221,16 +259,23 @@ function FamilyRow({ f }: { f: PulseFamilyLive }) {
                   <span className="text-gray-500 font-normal"> · {fmt(ctdActual)} thru wk {leadsWeek.week} vs {fmt(ctdForecast)} expected</span>
                 </p>
               )}
+              {wtd && wtd.week !== leadsWeek.week && <WeekToDateLine wtd={wtd} />}
               <p className="text-[10px] text-gray-600 mt-3 leading-relaxed">
                 Wk {leadsWeek.week} · {leadsWeek.dateRange}. Bot-excluded basis. Flag reflects cohort-to-date pacing.
+                {wtd && wtd.week !== leadsWeek.week && wtd.daysElapsed > 0 && (
+                  <> This wk = wk {wtd.week} ({wtd.dateRange}) forecast {fmt(wtd.weekForecast)} ÷ {wtd.daysInWeek} × days keyed.</>
+                )}
               </p>
             </>
           ) : (
-            <p className="text-sm text-gray-600 italic">
-              {f.leads
-                ? 'No week had closed yet on this date — leads report weekly, so the first full week has to finish before it shows here.'
-                : 'Overall WoW tab unavailable.'}
-            </p>
+            <>
+              <p className="text-sm text-gray-600 italic">
+                {f.leads
+                  ? 'No week had closed yet on this date — leads report weekly, so the first full week has to finish before it shows here.'
+                  : 'Overall WoW tab unavailable.'}
+              </p>
+              {wtd && <WeekToDateLine wtd={wtd} />}
+            </>
           )}
         </div>
       </div>

@@ -39,6 +39,7 @@ import {
   type AsOf,
 } from '@/lib/cohortCalendar';
 import { COHORT_SHEETS } from '@/lib/cohortSheets';
+import { readDailyLeadTotals, resolveWeekRange, type DailyLeadTotals } from '@/lib/performance/cohortDashboard';
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -47,6 +48,11 @@ function getAuth() {
     credentials: JSON.parse(raw),
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
   });
+}
+
+/** Local-date YYYY-MM-DD of an as-of Date (local midnight, see resolveAsOf). */
+function ymdOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function N(v: unknown): number | null {
@@ -110,6 +116,24 @@ export interface WoWProgramRow {
   cvrF: number | null;
 }
 
+/** The current week's leads against a straight-line share of its forecast:
+ *  week forecast ÷ days in the week × days keyed so far. */
+export interface LeadsWeekToDate {
+  week: number;
+  dateRange: string;
+  /** Last day counted — the daily tab's last keyed day, never the as-of day
+   *  itself (a half-keyed today would read as behind). ISO. */
+  keyedThrough: string;
+  daysElapsed: number;
+  /** 7, except a partial first/last week (Wharton Winter '27 wk 1 is 6 days). */
+  daysInWeek: number;
+  leads: number;
+  weekForecast: number;
+  expected: number;
+  /** Daily-tab sum disagrees with the WoW tab's partial week row. */
+  note: string | null;
+}
+
 export interface LeadsLive {
   cohortLabel: string;
   weeks: LeadsWeekLive[];
@@ -118,6 +142,10 @@ export interface LeadsLive {
   totals: WoWTotals | null;
   programs: WoWProgramRow[];
   updatedThrough: string | null;
+  /** Every week's forecast, including weeks a rewound view drops from `weeks`
+   *  (the week in progress on the as-of day is one of them). No actuals. */
+  schedule: Array<{ week: number; dateRange: string; leadsForecast: number | null; leads: number | null }>;
+  weekToDate: LeadsWeekToDate | null;
 }
 
 /** Week N of a cohort starts N-1 weeks after enrollment opened. Deriving the
@@ -287,9 +315,97 @@ export async function readWoWLeads(
       totals,
       programs: rewind ? [] : programs,
       updatedThrough: lastWithData?.dateRange ?? null,
+      // Week actuals only on a live view: a rewound one must not carry
+      // figures keyed after its as-of day.
+      schedule: weeks.map(w => ({
+        week: w.week, dateRange: w.dateRange, leadsForecast: w.leadsForecast, leads: rewind ? null : w.leads,
+      })),
+      weekToDate: null,
     };
   } catch {
     return null;
+  }
+}
+
+// ─── Week-to-date lead pacing ─────────────────────────────────────────────────
+
+function isoAddDays(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + days));
+  return t.toISOString().slice(0, 10);
+}
+const dayCount = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1;
+
+/** The week containing the as-of day, its leads from Monday (or the cohort's
+ *  open) through the last keyed day before the as-of day, and a flat daily
+ *  share of that week's forecast for the same days. */
+export function leadsWeekToDate(
+  leads: LeadsLive | null,
+  daily: DailyLeadTotals | null,
+  win: CohortWindow,
+  asOfYmd: string,
+): LeadsWeekToDate | null {
+  if (!leads || !daily) return null;
+  const range = { opens: win.opens, closes: win.extEnds };
+  const cur = leads.schedule
+    .map(w => ({ ...w, ...resolveWeekRange(w.dateRange, range) }))
+    .find(w => w.start && w.end && w.start <= asOfYmd && asOfYmd <= w.end);
+  if (!cur || !cur.start || !cur.end || !cur.leadsForecast) return null;
+
+  const yesterday = isoAddDays(asOfYmd, -1);
+  const lastKeyed = daily.lastKeyed;
+  const through = lastKeyed && lastKeyed < yesterday ? lastKeyed : yesterday;
+  const daysInWeek = dayCount(cur.start, cur.end);
+  const daysElapsed = through < cur.start ? 0 : Math.min(daysInWeek, dayCount(cur.start, through));
+  const actual = daily.days
+    .filter(d => d.date >= cur.start! && d.date <= through)
+    .reduce((s, d) => s + d.leads, 0);
+
+  // The WoW row is built from this tab, so on a live view where nothing past
+  // yesterday is keyed the two must agree. Say so when they don't.
+  let note: string | null = null;
+  if (cur.leads !== null && lastKeyed === through && Math.round(cur.leads) !== Math.round(actual)) {
+    note = `Daily tab sums to ${actual.toLocaleString()} for wk ${cur.week}; the WoW row shows ${cur.leads.toLocaleString()}.`;
+  }
+  return {
+    week: cur.week,
+    dateRange: cur.dateRange,
+    keyedThrough: through,
+    daysElapsed,
+    daysInWeek,
+    leads: actual,
+    weekForecast: cur.leadsForecast,
+    expected: (cur.leadsForecast / daysInWeek) * daysElapsed,
+    note,
+  };
+}
+
+// ─── Yesterday: a real zero vs a row nobody has keyed yet ─────────────────────
+//
+// The deadline table pre-fills 0 into every day's actual, so on its own a 0
+// for yesterday can't be told from "not entered yet" — and the card read every
+// unkeyed morning as "missed yesterday". The daily "<Term> Data" tab settles
+// it: leads land there every day, so a day with leads keyed is a day that was
+// entered. Yesterday's 0 stands only when that tab has yesterday keyed AND
+// also shows 0 enrollments for it; anything else is "not keyed yet". Applied
+// to Pulse's copy only — readDeadlineTable's keyed-through day also aligns the
+// partner page's comparisons and stays on its own (conservative) rule.
+export function settleYesterday(today: TodayCard | null, daily: DailyLeadTotals | null, asOfYmd: string): void {
+  if (!today || !daily || today.yesterdayActual !== 0) return;
+  const yesterday = isoAddDays(asOfYmd, -1);
+  const row = daily.days.find(d => d.date === yesterday);
+  const keyed = daily.lastKeyed !== null && daily.lastKeyed >= yesterday;
+  if (!keyed || !row || row.enrolls !== 0) {
+    today.yesterdayActual = null;
+    return;
+  }
+  // Confirmed zero day: the cumulative total doesn't move, so only the label
+  // advances to the day that was actually keyed.
+  if (!today.updatedThroughYmd || today.updatedThroughYmd < yesterday) {
+    const [y, m, d] = yesterday.split('-').map(Number);
+    today.updatedThroughYmd = yesterday;
+    today.updatedThrough = new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 }
 
@@ -384,13 +500,16 @@ async function buildWharton(w: CohortWindow | null, now: Date, isToday: boolean)
     };
   }
 
-  const [{ summary }, today, leads] = await Promise.all([
+  const [{ summary }, today, leads, daily] = await Promise.all([
     getPacingDataV2(sheetId, { goalsTab: wiring.goalsTab, cohortLabels: [w.termLabel, w.label], asOf: now })
       .catch(() => ({ summary: [] as CohortSummary[] })),
     readDeadlineTable(sheetId, wiring.deadlineTab, label, now),
     readWoWLeads(sheetId, label, isToday ? undefined : { asOf: now, opens: w.opens }),
+    readDailyLeadTotals(sheetId, w),
   ]);
   const s = summary[0];
+  if (leads) leads.weekToDate = leadsWeekToDate(leads, daily, w, ymdOf(now));
+  settleYesterday(today, daily, ymdOf(now));
 
   return {
     family: 'wharton',
@@ -423,14 +542,17 @@ async function buildColumbia(c: CohortWindow | null, now: Date, isToday: boolean
   // can't disagree. The AN Summary pacing sheet is the fallback (and remains the
   // source for the day-by-day historical comparison curves elsewhere).
   const pacingSheetId = process.env.GOOGLE_PACING_SHEET_ID;
-  const [pacing, today, leads, docGoal] = await Promise.all([
+  const [pacing, today, leads, docGoal, daily] = await Promise.all([
     getPacingData(pacingSheetId, { asOfDay: { cbsee: c ? Math.max(0, daysOutAt(c, now)) : undefined } }).catch(() => null),
     sheetId ? readDeadlineTable(sheetId, wiring!.deadlineTab, label, now) : Promise.resolve(null),
     sheetId && c ? readWoWLeads(sheetId, label, isToday ? undefined : { asOf: now, opens: c.opens }) : Promise.resolve(null),
     sheetId && wiring && c
       ? readDocGoal(sheetId, wiring.goalsTab, [c.termLabel, c.label])
       : Promise.resolve(null),
+    sheetId && c ? readDailyLeadTotals(sheetId, c) : Promise.resolve(null),
   ]);
+  if (leads && c) leads.weekToDate = leadsWeekToDate(leads, daily, c, ymdOf(now));
+  settleYesterday(today, daily, ymdOf(now));
   const s = pacing?.summary.find(x => x.program === 'CBSEE');
 
   if (today && today.cohortToDate === null && s) today.cohortToDate = s.enrolled;
