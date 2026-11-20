@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { ExternalLink, AlertTriangle } from 'lucide-react';
 import type {
-  PaidAggregateData, MetricKey, MetricRow, ProgramBlock,
+  PaidAggregateData, MetricKey, MetricRow, ProgramBlock, PaidBasis,
 } from '@/lib/performance/paidAggregateTypes';
 import { METRIC_KEYS } from '@/lib/performance/paidAggregateTypes';
 import type { ChannelScope, ProgramKey } from '@/lib/performance/channelTablesTypes';
@@ -25,6 +25,37 @@ const AGG_SCOPE_LABELS: Record<AggScope, string> = {
   nonpaid: 'Non-paid',
   all: 'All channels',
 };
+
+function shortDate(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** Wharton only: cut every column at the last keyed day, or at the last
+ *  completed week. CBS is already day-aligned and has no toggle. */
+function BasisPills({ basis, onChange, dayLabel }: {
+  basis: PaidBasis; onChange: (b: PaidBasis) => void; dayLabel: string;
+}) {
+  const opts: Array<{ key: PaidBasis; label: string }> = [
+    { key: 'day', label: dayLabel },
+    { key: 'week', label: 'Completed weeks' },
+  ];
+  return (
+    <div className="inline-flex rounded-lg border border-white/10 bg-[#161b22] p-0.5">
+      {opts.map(o => (
+        <button
+          key={o.key}
+          onClick={() => onChange(o.key)}
+          className={`px-3 py-1 rounded-md text-[12px] transition-colors ${
+            basis === o.key ? 'bg-white/10 text-white font-medium' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 interface ApiResponse {
   live: PaidAggregateData | null;
@@ -320,7 +351,10 @@ export default function PaidAggregateDashboard() {
   // and "stale after a partner switch" are derived rather than reset from
   // inside an effect — one partner's numbers can never render under the
   // other's pills, not even for a frame.
-  const [fetched, setFetched] = useState<{ partner: PartnerKey; res: ApiResponse } | null>(null);
+  // Wharton's cut: through the last keyed day (default) or completed weeks.
+  const [basis, setBasis] = useState<PaidBasis>('day');
+  const [fetched, setFetched] =
+    useState<{ partner: PartnerKey; basis: PaidBasis; res: ApiResponse } | null>(null);
   const [programKey, setProgramKey] = useState<ProgramKey | null>(null);
   const [metric, setMetric] = useState<MetricKey>('leads');
   // Scope. "ppc" is the per-platform paid view (from the cohort docs' weekly paid rows, with
@@ -336,16 +370,16 @@ export default function PaidAggregateDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/performance/paid-aggregate?partner=${partner}`)
+    fetch(`/api/performance/paid-aggregate?partner=${partner}&basis=${basis}`)
       .then(r => r.json())
-      .then((j: ApiResponse) => { if (!cancelled) setFetched({ partner, res: j }); })
+      .then((j: ApiResponse) => { if (!cancelled) setFetched({ partner, basis, res: j }); })
       .catch((e: unknown) => {
         if (!cancelled) {
-          setFetched({ partner, res: { live: null, needsAccess: false, error: String(e) } });
+          setFetched({ partner, basis, res: { live: null, needsAccess: false, error: String(e) } });
         }
       });
     return () => { cancelled = true; };
-  }, [partner]);
+  }, [partner, basis]);
 
   // Channel-tables data is only needed once the user leaves the paid scope —
   // and again whenever the partner changes under a non-paid scope.
@@ -365,7 +399,9 @@ export default function PaidAggregateDashboard() {
   }, [scope, partner]);
 
   // Null until this partner's own payload lands — which is exactly "loading".
-  const res = fetched?.partner === partner ? fetched.res : null;
+  const res = fetched?.partner === partner && (partner === 'cbs' || fetched.basis === basis)
+    ? fetched.res
+    : null;
   const chRes = chFetched?.partner === partner ? chFetched.res : null;
   const loading = res === null;
 
@@ -466,12 +502,17 @@ export default function PaidAggregateDashboard() {
             {paidView ? (
               <>
                 {data.docTitle} · {data.cohortLabel}
+                {data.basis === 'day' && data.throughDate && (
+                  <> · through {shortDate(data.throughDate)} (day {data.cohortDay} of cohort)</>
+                )}
                 {data.week !== null && (
                   <> · through week {data.week}{data.weekRange && <> ({data.weekRange})</>}</>
                 )}
                 {data.hasPriors
                   ? (data.partner === 'wharton'
-                      ? <> · prior cohorts week-aligned to the same point</>
+                      ? (data.basis === 'day'
+                          ? <> · prior cohorts cut at the same day from open</>
+                          : <> · prior cohorts week-aligned to the same point</>)
                       : <> · prior cohorts aligned to the same day of cohort</>)
                   : <> · actual vs forecast to date (no prior-cohort columns in this doc)</>}
               </>
@@ -493,8 +534,22 @@ export default function PaidAggregateDashboard() {
         </a>
       </div>
 
-      {/* Partner (top-level) selector */}
-      <PartnerPills partner={partner} onChange={onPartnerChange} />
+      {/* Partner (top-level) selector, and Wharton's day / week cut */}
+      <div className="flex flex-wrap items-center gap-3">
+        <PartnerPills partner={partner} onChange={onPartnerChange} />
+        {partner === 'wharton' && paidView && (
+          <BasisPills
+            basis={basis}
+            onChange={setBasis}
+            dayLabel={data.basis === 'day' && data.throughDate ? `Through ${shortDate(data.throughDate)}` : 'Through yesterday'}
+          />
+        )}
+      </div>
+      {partner === 'wharton' && paidView && data.basisFallback && (
+        <p className="text-[12px] text-amber-400/90 flex items-start gap-1.5">
+          <AlertTriangle size={13} className="mt-0.5 shrink-0" /> {data.basisFallback}
+        </p>
+      )}
 
       {/* Program + scope selectors */}
       <div className="flex flex-wrap items-center gap-3 justify-between">

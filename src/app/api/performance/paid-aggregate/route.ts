@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   // for earlier cohorts); CBS AI is assembled from its cohort doc's Paid WoW
   // blocks with priors from its daily tabs.
   const partner = partnerKeyFor(req.nextUrl.searchParams.get('partner'));
-  const result = await getPaidAggregate(partner);
+  const basis = req.nextUrl.searchParams.get('basis') === 'week' ? 'week' : 'day';
+  const result = await getPaidAggregate(partner, basis);
 
   if (!result.ok) {
     return NextResponse.json(

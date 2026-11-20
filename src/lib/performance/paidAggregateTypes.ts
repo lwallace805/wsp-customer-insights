@@ -35,6 +35,10 @@ export interface ProgramBlock {
   metrics: Record<MetricKey, MetricBlock | null>;
 }
 
+/** Wharton: 'day' = every column through the last keyed day, 'week' =
+ *  through the last completed week. CBS is always day-aligned. */
+export type PaidBasis = 'day' | 'week';
+
 export interface PaidAggregateData {
   partner: PartnerKey;
   cohortLabel: string;           // "Winter 2027"
@@ -43,6 +47,14 @@ export interface PaidAggregateData {
   week: number | null;
   /** That week's dates as the doc writes them ("11/3–11/9"), when known. */
   weekRange?: string | null;
+  /** Which cut this payload is. Absent on CBS (always day-aligned). */
+  basis?: PaidBasis;
+  /** 'day' basis: the last day counted (ISO) and its day number from open. */
+  throughDate?: string | null;
+  cohortDay?: number | null;
+  /** Set when 'day' was asked for but couldn't be verified, so the payload
+   *  fell back to completed weeks — the reason, for the page to show. */
+  basisFallback?: string | null;
   priorLabels: [string, string]; // ["Winter 2026", "Fall 2026"] — oldest first
   /** False when the source doc carries no prior-cohort paid columns (CBS). The
    *  page hides the prior columns and the cohort-over-cohort deltas rather than
