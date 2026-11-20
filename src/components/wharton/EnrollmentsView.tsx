@@ -15,8 +15,8 @@ function Shell({ children }: { children: React.ReactNode }) {
       {children}
       <footer className="mt-12 pt-6 border-t border-white/10 text-xs text-gray-500">
         Prepared by Wall Street Prep. Figures are enrollments recorded in the cohort tracker and are
-        updated each business day while enrollment is open. The cohort goal is set in line with the
-        prior cohort&apos;s final enrollment.
+        updated each business day while enrollment is open. Goals are set in line with the prior
+        cohort&apos;s final enrollment.
       </footer>
     </div>
   );
@@ -62,6 +62,17 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
   );
   const colorOf = (program: string) => colors[program] ?? SERIES_COLORS[0];
   const ranked = [...data.programs].sort((a, b) => b.enrolls - a.enrolls);
+  // Program goals arrive all-or-none (the payload withholds a split that
+  // doesn't cover every program or doesn't sum to the cohort goal).
+  const programGoalTotal = data.programs.every(p => p.goal !== null) && data.programs.length > 0
+    ? data.programs.reduce((s, p) => s + (p.goal ?? 0), 0)
+    : null;
+  const pctOfGoal = (n: number, g: number | null) => (g !== null && g > 0 ? `${((n / g) * 100).toFixed(0)}%` : '—');
+
+  // The prior cohort's curve is individual enrollments only; its final can be
+  // a few higher once corporate enrollments are counted (Fall 2026: 953 vs 957).
+  const priorGap = data.prior ? data.prior.final - data.prior.curveFinal : 0;
+  const priorGapIsB2B = data.prior !== null && priorGap > 0 && data.prior.b2b === priorGap;
 
   // Cohort-comparison table derivations. The average is taken only over rows
   // whose same-day value exists, and its final is averaged over the SAME rows,
@@ -160,7 +171,9 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
           {/* One template literal, not JSX text: the compiler drops the space
               between an expression and a following HTML entity (&apos;). */}
           <p className="text-xs text-gray-500 mb-5">
-            {`The ${data.cohort} goal ${closed ? 'was' : 'is'} set ${data.goal === data.prior.final ? 'flat to' : 'in line with'} the ${data.prior.cohort} cohort's final enrollment (${data.prior.final.toLocaleString()}). ${
+            {`The ${data.cohort} goal ${closed ? 'was' : 'is'} set ${data.goal === data.prior.final ? 'flat to' : 'in line with'} the ${data.prior.cohort} cohort's final enrollment (${data.prior.final.toLocaleString()}${
+              data.prior.b2b ? `, including ${data.prior.b2b.toLocaleString()} corporate enrollment${data.prior.b2b === 1 ? '' : 's'}` : ''
+            }). ${
               closed
                 ? `Enrollment has closed, so this is the cohort's final result against that goal.`
                 : `Pacing compares each cohort at the same number of days before close — enrollment is heavily deadline-weighted, so the like-for-like point matters more than percent of goal.`
@@ -224,7 +237,9 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
               data.comparisons.daysOut === 0
                 ? 'Each cohort is shown at its close.'
                 : `Each cohort is measured at the same point in its countdown — ${data.comparisons.daysOut} days before close.`
-            } Earlier cohorts show their final enrollment; ${data.cohort} shows its goal.`}
+            } Earlier cohorts show their final enrollment${
+              data.comparisons.finalsReconciled ? ', corporate enrollments included' : ''
+            }; ${data.cohort} shows its goal.`}
           </p>
           <table className="w-full text-sm">
             <thead>
@@ -310,12 +325,20 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
           <table className="w-full text-sm">
             <thead>
               {/* The share bar is decoration on top of the number beside it, so
-                  it's the column that goes when there isn't room for four. */}
+                  it's the column that goes when there isn't room for four. With
+                  program goals the share goes too on a phone: progress against
+                  the goal is the figure the reader came for. */}
               <tr className="text-gray-500 text-[10px] sm:text-xs uppercase tracking-wider border-b border-white/10">
                 <th className="text-left font-medium pb-2">Program</th>
-                <th className="text-right font-medium pb-2 px-3 w-24">Enrollments</th>
-                <th className="text-right font-medium pb-2 w-16">Share</th>
-                <th className="w-1/3 pl-4 hidden sm:table-cell" />
+                <th className={`text-right font-medium pb-2 px-3 ${programGoalTotal !== null ? '' : 'w-24'}`}>Enrollments</th>
+                <th className={`text-right font-medium pb-2 w-16 ${programGoalTotal !== null ? 'hidden sm:table-cell' : ''}`}>Share</th>
+                {programGoalTotal !== null && (
+                  <>
+                    <th className="text-right font-medium pb-2 px-3">Goal</th>
+                    <th className="text-right font-medium pb-2 w-16">% of goal</th>
+                  </>
+                )}
+                <th className={`${programGoalTotal !== null ? 'w-1/4' : 'w-1/3'} pl-4 hidden sm:table-cell`} />
               </tr>
             </thead>
             <tbody>
@@ -325,9 +348,19 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
                   <td className="py-2.5 px-3 text-right tabular-nums text-white font-medium">
                     {p.enrolls.toLocaleString()}
                   </td>
-                  <td className="py-2.5 text-right tabular-nums text-gray-400">
+                  <td className={`py-2.5 text-right tabular-nums text-gray-400 ${programGoalTotal !== null ? 'hidden sm:table-cell' : ''}`}>
                     {share(p.enrolls).toFixed(0)}%
                   </td>
+                  {programGoalTotal !== null && (
+                    <>
+                      <td className="py-2.5 px-3 text-right tabular-nums text-gray-300">
+                        {p.goal !== null ? p.goal.toLocaleString() : '—'}
+                      </td>
+                      <td className="py-2.5 text-right tabular-nums text-gray-400">
+                        {pctOfGoal(p.enrolls, p.goal)}
+                      </td>
+                    </>
+                  )}
                   <td className="py-2.5 pl-4 hidden sm:table-cell">
                     <div
                       className="h-2 rounded-sm"
@@ -344,11 +377,26 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
                 <td className="py-3 px-3 text-right tabular-nums text-white font-semibold">
                   {keyedTotal.toLocaleString()}
                 </td>
-                <td className="py-3 text-right tabular-nums text-gray-400">100%</td>
+                <td className={`py-3 text-right tabular-nums text-gray-400 ${programGoalTotal !== null ? 'hidden sm:table-cell' : ''}`}>100%</td>
+                {programGoalTotal !== null && (
+                  <>
+                    <td className="py-3 px-3 text-right tabular-nums text-gray-200 font-medium">
+                      {programGoalTotal.toLocaleString()}
+                    </td>
+                    <td className="py-3 text-right tabular-nums text-gray-400">
+                      {pctOfGoal(keyedTotal, programGoalTotal)}
+                    </td>
+                  </>
+                )}
                 <td className="hidden sm:table-cell" />
               </tr>
             </tbody>
           </table>
+        )}
+        {programGoalTotal !== null && (
+          <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
+            {`Each program's goal is held flat to that program's ${data.prior?.cohort ?? 'prior cohort'} final enrollment; together they make up the ${programGoalTotal.toLocaleString()} cohort goal.`}
+          </p>
         )}
         {data.reconciled && unattributed !== 0 && data.programs.length > 0 && (
           <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
@@ -369,9 +417,15 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
               ? ` The curve is as keyed daily and ends at ${keyedTotal.toLocaleString()}${data.dataThrough ? ` on ${shortDate(data.dataThrough)}` : ''}; the reconciled final is ${data.reconciled.total.toLocaleString()}.`
               : ''
           }${
-            data.prior
-              ? ` The ${data.prior.cohort} curve is aligned by days before close and runs to its final of ${data.prior.final.toLocaleString()} — the pace that matches the goal.`
-              : ''
+            !data.prior
+              ? ''
+              : priorGap === 0
+                ? ` The ${data.prior.cohort} curve is aligned by days before close and runs to its final of ${data.prior.final.toLocaleString()} — the pace that matches the goal.`
+                : ` The ${data.prior.cohort} curve is aligned by days before close and runs to ${data.prior.curveFinal.toLocaleString()} at close; ${
+                    priorGapIsB2B
+                      ? `its final of ${data.prior.final.toLocaleString()} also counts ${priorGap.toLocaleString()} corporate enrollment${priorGap === 1 ? '' : 's'} that ${priorGap === 1 ? 'was' : 'were'} not recorded by day.`
+                      : `its reconciled final is ${data.prior.final.toLocaleString()}.`
+                  }`
           }`}
           prior={data.prior ? {
             cohort: data.prior.cohort,
@@ -384,6 +438,7 @@ export default function EnrollmentsView({ data }: { data: WhartonPartnerResult }
             program: p.program,
             series: p.series,
             priorSeries: p.priorSeries,
+            goal: p.goal,
           }))}
           colors={colors}
           totalColor={SERIES_COLORS[0]}

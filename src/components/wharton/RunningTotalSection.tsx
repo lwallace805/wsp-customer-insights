@@ -8,6 +8,9 @@ interface ProgramSeries {
   program: string;
   series: Array<{ date: string; total: number }>;
   priorSeries: Array<{ date: string; total: number }> | null;
+  /** This program's own goal (flat to its prior-cohort final); null when the
+   *  cohort has no program split. */
+  goal: number | null;
 }
 
 const ALL = '__all__';
@@ -54,13 +57,13 @@ export default function RunningTotalSection({
   const active = selected === ALL ? null : programs.find(p => p.program === selected) ?? null;
   const choose = (value: string) => { setSelected(value); setOpen(false); };
 
-  // A program's prior curve comes from the prior cohort's own per-program grid;
-  // the goal is a cohort-level number, so it is NOT drawn over one program —
-  // a 1,000 line above a single program's curve would read as that program's
-  // target.
+  // A program's prior curve comes from the prior cohort's own per-program grid.
+  // The cohort goal is NEVER drawn over one program — a 957 line above a single
+  // program's curve would read as that program's target. A program gets a goal
+  // line only when it has its own goal.
   const chartSeries = active ? active.series : series;
   const chartColor = active ? colors[active.program] : totalColor;
-  const chartGoal = active ? null : goal;
+  const chartGoal = active ? active.goal : goal;
   const chartPrior = active
     ? (active.priorSeries && prior
         ? { label: `${prior.cohort} ${active.program}`, series: active.priorSeries }
@@ -130,7 +133,11 @@ export default function RunningTotalSection({
           ? `${active.program} enrollments to date${
               chartPrior && prior
                 ? `, against ${prior.cohort}'s ${active.program} at the same number of days before close.`
-                : `. No ${prior?.cohort ?? 'prior cohort'} comparison is available for this program.`
+                : `. No ${prior?.cohort ?? 'prior cohort'} day-by-day comparison is available for this program.`
+            }${
+              active.goal !== null
+                ? ` The ${active.program} goal of ${active.goal.toLocaleString()} is flat to its ${prior?.cohort ?? 'prior cohort'} final.`
+                : ''
             }`
           : description}
       </p>

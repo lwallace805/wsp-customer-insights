@@ -58,7 +58,8 @@ outside the internal Google gate, and it is deliberately narrow:
   Still excluded: leads, spend, CVR, Columbia data, and — critically — the
   **internal budget/plan trajectory** (the cohort doc's "Forecast Enrollments"
   column and its endpoint). The only pace baseline shown externally is the prior
-  cohort's own curve, which ends at the flat goal by definition. Anything absent
+  cohort's own curve, which ends at the flat goal less the prior cohort's
+  corporate enrollments (they aren't keyed by day). Anything absent
   from the payload cannot leak onto the page through a later UI edit. Keep it
   that way when adding to this surface.
 - **Access** (`src/lib/partnerAccess.ts`): a shared password is exchanged at
@@ -85,10 +86,24 @@ outside the internal Google gate, and it is deliberately narrow:
   included — 957 for Fall 2026), because the doc's deadline table stops at its
   daily-keyed day-0 total (944) and is never reconciled. The running total and
   program split stay on the doc's keyed basis and the page footnotes the gap.
-  Note the finals used for the goal and the comparison table are still the AN
-  Summary's day-0 values (closer to the tracker's excl.-B2B row), so bases are
-  mixed by a few enrollments; moving everything to one basis is a deliberate
-  scope decision, not a quick edit.
+- **Goals and closed-cohort finals** (decided Nov 10 2026). Every closed
+  cohort's final on the page — the prior cohort the goal is flat to, and each
+  row of the comparison table — is the tracker Summary's reconciled "Total
+  Enrollments" (B2B included; Fall 2026 957, Spring 2026 1,002, Winter 2026
+  1,022), falling back to the AN Summary day-0 value only for a term the
+  tracker has no column for. The prior-cohort *curves* stay the AN Summary's
+  (individual enrollments only, so Fall 2026's ends at 953) and are footnoted,
+  never rescaled. `readTrackerCohortFinals()` reads only the unbroken run of
+  term columns right of "Term" — the same row continues into CBS and "Wharton
+  Programs" blocks whose cells overwrote Winter/Spring 2026 with 0 before that
+  was fixed. Goals live in `PARTNER_GOALS`, **pinned** (a goal shouldn't move
+  when the tracker is restated): Winter 2027 is 957, flat to Fall 2026's actual,
+  with per-program goals flat to each program's Fall 2026 "Total All" row on
+  the tracker's "Wharton Fall 2026 Cohort" tab (PE 235, RE 294, FP&A 264,
+  AVI 80, RDI 84). A split is shown only if it covers exactly the doc's
+  programs and sums to the cohort goal. The Winter 2027 doc's own goal (1,000)
+  is internal and never used here. Next rotation: add a `w-spring-27` entry
+  the same way, or the goal falls back to the prior final read live.
 - **Middleware** runs the partner branch before NextAuth. The partner cookie is
   accepted on `/wharton` and `/api/wharton` only; an internal Google session also
   works, so staff following the nav link aren't asked for the partner password.

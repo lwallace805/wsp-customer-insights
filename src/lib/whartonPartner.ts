@@ -6,9 +6,10 @@
 //   • enrollments ONLY — no leads, spend, CVR, consults or pipeline
 //   • Wharton ONLY — no Columbia/CBS figures anywhere in the payload
 //   • the goal shown defaults to FLAT to the prior cohort's own final, read
-//     live from the pacing sheet, with an optional per-cohort round-number
-//     override below — NEVER the internal budget / plan trajectory (the
-//     "Forecast Enrollments" column, whose endpoint is a bigger number).
+//     live, with a pinned per-cohort entry in PARTNER_GOALS below (Winter 2027:
+//     957 flat to Fall 2026's actual, split by program) — NEVER the internal
+//     budget / plan trajectory (the "Forecast Enrollments" column, whose
+//     endpoint is a bigger number) or the cohort doc's own goal.
 //     The only pace baseline is the prior cohort's own curve.
 //
 // Those exclusions are enforced HERE, in the shape of the payload, rather than
@@ -56,6 +57,11 @@ export interface WhartonProgramRow {
    *  keep the doc's column order — see the note where they're built. */
   program: string;
   enrolls: number;
+  /** This program's share of the cohort goal, from PARTNER_GOALS. Null unless
+   *  the cohort's goal entry carries a per-program split that covers exactly
+   *  the doc's programs and sums to the cohort goal; otherwise every program
+   *  is null, so the page never shows program goals that don't add up. */
+  goal: number | null;
   /** Cumulative enrollments per day, through the last keyed day. */
   series: Array<{ date: string; total: number }>;
   /** The SAME program in the prior cohort, re-dated onto this cohort's calendar
@@ -75,9 +81,20 @@ export interface WhartonProgramRow {
 export interface WhartonPriorCohort {
   /** "Spring 2026" — the prior cohort's academic term name. */
   cohort: string;
-  /** The prior cohort's final enrollment — the flat-goal baseline. Equals
-   *  `goal` unless a PARTNER_GOAL_OVERRIDES entry rounds the goal. */
+  /** The prior cohort's final enrollment — the flat-goal baseline. The
+   *  tracker's reconciled "Total Enrollments" (corporate/B2B included) when
+   *  the tracker has a column for the term, else the history sheet's day-0
+   *  value. Compared against `goal` to word the goal "flat to" or "in line
+   *  with" this cohort. */
   final: number;
+  /** Where the prior cohort's day-by-day curve (`series`) ends. The curve is
+   *  the history sheet's, which counts individual enrollments only, so it can
+   *  end a few below `final` — Fall 2026: 953 against a 957 final, the gap
+   *  being 4 corporate enrollments that were never keyed by day. */
+  curveFinal: number;
+  /** Corporate (B2B) enrollments inside `final`; null when `final` is the
+   *  history sheet's own value or the tracker has no B2B row. */
+  b2b: number | null;
   /** The days-to-close both cohorts are compared at: how many days the active
    *  cohort's last KEYED day (`dataThrough`) is before its extended close.
    *  Computed from the keyed day, not today — the running total is that day's
@@ -89,8 +106,9 @@ export interface WhartonPriorCohort {
    *  rather than nearest-neighbored into a misaligned comparison. */
   totalAtSamePoint: number | null;
   /** The prior cohort's full curve re-dated onto this cohort's calendar (each
-   *  point placed at the date with the same days-to-close), ending at `final`
-   *  on the close date — i.e. the pace required to match the flat goal. */
+   *  point placed at the date with the same days-to-close), ending at
+   *  `curveFinal` on the close date — i.e. the pace that lands on the prior
+   *  cohort's result. */
   series: Array<{ date: string; total: number }>;
 }
 
@@ -106,8 +124,14 @@ export interface WhartonCohortComparisons {
     /** Running total when that cohort had `daysOut` days left; null when no
      *  row lands within 2 days (withheld, not approximated). */
     totalAtSamePoint: number | null;
+    /** Same basis as `WhartonPriorCohort.final`: the tracker's reconciled
+     *  total (B2B included) when it has the term, else the history sheet's. */
     final: number;
   }>;
+  /** True when every row's `final` is the tracker's reconciled total, so the
+   *  page can say the finals include corporate enrollments. False when any
+   *  row fell back to the history sheet's individual-only figure. */
+  finalsReconciled: boolean;
 }
 
 export interface WhartonProgramMix {
@@ -172,11 +196,11 @@ export interface WhartonPartnerData {
   /** False when the per-program columns don't reconcile to the cohort total; the
    *  page then shows the total alone rather than a split that doesn't add up. */
   breakdownReconciles: boolean;
-  /** The cohort's enrollment goal — a per-cohort override when one is set
-   *  (PARTNER_GOAL_OVERRIDES), otherwise the prior cohort's final total (the
-   *  goal is held flat cohort-over-cohort, per the Aug 25 1-1), read live from
-   *  the pacing sheet. Null when neither exists; the page then shows
-   *  enrollments without a goal rather than substituting a number. */
+  /** The cohort's enrollment goal — the cohort's PARTNER_GOALS entry when one
+   *  is set, otherwise the prior cohort's final (the goal is held flat
+   *  cohort-over-cohort, per the Aug 25 1-1). Null when neither exists; the
+   *  page then shows enrollments without a goal rather than substituting a
+   *  number. Per-program goals ride on `programs[].goal`. */
   goal: number | null;
   prior: WhartonPriorCohort | null;
   /** Table of recent closed cohorts at the same days-to-close. Null when the
@@ -207,13 +231,50 @@ const ymdAt = (ms: number) => new Date(ms).toISOString().slice(0, 10);
  *  range still format correctly this way. */
 const termName = (label: string) => label.replace(/^(\w+)\s*'(\d{2})$/, '$1 20$2');
 
-/** Per-cohort goal overrides, keyed by the calendar's cohort key. The default
- *  goal is the prior cohort's final held flat; an entry here replaces it with a
- *  deliberately chosen round number — still never the internal plan. Fall '26
- *  was set to 1,000 on Aug 28 2026, in line with Spring '26's 997 final. */
-const PARTNER_GOAL_OVERRIDES: Record<string, number> = {
-  'w-fall-26': 1000,
+/** Partner-page goals, keyed by the calendar's cohort key. Without an entry the
+ *  goal is the prior cohort's final held flat, read live; an entry pins a
+ *  number that was deliberately chosen — still never the internal plan (the
+ *  Winter 2027 doc's own goal is 1,000; it must not appear here by default).
+ *
+ *  Pinned rather than read live on purpose: the tracker is restated after a
+ *  cohort closes (the Fall 2026 doc's deadline table went from 944 to 684), and
+ *  a goal shared with the partner shouldn't move when it is.
+ *
+ *  `byProgram` holds each program's PRIOR-cohort final — the flat rule applied
+ *  program by program, which is how the page words it ("flat to Fall 2026's
+ *  PE final"). Keys are the cohort doc's program codes and must sum to
+ *  `total`; the payload drops the split otherwise. */
+interface PartnerGoal {
+  total: number;
+  byProgram?: Record<string, number>;
+}
+
+const PARTNER_GOALS: Record<string, PartnerGoal> = {
+  // Set Aug 28 2026: a round number in line with Spring '26's 997 final.
+  'w-fall-26': { total: 1000 },
+  // Set Nov 10 2026 (Luke): C1 '27 held flat to where Fall 2026 actually
+  // landed, corporate (B2B) enrollments included. Cohort tracker 16Me7… —
+  // "Summary" Total Enrollments 957 (953 excl. 4 B2B), and per program the
+  // "Wharton Fall 2026 Cohort" tab's "Total All" rows (PE and RE each carry
+  // 2 of the B2B enrollments).
+  'w-winter-27': {
+    total: 957,
+    byProgram: { PE: 235, RE: 294, 'FP&A': 264, AVI: 80, RDI: 84 },
+  },
 };
+
+/** The per-program goals for a cohort, or null unless the entry's split names
+ *  exactly the programs the doc carries and sums to the cohort goal. A partial
+ *  or non-reconciling split is withheld whole: showing goals for four programs
+ *  out of five, or ones that add up to something other than the cohort goal,
+ *  would read as a target nobody set. */
+function programGoalsFor(entry: PartnerGoal | undefined, programs: string[]): Map<string, number> | null {
+  if (!entry?.byProgram) return null;
+  const split = Object.entries(entry.byProgram);
+  const sum = split.reduce((s, [, v]) => s + v, 0);
+  const sameSet = split.length === programs.length && programs.every(p => p in entry.byProgram!);
+  return sameSet && sum === entry.total ? new Map(split) : null;
+}
 
 /** Cumulative value at `day`, accepting a row up to 2 days away (exact first).
  *  Beyond that the value belongs to a visibly different point in the countdown,
@@ -371,8 +432,9 @@ async function buildPartnerData(shown: ShownCohort, asOf: Date): Promise<Wharton
     prevWin
       ? readPriorCohortProgramCurves(sheetId, prevWin.termLabel).catch(() => null)
       : Promise.resolve(null),
-    // Only a closed cohort has a reconciled final; the live one is the doc's number.
-    closed ? readTrackerCohortFinals().catch(() => null) : Promise.resolve(null),
+    // Reconciled finals: the held cohort's headline, and the basis every
+    // earlier cohort's final is shown on (the live cohort is the doc's number).
+    readTrackerCohortFinals().catch(() => null),
   ]);
   if (!card || card.cohortToDate === null) {
     return { ok: false, reason: `${win.termLabel} enrollment data is temporarily unavailable. Please try again shortly.` };
@@ -407,6 +469,18 @@ async function buildPartnerData(shown: ShownCohort, asOf: Date): Promise<Wharton
     ? Math.round((closeMs - utcOf(card.updatedThroughYmd)) / DAY_MS)
     : null;
 
+  // A closed cohort's final is shown on ONE basis everywhere on the page: the
+  // tracker's reconciled "Total Enrollments", corporate included — what the
+  // held view already headlined (957 for Fall 2026), and the basis the Winter
+  // 2027 goal was set on (Nov 10 2026). The history sheet's day-0 value (953)
+  // counts individual enrollments only and is the fallback for a term the
+  // tracker has no column for. The curves stay the history sheet's: there is
+  // no day-by-day B2B series, and they are never rescaled to meet the final.
+  const reconciledFinal = (term: string, historyFinal: number) => {
+    const t = trackerFinals?.get(term);
+    return t ? { final: t.total, b2b: t.b2b } : { final: historyFinal, b2b: null };
+  };
+
   const priorCurve = prevWin ? closedCohorts.find(c => c.label === prevWin.label) ?? null : null;
   let prior: WhartonPriorCohort | null = null;
   if (prevWin && priorCurve) {
@@ -415,7 +489,8 @@ async function buildPartnerData(shown: ShownCohort, asOf: Date): Promise<Wharton
     const spanDays = Math.round((closeMs - utcOf(win.opens)) / DAY_MS);
     prior = {
       cohort: prevWin.termLabel,
-      final: priorCurve.final,
+      ...reconciledFinal(prevWin.termLabel, priorCurve.final),
+      curveFinal: priorCurve.final,
       daysToClose,
       totalAtSamePoint: daysToClose !== null ? atDayNear(priorCurve.byDay, daysToClose) : null,
       series: [...priorCurve.byDay.entries()]
@@ -467,10 +542,14 @@ async function buildPartnerData(shown: ShownCohort, asOf: Date): Promise<Wharton
           rows: closedCohorts.slice(-3).reverse().map(c => ({
             cohort: termName(c.label),
             totalAtSamePoint: atDayNear(c.byDay, daysToClose),
-            final: c.final,
+            final: reconciledFinal(termName(c.label), c.final).final,
           })),
+          finalsReconciled: closedCohorts.slice(-3).every(c => trackerFinals?.has(termName(c.label)) ?? false),
         }
       : null;
+
+  const goalEntry = PARTNER_GOALS[win.key];
+  const programGoals = programGoalsFor(goalEntry, card.programs.map(p => p.program));
 
   return {
     ok: true,
@@ -491,6 +570,7 @@ async function buildPartnerData(shown: ShownCohort, asOf: Date): Promise<Wharton
       ? card.programs.map(p => ({
           program: p.program,
           enrolls: p.total ?? 0,
+          goal: programGoals?.get(p.program) ?? null,
           series: p.series,
           priorSeries: priorProgramSeries.get(p.program) ?? null,
         }))
@@ -498,7 +578,7 @@ async function buildPartnerData(shown: ShownCohort, asOf: Date): Promise<Wharton
     series: card.series,
     dataThrough: card.updatedThroughYmd,
     breakdownReconciles: reconciles,
-    goal: PARTNER_GOAL_OVERRIDES[win.key] ?? prior?.final ?? null,
+    goal: goalEntry?.total ?? prior?.final ?? null,
     prior,
     comparisons,
     programMix: buildProgramMix(cohortMix, win.termLabel, reconciles ? card.programs : [], closed),
